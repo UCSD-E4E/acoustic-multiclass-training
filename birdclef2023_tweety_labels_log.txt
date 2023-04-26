@@ -1,0 +1,546 @@
+starting predictions...
+0 ../train_audio/abethr1/
+1 ../train_audio/abhori1/
+2 ../train_audio/abythr1/
+3 ../train_audio/afbfly1/
+Error in detection, skippingXC530141.wav
+Error in detection, skippingXC530141.ogg
+4 ../train_audio/afdfly1/
+Error in detection, skippingXC298436.wav
+Error in detection, skippingXC298436.ogg
+5 ../train_audio/afecuc1/
+6 ../train_audio/affeag1/
+7 ../train_audio/afgfly1/
+8 ../train_audio/afghor1/
+9 ../train_audio/afmdov1/
+10 ../train_audio/afpfly1/
+Error in isolating bird calls fromXC600826.wav
+Error in isolating bird calls fromXC600826.ogg
+Error in detection, skippingXC748203.ogg
+Error in detection, skippingXC748203.wav
+11 ../train_audio/afpkin1/
+12 ../train_audio/afpwag1/
+13 ../train_audio/afrgos1/
+14 ../train_audio/afrgrp1/
+15 ../train_audio/afrjac1/
+16 ../train_audio/afrthr1/
+Error in isolating bird calls fromXC183130.wav
+Error in isolating bird calls fromXC183130.ogg
+17 ../train_audio/amesun2/
+Error in isolating bird calls fromXC262802.wav
+Error in isolating bird calls fromXC262802.ogg
+18 ../train_audio/augbuz1/
+19 ../train_audio/bagwea1/
+20 ../train_audio/barswa/
+21 ../train_audio/bawhor2/
+22 ../train_audio/bawman1/
+23 ../train_audio/bcbeat1/
+Error in detection, skippingXC622804.ogg
+24 ../train_audio/beasun2/
+Error in isolating bird calls fromXC174845.ogg
+Error in isolating bird calls fromXC174845.wav
+25 ../train_audio/bkctch1/
+26 ../train_audio/bkfruw1/
+27 ../train_audio/blacra1/
+28 ../train_audio/blacuc1/
+29 ../train_audio/blakit1/
+Error in detection, skippingXC418986.ogg
+Error in detection, skippingXC489766.wav
+Error in isolating bird calls fromXC146445.wav
+Error in detection, skippingXC178479.wav
+Error in detection, skippingXC475170.wav
+Error in isolating bird calls fromXC146445.ogg
+Error in detection, skippingXC475170.ogg
+Error in detection, skippingXC178479.ogg
+Error in detection, skippingXC190727.ogg
+Error in detection, skippingXC489766.ogg
+Error in detection, skippingXC418986.wav
+Error in detection, skippingXC190727.wav
+30 ../train_audio/blaplo1/
+31 ../train_audio/blbpuf2/
+32 ../train_audio/blcapa2/
+33 ../train_audio/blfbus1/
+Error in detection, skippingXC514558.ogg
+Error in detection, skippingXC515167.wav
+Error in detection, skippingXC515168.ogg
+Error in detection, skippingXC514558.wav
+Error in detection, skippingXC515167.ogg
+Error in detection, skippingXC515168.wav
+34 ../train_audio/blhgon1/
+35 ../train_audio/blhher1/
+36 ../train_audio/blksaw1/
+Error in detection, skippingXC516848.wav
+Error in detection, skippingXC516848.ogg
+37 ../train_audio/blnmou1/
+38 ../train_audio/blnwea1/
+39 ../train_audio/bltapa1/
+40 ../train_audio/bltbar1/
+41 ../train_audio/bltori1/
+42 ../train_audio/blwlap1/
+43 ../train_audio/brcale1/
+44 ../train_audio/brcsta1/
+45 ../train_audio/brctch1/
+46 ../train_audio/brcwea1/
+47 ../train_audio/brican1/
+Error in detection, skippingXC515295.wav
+Error in detection, skippingXC515295.ogg
+48 ../train_audio/brobab1/
+49 ../train_audio/broman1/
+50 ../train_audio/brosun1/
+51 ../train_audio/brrwhe3/
+52 ../train_audio/brtcha1/
+53 ../train_audio/brubru1/
+Error in detection, skippingXC600791.wav
+Error in detection, skippingXC600791.ogg
+54 ../train_audio/brwwar1/
+Error in detection, skippingXC746141.ogg
+Error in detection, skippingXC746141.wav
+55 ../train_audio/bswdov1/
+56 ../train_audio/btweye2/
+57 ../train_audio/bubwar2/
+58 ../train_audio/butapa1/
+59 ../train_audio/cabgre1/
+Error in isolating bird calls fromXC546580.wav
+Error in isolating bird calls fromXC546580.ogg
+60 ../train_audio/carcha1/
+Error in detection, skippingXC322333.ogg
+Error in detection, skippingXC322333.wav
+61 ../train_audio/carwoo1/
+Error in detection, skippingXC618622.ogg
+Error in detection, skippingXC618622.wav
+62 ../train_audio/categr/
+Error in detection, skippingXC368933.wav
+Error in detection, skippingXC368933.ogg
+Error in detection, skippingXC527808.wav
+Error in detection, skippingXC527808.ogg
+Error in detection, skippingXC368935.wav
+Error in detection, skippingXC368934.wav
+Error in detection, skippingXC368935.ogg
+Error in detection, skippingXC368934.ogg
+63 ../train_audio/ccbeat1/
+64 ../train_audio/chespa1/
+65 ../train_audio/chewea1/
+66 ../train_audio/chibat1/
+67 ../train_audio/chtapa3/
+68 ../train_audio/chucis1/
+69 ../train_audio/cibwar1/
+Error in detection, skippingXC447946.wav
+Error in detection, skippingXC447946.ogg
+Error in detection, skippingXC516752.wav
+Error in detection, skippingXC516752.ogg
+70 ../train_audio/cohmar1/
+71 ../train_audio/colsun2/
+72 ../train_audio/combul2/
+Error in detection, skippingXC530254.wav
+Error in detection, skippingXC447945.wav
+Error in detection, skippingXC447945.ogg
+Error in detection, skippingXC530254.ogg
+73 ../train_audio/combuz1/
+Error in isolating bird calls fromXC144230.wav
+Error in isolating bird calls fromXC144230.ogg
+74 ../train_audio/comsan/
+75 ../train_audio/crefra2/
+76 ../train_audio/crheag1/
+77 ../train_audio/crohor1/
+78 ../train_audio/darbar1/
+79 ../train_audio/darter3/
+80 ../train_audio/didcuc1/
+81 ../train_audio/dotbar1/
+82 ../train_audio/dutdov1/
+83 ../train_audio/easmog1/
+84 ../train_audio/eaywag1/
+Error in isolating bird calls fromXC133615.wav
+Error in isolating bird calls fromXC134810.wav
+Error in isolating bird calls fromXC134810.ogg
+Error in isolating bird calls fromXC133615.ogg
+85 ../train_audio/edcsun3/
+86 ../train_audio/egygoo/
+87 ../train_audio/equaka1/
+88 ../train_audio/eswdov1/
+89 ../train_audio/eubeat1/
+Error in detection, skippingXC478676.wav
+Error in detection, skippingXC188469.wav
+Error in detection, skippingXC188469.ogg
+Error in detection, skippingXC672581.ogg
+Error in detection, skippingXC490001.ogg
+Error in detection, skippingXC647701.wav
+Error in detection, skippingXC478676.ogg
+Error in detection, skippingXC647701.ogg
+Error in detection, skippingXC672581.wav
+Error in detection, skippingXC694967.wav
+Error in detection, skippingXC694967.ogg
+Error in detection, skippingXC490001.wav
+90 ../train_audio/fatrav1/
+91 ../train_audio/fatwid1/
+92 ../train_audio/fislov1/
+93 ../train_audio/fotdro5/
+94 ../train_audio/gabgos2/
+95 ../train_audio/gargan/
+Error in detection, skippingXC649203.ogg
+Error in isolating bird calls fromXC134700.ogg
+Error in detection, skippingXC316049.wav
+Error in isolating bird calls fromXC134700.wav
+Error in detection, skippingXC310912.wav
+Error in detection, skippingXC409829.wav
+Error in detection, skippingXC310912.ogg
+Error in isolating bird calls fromXC131242.wav
+Error in detection, skippingXC316049.ogg
+Error in isolating bird calls fromXC131242.ogg
+Error in detection, skippingXC409829.ogg
+Error in detection, skippingXC649203.wav
+96 ../train_audio/gbesta1/
+97 ../train_audio/gnbcam2/
+98 ../train_audio/gnhsun1/
+99 ../train_audio/gobbun1/
+Error in detection, skippingXC200993.ogg
+Error in detection, skippingXC200993.wav
+100 ../train_audio/gobsta5/
+101 ../train_audio/gobwea1/
+102 ../train_audio/golher1/
+103 ../train_audio/grbcam1/
+104 ../train_audio/grccra1/
+105 ../train_audio/grecor/
+Error in detection, skippingXC202890.ogg
+Error in detection, skippingXC202890.wav
+106 ../train_audio/greegr/
+Error in detection, skippingXC586205.wav
+Error in detection, skippingXC515821.ogg
+Error in detection, skippingXC116542.ogg
+Error in detection, skippingXC338469.ogg
+Error in detection, skippingXC202074.wav
+Error in detection, skippingXC515821.wav
+Error in detection, skippingXC304688.ogg
+Error in detection, skippingXC304688.wav
+Error in detection, skippingXC116543.ogg
+Error in detection, skippingXC116542.wav
+Error in detection, skippingXC338469.wav
+Error in detection, skippingXC202074.ogg
+Error in detection, skippingXC586205.ogg
+Error in detection, skippingXC116543.wav
+107 ../train_audio/grewoo2/
+108 ../train_audio/grwpyt1/
+109 ../train_audio/gryapa1/
+110 ../train_audio/grywrw1/
+111 ../train_audio/gybfis1/
+112 ../train_audio/gycwar3/
+113 ../train_audio/gyhbus1/
+114 ../train_audio/gyhkin1/
+115 ../train_audio/gyhneg1/
+Error in detection, skippingXC530145.ogg
+Error in detection, skippingXC530145.wav
+116 ../train_audio/gyhspa1/
+117 ../train_audio/gytbar1/
+118 ../train_audio/hadibi1/
+Error in detection, skippingXC492326.ogg
+Error in detection, skippingXC195501.wav
+Error in detection, skippingXC195501.ogg
+Error in detection, skippingXC492326.wav
+119 ../train_audio/hamerk1/
+120 ../train_audio/hartur1/
+121 ../train_audio/helgui/
+122 ../train_audio/hipbab1/
+123 ../train_audio/hoopoe/
+Error in detection, skippingXC162600.wav
+Error in detection, skippingXC527809.wav
+Error in detection, skippingXC736970.wav
+Error in detection, skippingXC556088.ogg
+Error in isolating bird calls fromXC641528.wav
+Error in detection, skippingXC527809.ogg
+Error in detection, skippingXC542705.ogg
+Error in detection, skippingXC556088.wav
+Error in detection, skippingXC181655.wav
+Error in detection, skippingXC542705.wav
+Error in detection, skippingXC736970.ogg
+Error in detection, skippingXC162592.ogg
+Error in detection, skippingXC162600.ogg
+Error in isolating bird calls fromXC641528.ogg
+Error in detection, skippingXC162592.wav
+Error in detection, skippingXC181655.ogg
+124 ../train_audio/huncis1/
+125 ../train_audio/hunsun2/
+126 ../train_audio/joygre1/
+127 ../train_audio/kerspa2/
+128 ../train_audio/klacuc1/
+129 ../train_audio/kvbsun1/
+130 ../train_audio/laudov1/
+Error in detection, skippingXC467531.wav
+Error in detection, skippingXC467531.ogg
+131 ../train_audio/lawgol/
+132 ../train_audio/lesmaw1/
+133 ../train_audio/lessts1/
+Error in detection, skippingXC530164.ogg
+Error in detection, skippingXC530164.wav
+134 ../train_audio/libeat1/
+Error in detection, skippingXC350108.ogg
+Error in detection, skippingXC515797.ogg
+Error in detection, skippingXC350108.wav
+Error in detection, skippingXC515797.wav
+135 ../train_audio/litegr/
+Error in detection, skippingXC605412.ogg
+Error in detection, skippingXC147857.ogg
+Error in detection, skippingXC441059.ogg
+Error in detection, skippingXC505381.ogg
+Error in detection, skippingXC411146.wav
+Error in detection, skippingXC295633.ogg
+Error in detection, skippingXC411146.ogg
+Error in detection, skippingXC757553.wav
+Error in detection, skippingXC683454.ogg
+Error in detection, skippingXC295633.wav
+Error in detection, skippingXC581185.wav
+Error in detection, skippingXC683454.wav
+Error in detection, skippingXC356691.wav
+Error in detection, skippingXC757554.wav
+Error in detection, skippingXC356691.ogg
+Error in detection, skippingXC718489.ogg
+Error in detection, skippingXC750571.ogg
+Error in detection, skippingXC402724.ogg
+Error in detection, skippingXC750571.wav
+Error in detection, skippingXC205299.wav
+Error in detection, skippingXC288616.wav
+Error in detection, skippingXC596872.wav
+Error in detection, skippingXC505381.wav
+Error in detection, skippingXC757554.ogg
+Error in detection, skippingXC205299.ogg
+Error in detection, skippingXC596872.ogg
+Error in detection, skippingXC147857.wav
+Error in detection, skippingXC718489.wav
+Error in detection, skippingXC402724.wav
+Error in detection, skippingXC605412.wav
+Error in detection, skippingXC441059.wav
+Error in detection, skippingXC288616.ogg
+Error in detection, skippingXC757553.ogg
+Error in detection, skippingXC581185.ogg
+136 ../train_audio/litswi1/
+Error in detection, skippingXC443709.wav
+Error in detection, skippingXC443709.ogg
+137 ../train_audio/litwea1/
+138 ../train_audio/loceag1/
+139 ../train_audio/lotcor1/
+140 ../train_audio/lotlap1/
+141 ../train_audio/luebus1/
+142 ../train_audio/mabeat1/
+143 ../train_audio/macshr1/
+144 ../train_audio/malkin1/
+145 ../train_audio/marsto1/
+146 ../train_audio/marsun2/
+147 ../train_audio/mcptit1/
+148 ../train_audio/meypar1/
+149 ../train_audio/moccha1/
+150 ../train_audio/mouwag1/
+151 ../train_audio/ndcsun2/
+152 ../train_audio/nobfly1/
+153 ../train_audio/norbro1/
+154 ../train_audio/norcro1/
+155 ../train_audio/norfis1/
+156 ../train_audio/norpuf1/
+157 ../train_audio/nubwoo1/
+158 ../train_audio/pabspa1/
+159 ../train_audio/palfly2/
+160 ../train_audio/palpri1/
+161 ../train_audio/piecro1/
+Error in detection, skippingXC515896.ogg
+Error in detection, skippingXC162387.wav
+Error in detection, skippingXC594137.wav
+Error in detection, skippingXC162387.ogg
+Error in detection, skippingXC515896.wav
+Error in detection, skippingXC515976.ogg
+Error in detection, skippingXC515976.wav
+Error in detection, skippingXC594137.ogg
+162 ../train_audio/piekin1/
+Error in detection, skippingXC601791.wav
+Error in detection, skippingXC515899.ogg
+Error in detection, skippingXC601791.ogg
+Error in detection, skippingXC515899.wav
+163 ../train_audio/pitwhy/
+164 ../train_audio/purgre2/
+Error in isolating bird calls fromXC205508.ogg
+Error in isolating bird calls fromXC205508.wav
+165 ../train_audio/pygbat1/
+166 ../train_audio/quailf1/
+167 ../train_audio/ratcis1/
+Error in detection, skippingXC217013.wav
+Error in detection, skippingXC217013.ogg
+168 ../train_audio/raybar1/
+169 ../train_audio/rbsrob1/
+170 ../train_audio/rebfir2/
+Error in isolating bird calls fromXC444807.ogg
+Error in isolating bird calls fromXC444807.wav
+171 ../train_audio/rebhor1/
+172 ../train_audio/reboxp1/
+173 ../train_audio/reccor/
+174 ../train_audio/reccuc1/
+175 ../train_audio/reedov1/
+Error in detection, skippingXC178883.ogg
+Error in detection, skippingXC178883.wav
+176 ../train_audio/refbar2/
+Error in isolating bird calls fromXC602923.ogg
+Error in isolating bird calls fromXC602924.ogg
+Error in isolating bird calls fromXC602923.wav
+Error in isolating bird calls fromXC602924.wav
+177 ../train_audio/refcro1/
+178 ../train_audio/reftin1/
+179 ../train_audio/refwar2/
+180 ../train_audio/rehblu1/
+181 ../train_audio/rehwea1/
+182 ../train_audio/reisee2/
+183 ../train_audio/rerswa1/
+Error in detection, skippingXC191112.ogg
+Error in detection, skippingXC697563.wav
+Error in detection, skippingXC478273.wav
+Error in detection, skippingXC197352.wav
+Error in detection, skippingXC192364.wav
+Error in detection, skippingXC178393.wav
+Error in detection, skippingXC697561.ogg
+Error in detection, skippingXC197352.ogg
+Error in detection, skippingXC191113.wav
+Error in detection, skippingXC178393.ogg
+Error in detection, skippingXC192364.ogg
+Error in detection, skippingXC445617.ogg
+Error in detection, skippingXC191113.ogg
+Error in detection, skippingXC445617.wav
+Error in detection, skippingXC697563.ogg
+Error in detection, skippingXC697561.wav
+Error in detection, skippingXC478273.ogg
+Error in detection, skippingXC191112.wav
+184 ../train_audio/rewsta1/
+185 ../train_audio/rindov/
+186 ../train_audio/rocmar2/
+Error in detection, skippingXC516839.ogg
+Error in detection, skippingXC516839.wav
+187 ../train_audio/rostur1/
+188 ../train_audio/ruegls1/
+189 ../train_audio/rufcha2/
+190 ../train_audio/sacibi2/
+191 ../train_audio/sccsun2/
+192 ../train_audio/scrcha1/
+193 ../train_audio/scthon1/
+194 ../train_audio/shesta1/
+195 ../train_audio/sichor1/
+196 ../train_audio/sincis1/
+197 ../train_audio/slbgre1/
+198 ../train_audio/slcbou1/
+Error in detection, skippingXC294698.ogg
+Error in detection, skippingXC294698.wav
+Error in detection, skippingXC201374.ogg
+Error in detection, skippingXC201374.wav
+199 ../train_audio/sltnig1/
+Error in isolating bird calls fromXC624177.ogg
+Error in isolating bird calls fromXC624177.wav
+200 ../train_audio/sobfly1/
+201 ../train_audio/somgre1/
+202 ../train_audio/somtit4/
+203 ../train_audio/soucit1/
+204 ../train_audio/soufis1/
+205 ../train_audio/spemou2/
+Error in detection, skippingXC530152.ogg
+Error in detection, skippingXC530152.wav
+206 ../train_audio/spepig1/
+Error in detection, skippingXC442943.wav
+Error in detection, skippingXC442943.ogg
+207 ../train_audio/spewea1/
+208 ../train_audio/spfbar1/
+Error in isolating bird calls fromXC581947.wav
+Error in isolating bird calls fromXC581947.ogg
+209 ../train_audio/spfwea1/
+Error in detection, skippingXC445049.wav
+Error in detection, skippingXC445049.ogg
+210 ../train_audio/spmthr1/
+211 ../train_audio/spwlap1/
+212 ../train_audio/squher1/
+Error in detection, skippingXC517419.ogg
+Error in detection, skippingXC517419.wav
+Error in detection, skippingXC515815.wav
+Error in detection, skippingXC515815.ogg
+213 ../train_audio/strher/
+Error in detection, skippingXC255377.wav
+Error in detection, skippingXC704987.ogg
+Error in detection, skippingXC435967.ogg
+Error in detection, skippingXC255388.wav
+Error in detection, skippingXC407851.wav
+Error in detection, skippingXC255377.ogg
+Error in detection, skippingXC255388.ogg
+Error in detection, skippingXC407851.ogg
+Error in detection, skippingXC435967.wav
+Error in detection, skippingXC704987.wav
+214 ../train_audio/strsee1/
+215 ../train_audio/stusta1/
+216 ../train_audio/subbus1/
+217 ../train_audio/supsta1/
+218 ../train_audio/tacsun1/
+219 ../train_audio/tafpri1/
+Error in detection, skippingXC443728.ogg
+Error in isolating bird calls fromXC714591.wav
+Error in detection, skippingXC443728.wav
+Error in isolating bird calls fromXC714591.ogg
+220 ../train_audio/tamdov1/
+221 ../train_audio/thrnig1/
+Error in isolating bird calls fromXC144056.wav
+Error in isolating bird calls fromXC421918.ogg
+Error in isolating bird calls fromXC144056.ogg
+Error in isolating bird calls fromXC421918.wav
+222 ../train_audio/trobou1/
+223 ../train_audio/varsun2/
+Error in detection, skippingXC515338.wav
+Error in detection, skippingXC515280.wav
+Error in detection, skippingXC515280.ogg
+Error in detection, skippingXC515338.ogg
+224 ../train_audio/vibsta2/
+225 ../train_audio/vilwea1/
+226 ../train_audio/vimwea1/
+227 ../train_audio/walsta1/
+228 ../train_audio/wbgbir1/
+229 ../train_audio/wbrcha2/
+230 ../train_audio/wbswea1/
+231 ../train_audio/wfbeat1/
+Error in detection, skippingXC515881.ogg
+Error in detection, skippingXC515881.wav
+232 ../train_audio/whbcan1/
+233 ../train_audio/whbcou1/
+234 ../train_audio/whbcro2/
+235 ../train_audio/whbtit5/
+236 ../train_audio/whbwea1/
+237 ../train_audio/whbwhe3/
+238 ../train_audio/whcpri2/
+239 ../train_audio/whctur2/
+240 ../train_audio/wheslf1/
+241 ../train_audio/whhsaw1/
+242 ../train_audio/whihel1/
+243 ../train_audio/whrshr1/
+244 ../train_audio/witswa1/
+Error in detection, skippingXC295235.wav
+Error in detection, skippingXC295235.ogg
+245 ../train_audio/wlwwar/
+Error in isolating bird calls fromXC132899.wav
+Error in isolating bird calls fromXC132899.ogg
+Error in isolating bird calls fromXC145324.wav
+Error in isolating bird calls fromXC145324.ogg
+246 ../train_audio/wookin1/
+247 ../train_audio/woosan/
+Error in isolating bird calls fromXC133449.wav
+Error in isolating bird calls fromXC133449.ogg
+Error in detection, skippingXC433410.ogg
+Error in detection, skippingXC433410.wav
+Error in isolating bird calls fromXC146456.wav
+Error in isolating bird calls fromXC146456.ogg
+Error in isolating bird calls fromXC145763.wav
+Error in isolating bird calls fromXC145763.ogg
+Error in isolating bird calls fromXC146451.wav
+Error in isolating bird calls fromXC146451.ogg
+248 ../train_audio/wtbeat1/
+249 ../train_audio/yebapa1/
+250 ../train_audio/yebbar1/
+251 ../train_audio/yebduc1/
+252 ../train_audio/yebere1/
+253 ../train_audio/yebgre1/
+254 ../train_audio/yebsto1/
+255 ../train_audio/yeccan1/
+256 ../train_audio/yefcan/
+257 ../train_audio/yelbis1/
+258 ../train_audio/yenspu1/
+259 ../train_audio/yertin1/
+Error in isolating bird calls fromXC634067.wav
+Error in isolating bird calls fromXC634067.ogg
+260 ../train_audio/yesbar1/
+261 ../train_audio/yespet1/
+262 ../train_audio/yetgre1/
+263 ../train_audio/yewgre1/
