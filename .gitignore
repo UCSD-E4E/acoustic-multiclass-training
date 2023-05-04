@@ -1,5 +1,8 @@
 __pycache__/*
+.ipynb_checkpoints/*
 .vscode
 .vscode/*
 PyHa
 PyHa/*
+classification/__pycache__/*
+classification/.ipynb_checkpoints/*

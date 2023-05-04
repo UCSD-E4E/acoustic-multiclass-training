@@ -21,9 +21,10 @@ time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 # other files 
 from dataset import BirdCLEFDataset, get_datasets
 from model import BirdCLEFModel, GeM
-# # cmap metrics
-# import pandas as pd
-# import sklearn.metrics
+
+# cmap metrics
+from sklearn.metrics import f1_score
+from sklearn.preprocessing import label_binarize
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 loss_print_freq = 50 
@@ -112,37 +113,33 @@ def valid(model, data_loader, device, epoch):
         label.extend(labels.view(-1).cpu().detach().numpy())
     
     try:
-        pd.DataFrame(label).to_csv(f"{time_now}_{epoch}_labels.csv")
-        pd.DataFrame(pred).to_csv(f"{time_now}_{epoch}_predictions.csv")
+        np.savetxt(f"{time_now}_{epoch}_labels.txt", label, delimiter=",")
+        np.savetxt(f"{time_now}_{epoch}_predictions.txt", label, delimiter=",")
     except:
-        print("L your csv(s) died") 
+        print("L your txt(s) died") 
     
-    valid_map = sklearn.metrics.average_precision_score(label, pred, average='macro')
+    # calculate MAP
+    valid_map = mAP(label, pred)
     valid_f1 = f1_score(label, pred, average='macro')
     
     return running_loss/len(data_loader), valid_map, valid_f1
 
+def mAP(label, pred):
+    # one hot encoding
+    y_label = label_binarize(label, classes=range(len(target_names)))
+    y_pred = label_binarize(pred, classes=range(len(target_names)))
+    
+    # tp/fp/precision
+    true_pos = ((y_label == 1) & (y_pred == 1)).sum(axis=0)
+    false_pos = ((y_label == 0) & (y_pred == 1)).sum(axis=0)
+    precision = true_pos / (true_pos + false_pos)
+    precision = np.nan_to_num(precision)
+    num_species = precision.shape[0]
+    return precision.sum() / num_species
 
 def set_seed():
     np.random.seed(CONFIG.seed)
     torch.manual_seed(CONFIG.seed)
-
-# def padded_cmap(solution, submission, padding_factor=5):
-#     solution = solution.drop(['row_id'], axis=1, errors='ignore')
-#     submission = submission.drop(['row_id'], axis=1, errors='ignore')
-#     new_rows = []
-#     for i in range(padding_factor):
-#         new_rows.append([1 for i in range(len(solution.columns))])
-#     new_rows = pd.DataFrame(new_rows)
-#     new_rows.columns = solution.columns
-#     padded_solution = pd.concat([solution, new_rows]).reset_index(drop=True).copy()
-#     padded_submission = pd.concat([submission, new_rows]).reset_index(drop=True).copy()
-#     score = sklearn.metrics.average_precision_score(
-#         padded_solution.values,
-#         padded_submission.values,
-#         average='macro',
-#     )
-#     return score
 
 if __name__ == '__main__':
     CONFIG = parser.parse_args()
@@ -179,12 +176,15 @@ if __name__ == '__main__':
             scheduler,
             device,
             epoch)
+        
+        torch.save(model.state_dict(), f'./{time_now}_model_{epoch}.bin')
+        
         valid_loss, valid_map, valid_f1 = valid(model, val_dataloader, device, epoch)
         print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map} \n Validation F1: \t{valid_f1}" )
-        if valid_f1 > best_valid_f1:
-            print(f"Validation F1 Improved - {best_valid_f1} ---> {valid_f1}")
+        if valid_map > best_valid_map:
+            print(f"Validation MAP Improved - {best_valid_map} ---> {valid_map}")
             torch.save(model.state_dict(), f'./{time_now}_model_{epoch}.bin')
             print(f"Saved model checkpoint at ./{time_now}_model_{epoch}.bin")
-            best_valid_f1 = valid_f1
+            best_valid_map = valid_map
 
     print(":o wow")

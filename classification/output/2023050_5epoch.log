@@ -1,0 +1,47 @@
+Loading Model...
+Model / Optimizer Loading Succesful :P
+Loading Dataset
+Training
+Epoch 0
+/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/torchaudio/functional/functional.py:572: UserWarning: At least one mel filterbank has all zero values. The value for `n_mels` (224) may be set too high. Or, the value for `n_freqs` (513) may be set too low.
+  "At least one mel filterbank has all zero values. "
+/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/torchaudio/functional/functional.py:572: UserWarning: At least one mel filterbank has all zero values. The value for `n_mels` (224) may be set too high. Or, the value for `n_freqs` (513) may be set too low.
+  "At least one mel filterbank has all zero values. "
+/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/torchaudio/functional/functional.py:572: UserWarning: At least one mel filterbank has all zero values. The value for `n_mels` (224) may be set too high. Or, the value for `n_freqs` (513) may be set too low.
+  "At least one mel filterbank has all zero values. "
+/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/torchaudio/functional/functional.py:572: UserWarning: At least one mel filterbank has all zero values. The value for `n_mels` (224) may be set too high. Or, the value for `n_freqs` (513) may be set too low.
+  "At least one mel filterbank has all zero values. "
+Traceback (most recent call last):
+  File "train.py", line 178, in <module>
+    epoch)
+  File "train.py", line 67, in train
+    outputs = model(mels)
+  File "/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/sprestrelski/acoustic-species-classification/classification/model.py", line 45, in forward
+    features = self.model(images)
+  File "/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/timm/models/efficientnet.py", line 557, in forward
+    x = self.forward_features(x)
+  File "/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/timm/models/efficientnet.py", line 545, in forward_features
+    x = self.blocks(x)
+  File "/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/torch/nn/modules/container.py", line 204, in forward
+    input = module(input)
+  File "/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/torch/nn/modules/container.py", line 204, in forward
+    input = module(input)
+  File "/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/timm/models/efficientnet_blocks.py", line 182, in forward
+    x = self.bn1(x)
+  File "/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/torch/nn/modules/module.py", line 1194, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/timm/models/layers/norm_act.py", line 109, in forward
+    self.eps,
+  File "/home/sprestrelski/miniconda3/envs/species-id/lib/python3.7/site-packages/torch/nn/functional.py", line 2451, in batch_norm
+    input, weight, bias, running_mean, running_var, training, momentum, eps, torch.backends.cudnn.enabled
+torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate 18.00 MiB (GPU 0; 47.54 GiB total capacity; 3.95 GiB already allocated; 12.25 MiB free; 3.99 GiB reserved in total by PyTorch) If reserved memory is >> allocated memory try setting max_split_size_mb to avoid fragmentation.  See documentation for Memory Management and PYTORCH_CUDA_ALLOC_CONF
