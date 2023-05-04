@@ -1,3 +1,4 @@
+# pytorch training
 import torch
 import torch.nn as nn
 from torch.optim import Adam
@@ -6,15 +7,26 @@ import torchaudio
 
 import timm
 
+# general
 import argparse
 import librosa
 import os
 import numpy as np
-from dataset import BirdCLEFDataset, get_datasets
+
+# logging
 import wandb
-from tqdm import tqdm
+import datetime
+time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') 
+
+# other files 
+from dataset import BirdCLEFDataset, get_datasets
+from model import BirdCLEFModel, GeM
+# # cmap metrics
+# import pandas as pd
+# import sklearn.metrics
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+loss_print_freq = 50 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-e', '--epochs', default=10, type=int)
@@ -32,44 +44,6 @@ parser.add_argument('-j', '--jobs', default=4, type=int)
 
 
 #https://www.kaggle.com/code/imvision12/birdclef-2023-efficientnet-training
-# generalize mean pooling
-class GeM(nn.Module):
-    def __init__(self, p=3, eps=1e-6):
-        super(GeM, self).__init__()
-        self.p = nn.Parameter(torch.ones(1)*p)
-        self.eps = eps
-
-    def forward(self, x):
-        return self.gem(x, p=self.p, eps=self.eps)
-        
-    def gem(self, x, p=3, eps=1e-6):
-        return F.avg_pool2d(x.clamp(min=eps).pow(p), (x.size(-2), x.size(-1))).pow(1./p)
-        
-    def __repr__(self):
-        return self.__class__.__name__ + \
-                '(' + 'p=' + '{:.4f}'.format(self.p.data.tolist()[0]) + \
-                ', ' + 'eps=' + str(self.eps) + ')'
-
-class BirdCLEFModel(nn.Module):
-    def __init__(self, 
-                 model_name="tf_efficientnet_b4_ns", 
-                 embedding_size=768, 
-                 pretrained=True):
-        super(BirdCLEFModel, self).__init__()
-        self.model = timm.create_model(model_name, pretrained=pretrained)
-        in_features = self.model.classifier.in_features
-        self.model.classifier = nn.Identity()
-        self.model.global_pool = nn.Identity()
-        self.pooling = GeM()
-        self.embedding = nn.Linear(in_features, embedding_size)
-        self.fc = nn.Linear(embedding_size, CONFIG.num_classes)
-    
-    def forward(self, images):
-        features = self.model(images)
-        pooled_features = self.pooling(features).flatten(1)
-        embedding = self.embedding(pooled_features)
-        output = self.fc(embedding)
-        return output
 
 
 def loss_fn(outputs, labels):
@@ -83,7 +57,7 @@ def train(model, data_loader, optimizer, scheduler, device, epoch):
     log_loss = 0
     correct = 0
     total = 0
-    # loop = tqdm(data_loader, position=0)
+
     for i, (mels, labels) in enumerate(data_loader):
         optimizer.zero_grad()
         mels = mels.to(device)
@@ -107,29 +81,74 @@ def train(model, data_loader, optimizer, scheduler, device, epoch):
         log_loss += loss.item()
         log_n += 1
 
-        if i % (20) == 0 or i == len(data_loader) - 1:
+        if i % (loss_print_freq) == 0 or i == len(data_loader) - 1:
             print("Loss:", log_loss, "Accuracy:", correct / total * 100.)
             log_loss = 0
             log_n = 0
             correct = 0
             total = 0
-        
-        # loop.set_description(f"Epoch [{epoch+1}/{CONFIG.epochs}]")
-        # loop.set_postfix(loss=loss.item())
 
     return running_loss/len(data_loader)
+
+def valid(model, data_loader, device, epoch):
+    model.eval()
     
+    running_loss = 0
+    pred = []
+    label = []
+    
+    for i, (mels, labels) in enumerate(data_loader):
+        mels = mels.to(device)
+        labels = labels.to(device)
+        
+        outputs = model(mels)
+        _, preds = torch.max(outputs, 1)
+        
+        loss = loss_fn(outputs, labels)
+            
+        running_loss += loss.item()
+        
+        pred.extend(preds.view(-1).cpu().detach().numpy())
+        label.extend(labels.view(-1).cpu().detach().numpy())
+    
+    try:
+        pd.DataFrame(label).to_csv(f"{time_now}_{epoch}_labels.csv")
+        pd.DataFrame(pred).to_csv(f"{time_now}_{epoch}_predictions.csv")
+    except:
+        print("L your csv(s) died") 
+    
+    valid_map = sklearn.metrics.average_precision_score(label, pred, average='macro')
+    valid_f1 = f1_score(label, pred, average='macro')
+    
+    return running_loss/len(data_loader), valid_map, valid_f1
 
 
 def set_seed():
     np.random.seed(CONFIG.seed)
     torch.manual_seed(CONFIG.seed)
 
+# def padded_cmap(solution, submission, padding_factor=5):
+#     solution = solution.drop(['row_id'], axis=1, errors='ignore')
+#     submission = submission.drop(['row_id'], axis=1, errors='ignore')
+#     new_rows = []
+#     for i in range(padding_factor):
+#         new_rows.append([1 for i in range(len(solution.columns))])
+#     new_rows = pd.DataFrame(new_rows)
+#     new_rows.columns = solution.columns
+#     padded_solution = pd.concat([solution, new_rows]).reset_index(drop=True).copy()
+#     padded_submission = pd.concat([submission, new_rows]).reset_index(drop=True).copy()
+#     score = sklearn.metrics.average_precision_score(
+#         padded_solution.values,
+#         padded_submission.values,
+#         average='macro',
+#     )
+#     return score
+
 if __name__ == '__main__':
     CONFIG = parser.parse_args()
     set_seed()
     print("Loading Model...")
-    model = BirdCLEFModel().to(device)
+    model = BirdCLEFModel(CONFIG=CONFIG).to(device)
     optimizer = Adam(model.parameters(), lr=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
     print("Model / Optimizer Loading Succesful :P")
@@ -149,9 +168,10 @@ if __name__ == '__main__':
         num_workers=CONFIG.jobs
     )
     
-
     print("Training")
     for epoch in range(CONFIG.epochs):
+        print("Epoch " + str(epoch))
+
         train_loss = train(
             model, 
             train_dataloader,
@@ -159,5 +179,12 @@ if __name__ == '__main__':
             scheduler,
             device,
             epoch)
+        valid_loss, valid_map, valid_f1 = valid(model, val_dataloader, device, epoch)
+        print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map} \n Validation F1: \t{valid_f1}" )
+        if valid_f1 > best_valid_f1:
+            print(f"Validation F1 Improved - {best_valid_f1} ---> {valid_f1}")
+            torch.save(model.state_dict(), f'./{time_now}_model_{epoch}.bin')
+            print(f"Saved model checkpoint at ./{time_now}_model_{epoch}.bin")
+            best_valid_f1 = valid_f1
 
     print(":o wow")

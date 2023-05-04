@@ -7,19 +7,6 @@ from torchaudio import transforms as audtr
 
 #https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
 
-# CONFIG = {"epochs": 10,
-#           "num_fold": 5,
-#           "num_classes": 264,
-#           "train_batch_size": 16,
-#           "valid_batch_size": 16,
-#           "sample_rate": 32_000,
-#           "hop_length": 512,
-#           "max_time": 5,
-#           "n_mels": 224,
-#           "n_fft": 1024,
-#           'seed': 0
-#         }
-
 class BirdCLEFDataset(datasets.DatasetFolder):
     def __init__(self, root, loader=None, CONFIG=None, max_time=5):
         super().__init__(root, loader, extensions='wav')
