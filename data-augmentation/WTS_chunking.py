@@ -220,6 +220,7 @@ def convoling_chunk(row, over_3_factor=0.1, chunk_duration=3, chunk_gen=2, only_
     rows_to_add = []
     offset = row["OFFSET"]
     duration = row["DURATION"]
+    chunk_half_duration = chunk_duration / 2
     
     #Ignore small duration (could be errors, play with this value)
     if(duration < 0.4):
@@ -240,22 +241,22 @@ def convoling_chunk(row, over_3_factor=0.1, chunk_duration=3, chunk_gen=2, only_
             rows_to_add = create_chunk_row(row, rows_to_add, offset+duration-chunk_duration, chunk_duration)
             
         #3) Middle of clip
-        if offset+duration-chunk_duration/2>0 and (offset+duration+chunk_duration/2)< row["CLIP LENGTH"]:
+        if offset+duration-chunk_half_duration>0 and (offset+duration+chunk_half_duration)< row["CLIP LENGTH"]:
             #print("3")
             
             #Could be better placed in middle, maybe with some randomization?
-            rows_to_add = create_chunk_row(row, rows_to_add, (offset+duration-chunk_duration/2), chunk_duration)
+            rows_to_add = create_chunk_row(row, rows_to_add, (offset+duration-chunk_half_duration), chunk_duration)
             
     
     #Longer than chunk duration
     else:
         #Perform Yan's Sliding Window operation
-        clip_num=int(duration/(chunk_duration/2))
+        clip_num=int(duration/(chunk_half_duration))
         for i in range(clip_num-1):
-            new_start = offset+i*1.5
-            new_end = offset + chunk_duration+i*1.5
-            if ((offset+3)+i*1.5) < row["CLIP LENGTH"]:
-                create_chunk_row(row, rows_to_add, new_start, chunk_duration) 
+            new_start = offset+i*chunk_half_duration
+            new_end = offset + chunk_duration+i*chunk_half_duration
+            if ((offset+chunk_duration)+i*chunk_half_duration) < row["CLIP LENGTH"]:
+                rows_to_add = create_chunk_row(row, rows_to_add, new_start, chunk_duration) 
     
     #Add all new rows to our return df
     if (len(rows_to_add) == 0):
