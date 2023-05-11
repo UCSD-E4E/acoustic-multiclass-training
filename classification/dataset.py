@@ -62,6 +62,8 @@ class BirdCLEFDataset(datasets.DatasetFolder):
 
 def get_datasets(path="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=None):
     data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=CONFIG)
+    no_bird_data = BirdCLEFDataset(root="/share/acoustic_species_id/no_bird_10_000_audio_chunks", CONFIG=CONFIG)
+    data = torch.utils.data.ConcatDataset([data, no_bird_data])
     train_data, val_data = torch.utils.data.random_split(data, [0.8, 0.2])
     return train_data, val_data
 

@@ -25,6 +25,8 @@ from tqdm import tqdm
 # # cmap metrics
 # import pandas as pd
 from sklearn.metrics import f1_score, average_precision_score
+from sklearn.preprocessing import label_binarize
+from torchmetrics.classification import MultilabelAveragePrecision
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -44,6 +46,8 @@ parser.add_argument('-j', '--jobs', default=4, type=int)
 parser.add_argument('-l', '--logging', default='True', type=str)
 parser.add_argument('-lf', '--logging_freq', default=20, type=int)
 parser.add_argument('-vf', '--valid_freq', default=2000, type=int)
+parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)
+parser.add_argument('-md', '--map_debug', action='store_true')
 
 
 #https://www.kaggle.com/code/imvision12/birdclef-2023-efficientnet-training
@@ -89,7 +93,7 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
             wandb.log({
                 "train/loss": log_loss / log_n,
                 "train/accuracy": correct / total * 100.,
-                "custom_step": step
+                "custom_step": step,
             })
             print("Loss:", log_loss / log_n, "Accuracy:", correct / total * 100.)
             log_loss = 0
@@ -101,11 +105,11 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
             del mels, labels, outputs, preds # clear memory
             valid_loss, valid_map = valid(model, val_dataloader, device, step)
             print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
-            if valid_map > best_valid_cmap:
-                print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
-                torch.save(model.state_dict(), f'./model_{epoch}.pt')
-                print(f"Saved model checkpoint at ./model_{epoch}.pt")
-                best_valid_cmap = valid_map
+            # if valid_map > best_valid_cmap:
+            #     print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
+            #     torch.save(model.state_dict(), f'./EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{epoch}.pt')
+            #     print(f'./EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{epoch}.pt')
+            #     best_valid_cmap = valid_map
             model.train()
         
         step += 1
@@ -119,114 +123,83 @@ def valid(model, data_loader, device, step, pad_n=5):
     pred = []
     label = []
     
-    dl = tqdm(data_loader, position=0)
-    for i, (mels, labels) in enumerate(dl):
-        mels = mels.to(device)
-        labels = labels.to(device)
-        
-        outputs = model(mels)
-        _, preds = torch.max(outputs, 1)
-        
-        loss = loss_fn(outputs, labels)
+    dl = tqdm(data_loader, position=5)
+    if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
+        pred = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
+        label = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
+    else:
+        for i, (mels, labels) in enumerate(dl):
+            mels = mels.to(device)
+            labels = labels.to(device)
             
-        running_loss += loss.item()
+            # argmax
+            outputs = model(mels)
+            _, preds = torch.max(outputs, 1)
+            
+            loss = loss_fn(outputs, labels)
+                
+            running_loss += loss.item()
+            
+            pred.append(outputs.cpu().detach())
+            label.append(labels.cpu().detach())
+            # break
         
-        # pred.extend(preds.view(-1).cpu().detach().numpy())
-        # label.extend(labels.view(-1).cpu().detach().numpy())
-        pred.append(outputs.cpu().detach())
-        label.append(labels.cpu().detach())
-        # break
-    
-    # try:
-    #     pd.DataFrame(label).to_csv(f"{time_now}_{epoch}_labels.csv")
-    #     pd.DataFrame(pred).to_csv(f"{time_now}_{epoch}_predictions.csv")
-    # except:
-    #     print("L your csv(s) died") 
+        pred = torch.cat(pred)
+        label = torch.cat(label)
+        torch.save(pred, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
+        torch.save(label, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
 
-    pred = torch.cat(pred)
-    label = torch.cat(label)
-
+    # print(torch.unique(label))
     # convert to one-hot encoding
+    unq_classes = torch.unique(label)
+    print(unq_classes)
     label = F.one_hot(label, num_classes=CONFIG.num_classes).to(device)
-
+    # label = label[:,unq_classes]
 
     # softmax predictions
-    pred = F.softmax(pred, dim=-1)
+    pred = F.sigmoid(pred).to(device)
+    # pred = pred[:, unq_classes]
 
-    # pad predictions and labels with `pad_n` true positives
+    # # pad predictions and labels with `pad_n` true positives
     padded_preds = torch.cat([pred, torch.ones(pad_n, pred.shape[1]).to(pred.device)])
     padded_labels = torch.cat([label, torch.ones(pad_n, label.shape[1]).to(label.device)])
-
+    print(label.shape, pred.shape) 
+    # print(padded_labels.shape, padded_preds.shape)
     # send to cpu
-    padded_preds = padded_preds.detach().cpu().numpy()
-    padded_labels = padded_labels.detach().cpu().numpy()
+    padded_preds = padded_preds.detach().cpu()
+    padded_labels = padded_labels.detach().cpu().long()
+    # padded_preds = padded_preds.detach().cpu()
+    # padded_labels = padded_labels.detach().cpu()
 
-    # print(padded_preds.shape, padded_labels.shape)
-
+    metric = MultilabelAveragePrecision(num_labels=CONFIG.num_classes, average="weighted")
+    valid_map = metric(padded_preds, padded_labels)
     # calculate average precision
-    valid_map = average_precision_score(
-        padded_labels,
-        padded_preds,
-        average='macro',
-    )
-
-    # # convert probs to one-hot predictions
-
-    # # calculate f1 score
-    # valid_f1 = f1_score(
+    # valid_map = average_precision_score(
     #     padded_labels,
     #     padded_preds,
     #     average='macro',
     # )
-    
-    
-    # valid_map = average_precision_score(label, pred, average='macro')
-    # valid_f1 = f1_score(label, pred, average='macro')
-    print("Validation mAP:", valid_map)
-    # print("Validation F1:", valid_f1)
+    # _, padded_preds = torch.max(padded_preds, 1)
 
+    # acc = (padded_preds == padded_labels).sum().item() / len(padded_preds)
+    # print("Validation Accuracy:", acc)
+    
+    
+    print("Validation mAP:", valid_map)
+    
     wandb.log({
         "valid/loss": running_loss/len(data_loader),
         "valid/cmap": valid_map,
-        # "valid/f1": valid_f1,
-        "custom_step": step
+        "custom_step": step,
+        
     })
     
     return running_loss/len(data_loader), valid_map
-
-def mAP(label, pred):
-    # one hot encoding
-    y_label = label_binarize(label, classes=range(len(target_names)))
-    y_pred = label_binarize(pred, classes=range(len(target_names)))
-    
-    # tp/fp/precision
-    true_pos = ((y_label == 1) & (y_pred == 1)).sum(axis=0)
-    false_pos = ((y_label == 0) & (y_pred == 1)).sum(axis=0)
-    precision = true_pos / (true_pos + false_pos)
-    precision = np.nan_to_num(precision)
-    num_species = precision.shape[0]
-    return precision.sum() / num_species
 
 def set_seed():
     np.random.seed(CONFIG.seed)
     torch.manual_seed(CONFIG.seed)
 
-# def padded_cmap(solution, submission, padding_factor=5):
-#     solution = solution.drop(['row_id'], axis=1, errors='ignore')
-#     submission = submission.drop(['row_id'], axis=1, errors='ignore')
-#     new_rows = []
-#     for i in range(padding_factor):
-#         new_rows.append([1 for i in range(len(solution.columns))])
-#     new_rows = pd.DataFrame(new_rows)
-#     new_rows.columns = solution.columns
-#     padded_solution = pd.concat([solution, new_rows]).reset_index(drop=True).copy()
-#     padded_submission = pd.concat([submission, new_rows]).reset_index(drop=True).copy()
-#     score = sklearn.metrics.average_precision_score(
-#         padded_solution.values,
-#         padded_submission.values,
-#         average='macro',
-#     )
-#     return score
 
 def init_wandb(CONFIG):
     run = wandb.init(
@@ -245,6 +218,8 @@ if __name__ == '__main__':
     set_seed()
     print("Loading Model...")
     model = BirdCLEFModel(CONFIG=CONFIG).to(device)
+    if CONFIG.model_checkpoint is not None:
+        model.load_state_dict(torch.load(CONFIG.model_checkpoint))
     optimizer = Adam(model.parameters(), lr=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
     print("Model / Optimizer Loading Succesful :P")
@@ -283,10 +258,11 @@ if __name__ == '__main__':
         )
         valid_loss, valid_map = valid(model, val_dataloader, device, step)
         print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
-        if valid_map > best_valid_cmap:
-            print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
-            torch.save(model.state_dict(), f'./model_{epoch}.pt')
-            print(f"Saved model checkpoint at ./model_{epoch}.pt")
-            best_valid_cmap = valid_map
+        # if valid_map > best_valid_cmap:
+        #     print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
+        #     torch.save(model.state_dict(), f'./EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{epoch}.pt')
+        #     print(f'./EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{epoch}.pt')
+        #     best_valid_cmap = valid_map
+
 
     print(":o wow")
