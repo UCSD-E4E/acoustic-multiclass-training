@@ -34,8 +34,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-e', '--epochs', default=10, type=int)
 parser.add_argument('-nf', '--num_fold', default=5, type=int)
 parser.add_argument('-nc', '--num_classes', default=264, type=int)
-parser.add_argument('-tbs', '--train_batch_size', default=128, type=int)
-parser.add_argument('-vbs', '--valid_batch_size', default=128, type=int)
+parser.add_argument('-tbs', '--train_batch_size', default=32, type=int)
+parser.add_argument('-vbs', '--valid_batch_size', default=32, type=int)
 parser.add_argument('-sr', '--sample_rate', default=32_000, type=int)
 parser.add_argument('-hl', '--hop_length', default=512, type=int)
 parser.add_argument('-mt', '--max_time', default=5, type=int)
@@ -105,12 +105,13 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
             del mels, labels, outputs, preds # clear memory
             valid_loss, valid_map = valid(model, val_dataloader, device, step)
             print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
-            # if valid_map > best_valid_cmap:
-            #     print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
-            #     torch.save(model.state_dict(), f'./EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{epoch}.pt')
-            #     print(f'./EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{epoch}.pt')
-            #     best_valid_cmap = valid_map
+            torch.save(model.state_dict(), f'./model_{epoch}.pt')
+            print(f"Saved model checkpoint at ./model_{epoch}.pt")
+            if valid_map > best_valid_cmap:
+                print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
+                best_valid_cmap = valid_map
             model.train()
+            
         
         step += 1
 
@@ -143,11 +144,11 @@ def valid(model, data_loader, device, step, pad_n=5):
             pred.append(outputs.cpu().detach())
             label.append(labels.cpu().detach())
             # break
-        
         pred = torch.cat(pred)
         label = torch.cat(label)
-        torch.save(pred, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
-        torch.save(label, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
+        if CONFIG.model_checkpoint is not None:
+            torch.save(pred, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
+            torch.save(label, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
 
     # print(torch.unique(label))
     # convert to one-hot encoding
@@ -258,11 +259,12 @@ if __name__ == '__main__':
         )
         valid_loss, valid_map = valid(model, val_dataloader, device, step)
         print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
-        # if valid_map > best_valid_cmap:
-        #     print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
-        #     torch.save(model.state_dict(), f'./EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{epoch}.pt')
-        #     print(f'./EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{epoch}.pt')
-        #     best_valid_cmap = valid_map
+        torch.save(model.state_dict(), f'./EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{epoch}.pt')
+        print(f'./EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{epoch}.pt')
+        if valid_map > best_valid_cmap:
+            print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
+            best_valid_cmap = valid_map
+        
 
 
     print(":o wow")
