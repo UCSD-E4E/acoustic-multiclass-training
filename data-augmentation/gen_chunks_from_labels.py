@@ -5,13 +5,13 @@ from WTS_chunking import *
 
 
 path = '/share/acoustic_species_id'
-unchunked_df = pd.read_csv(os.path.join(path, 'BirdCLEF2023_TweetyNet_StrongLabels.csv'))
+unchunked_df = pd.read_csv(os.path.join(path, 'Test_StrongLabels.csv'))
 chunk_path = os.path.join(path, 'BirdCLEF2023_train_audio_chunks')
 
 def generate_chunked_df(unchunked_df, save_chunks=True):
   chunked_df = dynamic_yan_chunking(unchunked_df, chunk_count=5, chunk_duration=5, only_slide=False)
   if save_chunks:
-      chunked_df.to_csv(os.path.join(path, 'BirdCLEF2023_TweetyNet_Chunks.csv'))
+      chunked_df.to_csv(os.path.join(path, 'Test_Chunks.csv'))
   return chunked_df
 
 
@@ -81,6 +81,6 @@ def delete_chunks_with_len(length):
 
 
 if __name__ == '__main__':
-  # generate_chunked_df(unchunked_df)
+  generate_chunked_df(unchunked_df)
   # generate_wavs_from_chunks(5)
-  delete_chunks_with_len(3)
+  # delete_chunks_with_len(3)
