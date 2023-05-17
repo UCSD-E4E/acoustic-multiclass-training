@@ -10,7 +10,7 @@ path = "/share/acoustic_species_id/"
 
 metadata_file = "train_metadata.csv"
 binary_labels_file = "BirdCLEF2023_TweetyNet_Labels.csv"
-strong_labels_file = "BirdCLEF2023_TweetyNet_StrongLabels.csv"
+strong_labels_file = "Test_StrongLabels.csv"
 
 def attach_labels(binary_labels_file, replace_file=False, new_file_name=strong_labels_file):
 
@@ -40,6 +40,11 @@ def attach_labels(binary_labels_file, replace_file=False, new_file_name=strong_l
             continue
         
         strong_label = metadata_row["primary_label"]
+
+        if strong_label != 'afpkin1' and strong_label != 'golher1':
+           continue
+
+        print(strong_label)
         matching_rows['STRONG LABEL'] = [strong_label] * len(matching_rows)
 
         strong_df = pd.concat([strong_df, matching_rows], ignore_index=True, sort=False)

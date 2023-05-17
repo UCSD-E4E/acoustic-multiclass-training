@@ -3,7 +3,7 @@ import pandas as pd
 import os 
 
 # path = "../train_audio/"
-path = "/share/acoustic_species_id/BirdCLEF2023_train_audio/"
+path = "/share/acoustic_species_id/BirdCLEFPeru_Audio/"
 
 isolation_parameters_tweety = {
     "model" : "tweetynet",
@@ -30,7 +30,7 @@ print("starting predictions...")
 #            f = os.path.join(s,fn)
 #            ogg2wav(f)
 #     print(s + "/")
-#     temp_df = generate_automated_labels(s+ "/", isolation_parameters_tweety)
+# temp_df = generate_automated_labels(s+ "/", isolation_parameters_tweety)
 #     if temp_df.empty:
 #        sys.exit() 
 #    automated_df = pd.concat([automated_df, temp_df], ignore_index=True, sort=False)
@@ -43,8 +43,8 @@ print("starting predictions...")
 #     # automated_df.to_csv("BirdCLEF2023_TweetyNet_Labels.csv")
 #     automated_df.to_csv("TestIsolation_TweetyNet_Labels.csv")
 
-temp_df = generate_automated_labels("/share/acoustic_species_id/BirdCLEF2023_train_audio/afpfly1/", isolation_parameters_tweety)
+temp_df = generate_automated_labels(path, isolation_parameters_tweety)
 automated_df = pd.concat([automated_df, temp_df], ignore_index=True, sort=False)
 # in case your script crashes
 # automated_df.to_csv("BirdCLEF2023_TweetyNet_Labels.csv")
-automated_df.to_csv("TestIsolation_TweetyNet_Labels.csv")
+automated_df.to_csv("Test_Peru_labels.csv")
