@@ -10,7 +10,7 @@ classification/wandb/*
 *.log
 *.pt
 *.out
-
+wandb/*
 data-augmentation/move_missing_files.py
 data-augmentation/find_failing_species.py
 data-augmentation/birdclef2023_tweety_labels_log.txt

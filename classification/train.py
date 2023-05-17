@@ -27,6 +27,7 @@ from tqdm import tqdm
 from sklearn.metrics import f1_score, average_precision_score
 from sklearn.preprocessing import label_binarize
 from torchmetrics.classification import MultilabelAveragePrecision
+from functools import partial
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -48,13 +49,15 @@ parser.add_argument('-lf', '--logging_freq', default=20, type=int)
 parser.add_argument('-vf', '--valid_freq', default=2000, type=int)
 parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)
 parser.add_argument('-md', '--map_debug', action='store_true')
-
+parser.add_argument('-p', '--p', default=0, type=float, help='p for mixup')
+parser.add_argument('-i', '--imb', action='store_true', help='imbalance sampler')
+parser.add_argument('-pw', "--pos_weight", type=float, default=1, help='pos weight')
+parser.add_argument('-lr', "--lr", type=float, default=1e-3, help='learning rate')
 
 #https://www.kaggle.com/code/imvision12/birdclef-2023-efficientnet-training
 
 
-def loss_fn(outputs, labels):
-    return nn.CrossEntropyLoss()(outputs, labels)
+
     
 def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cmap, epoch):
     print('size of data loader:', len(data_loader))
@@ -72,7 +75,8 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
         labels = labels.to(device)
         
         outputs = model(mels)
-        _, preds = torch.max(outputs, 1)
+        # sigmoid multilabel predictions
+        preds = torch.sigmoid(outputs) > 0.5
         
         loss = loss_fn(outputs, labels)
         
@@ -85,7 +89,7 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
             
         running_loss += loss.item()
         total += labels.size(0)
-        correct += preds.eq(labels).sum().item()
+        correct += torch.all(preds.eq(labels), dim=-1).sum().item()
         log_loss += loss.item()
         log_n += 1
 
@@ -101,15 +105,15 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
             correct = 0
             total = 0
         
-        if step % CONFIG.valid_freq == 0:
+        if step % CONFIG.valid_freq == 0 and step != 0:
             del mels, labels, outputs, preds # clear memory
             valid_loss, valid_map = valid(model, val_dataloader, device, step)
             print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
-            torch.save(model.state_dict(), f'./model_{epoch}.pt')
-            print(f"Saved model checkpoint at ./model_{epoch}.pt")
             if valid_map > best_valid_cmap:
                 print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
                 best_valid_cmap = valid_map
+                torch.save(model.state_dict(), run.name + '.pt')
+                print(run.name + '.pt')
             model.train()
             
         
@@ -146,7 +150,7 @@ def valid(model, data_loader, device, step, pad_n=5):
             # break
         pred = torch.cat(pred)
         label = torch.cat(label)
-        if CONFIG.model_checkpoint is not None:
+        if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
             torch.save(pred, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
             torch.save(label, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
 
@@ -154,7 +158,8 @@ def valid(model, data_loader, device, step, pad_n=5):
     # convert to one-hot encoding
     unq_classes = torch.unique(label)
     print(unq_classes)
-    label = F.one_hot(label, num_classes=CONFIG.num_classes).to(device)
+    if label.shape[1] < CONFIG.num_classes:
+        label = F.one_hot(label, num_classes=CONFIG.num_classes).to(device)
     # label = label[:,unq_classes]
 
     # softmax predictions
@@ -205,10 +210,10 @@ def set_seed():
 def init_wandb(CONFIG):
     run = wandb.init(
         project="birdclef-2023",
-        name=f"EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{CONFIG.sample_rate}-{CONFIG.hop_length}-{CONFIG.max_time}-{CONFIG.n_mels}-{CONFIG.n_fft}-{CONFIG.seed}",
         config=CONFIG,
         mode="disabled" if CONFIG.logging == False else "online"
     )
+    run.name = f"EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{CONFIG.sample_rate}-{CONFIG.hop_length}-{CONFIG.max_time}-{CONFIG.n_mels}-{CONFIG.n_fft}-{CONFIG.seed}-" + run.name.split('-')[-1]
     return run
 
 if __name__ == '__main__':
@@ -221,7 +226,7 @@ if __name__ == '__main__':
     model = BirdCLEFModel(CONFIG=CONFIG).to(device)
     if CONFIG.model_checkpoint is not None:
         model.load_state_dict(torch.load(CONFIG.model_checkpoint))
-    optimizer = Adam(model.parameters(), lr=1e-4)
+    optimizer = Adam(model.parameters(), lr=CONFIG.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
     print("Model / Optimizer Loading Succesful :P")
 
@@ -231,19 +236,34 @@ if __name__ == '__main__':
         train_dataset,
         CONFIG.train_batch_size,
         shuffle=True,
-        num_workers=CONFIG.jobs
+        num_workers=CONFIG.jobs,
+        collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
         CONFIG.valid_batch_size,
         shuffle=False,
-        num_workers=CONFIG.jobs
+        num_workers=CONFIG.jobs,
+        collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
     )
     
     print("Training")
     step = 0
     best_valid_cmap = 0
 
+    if not CONFIG.imb: # normal loss
+        if CONFIG.pos_weight != 1:
+            loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([CONFIG.pos_weight] * CONFIG.num_classes).to(device))
+        else:
+            loss_fn = nn.BCEWithLogitsLoss()
+    else: # weighted loss
+        if CONFIG.pos_weight != 1:
+            loss_fn = nn.BCEWithLogitsLoss(
+                pos_weight=torch.tensor([CONFIG.pos_weight] * CONFIG.num_classes).to(device),
+                weight=torch.tensor([1 / p for p in train_dataset.class_id_to_num_samples.values()]).to(device)
+            )
+        else:
+            loss_fn = nn.BCEWithLogitsLoss(weight=torch.tensor([1 / p for p in train_dataset.class_id_to_num_samples.values()]).to(device))
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))
 
@@ -259,9 +279,10 @@ if __name__ == '__main__':
         )
         valid_loss, valid_map = valid(model, val_dataloader, device, step)
         print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
-        torch.save(model.state_dict(), f'./EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{epoch}.pt')
-        print(f'./EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{epoch}.pt')
+
         if valid_map > best_valid_cmap:
+            torch.save(model.state_dict(), run.name + '.pt')
+            print(run.name + '.pt')
             print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
             best_valid_cmap = valid_map
         
