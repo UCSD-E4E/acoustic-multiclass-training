@@ -27,9 +27,9 @@ class GeM(nn.Module):
 
 class BirdCLEFModel(nn.Module):
     def __init__(self, 
-                 model_name="tf_efficientnet_b4", 
+                 model_name="tf_efficientnet_b1", 
                  embedding_size=768, 
-                 pretrained=True,
+                 pretrained=False,
                  CONFIG=None):
         super(BirdCLEFModel, self).__init__()
         self.config = CONFIG
