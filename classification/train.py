@@ -34,7 +34,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 parser = argparse.ArgumentParser()
 parser.add_argument('-e', '--epochs', default=10, type=int)
 parser.add_argument('-nf', '--num_fold', default=5, type=int)
-parser.add_argument('-nc', '--num_classes', default=576, type=int)
+parser.add_argument('-nc', '--num_classes', default=574, type=int)
 parser.add_argument('-tbs', '--train_batch_size', default=16, type=int)
 parser.add_argument('-vbs', '--valid_batch_size', default=16, type=int)
 parser.add_argument('-sr', '--sample_rate', default=32_000, type=int)
@@ -43,7 +43,7 @@ parser.add_argument('-mt', '--max_time', default=5, type=int)
 parser.add_argument('-nm', '--n_mels', default=224, type=int)
 parser.add_argument('-nfft', '--n_fft', default=1024, type=int)
 parser.add_argument('-s', '--seed', default=0, type=int)
-parser.add_argument('-j', '--jobs', default=3, type=int)
+parser.add_argument('-j', '--jobs', default=4, type=int)
 parser.add_argument('-l', '--logging', default='True', type=str)
 parser.add_argument('-lf', '--logging_freq', default=20, type=int)
 parser.add_argument('-vf', '--valid_freq', default=2000, type=int)
@@ -86,7 +86,12 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
         
         if scheduler is not None:
             scheduler.step()
-            
+
+        if np.isnan(loss.item()):
+            print(mels)
+            print(labels)
+            print(outputs)
+            raise "NAN ERROR"   
         running_loss += loss.item()
         total += labels.size(0)
         correct += torch.all(preds.eq(labels), dim=-1).sum().item()
@@ -217,6 +222,7 @@ def init_wandb(CONFIG):
     return run
 
 if __name__ == '__main__':
+    print(device)
     CONFIG = parser.parse_args()
     print(CONFIG)
     CONFIG.logging = True if CONFIG.logging == 'True' else False

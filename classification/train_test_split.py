@@ -12,7 +12,7 @@ parser.add_argument('-l', '--species_label', default="STRONG LABEL")
 parser.add_argument('-t', '--train_size', default=0.8)
 parser.add_argument('-r', '--random_state', default=0)
 
-parser.add_argument('-f', '--folder_path', default="../acoustic-species-classification/BirdCLEF2023_split_chunks/training")
+parser.add_argument('-f', '--folder_path', default="../acoustic-species-classification/BirdCLEF2023_split_chunks/training_STOP")
 parser.add_argument('-td', '--train_destination', default="../acoustic-species-classification/BirdCLEF2023_split_chunks/training") #training
 parser.add_argument('-vd', '--val_destination', default="../acoustic-species-classification/BirdCLEF2023_split_chunks/validation") #validation
 

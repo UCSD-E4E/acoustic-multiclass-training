@@ -9,14 +9,17 @@ import argparse
 import os
 from functools import partial
 import librosa
+import shutil
+from tqdm import tqdm
+
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 parser = argparse.ArgumentParser()
 parser.add_argument('-e', '--epochs', default=10, type=int)
 parser.add_argument('-nf', '--num_fold', default=5, type=int)
 parser.add_argument('-nc', '--num_classes', default=264, type=int)
-parser.add_argument('-tbs', '--train_batch_size', default=32, type=int)
-parser.add_argument('-vbs', '--valid_batch_size', default=32, type=int)
+parser.add_argument('-tbs', '--train_batch_size', default=14, type=int)
+parser.add_argument('-vbs', '--valid_batch_size', default=14, type=int)
 parser.add_argument('-sr', '--sample_rate', default=32_000, type=int)
 parser.add_argument('-hl', '--hop_length', default=512, type=int)
 parser.add_argument('-mt', '--max_time', default=5, type=int)
@@ -60,13 +63,25 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         return classes, class_to_idx
     
     def __getitem__(self, index):
-        path, cl = self.samples[index]
+        try:
+            path, cl = self.samples[index]
+        except Exception as e:
+            print(e, path)
+            path, cl = self.samples[index + 1]
+
+        #path = "../acoustic-species-classification/BirdCLEF2023_split_chunks/validation/babwar/XC137588.wav"
         audio, sample_rate = torchaudio.load(path)
         audio = self.to_mono(audio)
-        
         if sample_rate != self.target_sample_rate:
             resample = audtr.Resample(sample_rate, self.target_sample_rate)
-            audio = resample(audio)
+            try:
+                audio = resample(audio)
+            except Exception as e:
+                print(e)
+                print(path, audio.shape[0])
+                print(type(self.samples))
+                shutil.move(path, "../acoustic-species-classification/bad_files")
+
         
         if audio.shape[0] > self.num_samples:
             audio = self.crop_audio(audio)
@@ -89,6 +104,12 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         # one hot target
         target = torch.zeros(self.num_classes)
         target[cl] = 1
+        
+        if (torch.any(torch.isnan(image))):
+            print("ERROR NAN", path)
+            image = torch.zeros(image.shape)
+
+ 
         return image, target
             
     def pad_audio(self, audio):
@@ -120,7 +141,7 @@ class BirdCLEFDataset(datasets.DatasetFolder):
 
 
     def random_chunk(self, audio):
-        start = np.random.randint(audio.shape[0] - self.num_samples)
+        start = np.random.randint(audio.shape[0] - self.num_samples - 1)
         audio = audio[start:start + self.num_samples]
         return audio
 
@@ -157,8 +178,13 @@ if __name__ == '__main__':
     CONFIG = parser.parse_args()
     CONFIG.logging = True if CONFIG.logging == 'True' else False
     train_data = BirdCLEFDataset(root="../acoustic-species-classification/BirdCLEF2023_split_chunks", CONFIG=CONFIG)
-    print(train_data.__getitem__(0))
-    print(train_data.__getitem__(0)[0].shape)
+    for idx in tqdm(range(len(train_data.samples))):
+        train_data.__getitem__(idx)
+    # for path, cl in train_data.samples:
+    #     try:
+    #         audio, sample_rate = torchaudio.load(path)
+    #     except:
+    #         os.remove(path)
     
     
     

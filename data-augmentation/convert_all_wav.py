@@ -31,18 +31,26 @@ test = []#pd.DataFrame()
 #print(os.listdir(CONFIG.folder_path))
 
 species = [name for name in os.listdir(CONFIG.folder_path) if os.path.isdir(CONFIG.folder_path + "/" + name)]
-for s in species:
-    print(s)
-    filenames  = [name for name in os.listdir(CONFIG.folder_path + "/" + s)]
-    for file in filenames:
-        print(file)
-        try:
-            sound = AudioSegment.from_file(CONFIG.folder_path + "/" + s + "/" + file)
-            sound.export(CONFIG.folder_path + "/" + s + "/" + file.split(".")[0] + ".wav", format="wav")
+species_2023 = pd.read_csv("../acoustic-species-classification/train_metadata.csv")
+species_to_remove = species_2023[species_2023["primary_label"].isin(species)]["primary_label"]
 
-            if ".wav" not in file:
-                os.remove(CONFIG.folder_path + "/" + s + "/" + file)
+print(species_2023[species_2023["primary_label"].isin(species)].shape[0])
+print(species_to_remove.unique())
 
-        except Exception as e:
-            print(e)
-            pass
+# for s in species:
+#     print(s)
+#     filenames  = [name for name in os.listdir(CONFIG.folder_path + "/" + s)]
+#     for file in filenames:
+#         print(file)
+#         try:
+
+#             if(not os.path.exists(CONFIG.folder_path + "/" + s + "/" + file.split(".")[0] + ".wav")):
+#                 sound = AudioSegment.from_file(CONFIG.folder_path + "/" + s + "/" + file)
+#                 sound.export(CONFIG.folder_path + "/" + s + "/" + file.split(".")[0] + ".wav", format="wav")
+#             if ".wav" not in file:
+#                 os.remove(CONFIG.folder_path + "/" + s + "/" + file)
+#         except Exception as e:
+#             print(e)
+#             pass
+
+        
