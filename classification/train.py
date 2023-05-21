@@ -46,13 +46,25 @@ parser.add_argument('-s', '--seed', default=0, type=int)
 parser.add_argument('-j', '--jobs', default=4, type=int)
 parser.add_argument('-l', '--logging', default='True', type=str)
 parser.add_argument('-lf', '--logging_freq', default=20, type=int)
-parser.add_argument('-vf', '--valid_freq', default=2000, type=int)
+parser.add_argument('-vf', '--valid_freq', default=1000, type=int)
 parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)
 parser.add_argument('-md', '--map_debug', action='store_true')
 parser.add_argument('-p', '--p', default=0, type=float, help='p for mixup')
 parser.add_argument('-i', '--imb', action='store_true', help='imbalance sampler')
 parser.add_argument('-pw', "--pos_weight", type=float, default=1, help='pos weight')
 parser.add_argument('-lr', "--lr", type=float, default=1e-3, help='learning rate')
+parser.add_argument('-mp', "--mix_p", type=float, default=0.4, help='mixup p')
+parser.add_argument('-cpa', "--cutmix_alpha", type=float, default=2.5, help='cutmix alpha')
+parser.add_argument('-mpa', "--mixup_alpha", type=float, default=0.6, help='mixup alpha')
+parser.add_argument('-tsp', "--time_shift_p", type=float, default=0, help='time shift p')
+parser.add_argument('-np', "--noise_p", type=float, default=0.35, help='noise p')
+parser.add_argument('-nsd', "--noise_std", type=float, default=0.005, help='noise std')
+parser.add_argument('-fmp', "--freq_mask_p", type=float, default=0.5, help='freq mask p')
+parser.add_argument('-fmpa', "--freq_mask_param", type=int, default=10, help='freq mask param')
+parser.add_argument("-tmp", "--time_mask_p", type=float, default=0.5, help='time mask p')
+parser.add_argument("-tmpa", "--time_mask_param", type=int, default=25, help='time mask param')
+parser.add_argument('-sm', '--smoothing', type=float, default=0.05, help='label smoothing')
+
 
 #https://www.kaggle.com/code/imvision12/birdclef-2023-efficientnet-training
 
@@ -158,12 +170,12 @@ def valid(model, data_loader, device, step, pad_n=5):
     # convert to one-hot encoding
     unq_classes = torch.unique(label)
     print(unq_classes)
-    if label.shape[1] < CONFIG.num_classes:
-        label = F.one_hot(label, num_classes=CONFIG.num_classes).to(device)
+    # if len(label.shape) < 2:
+    label = F.one_hot(label, num_classes=CONFIG.num_classes).to(device)
     # label = label[:,unq_classes]
 
     # softmax predictions
-    pred = F.sigmoid(pred).to(device)
+    pred = F.softmax(pred).to(device)
     # pred = pred[:, unq_classes]
 
     # # pad predictions and labels with `pad_n` true positives
@@ -237,14 +249,13 @@ if __name__ == '__main__':
         CONFIG.train_batch_size,
         shuffle=True,
         num_workers=CONFIG.jobs,
-        collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
+        collate_fn=train_dataset.collate_fn
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
         CONFIG.valid_batch_size,
         shuffle=False,
-        num_workers=CONFIG.jobs,
-        collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
+        num_workers=CONFIG.jobs
     )
     
     print("Training")
@@ -253,17 +264,17 @@ if __name__ == '__main__':
 
     if not CONFIG.imb: # normal loss
         if CONFIG.pos_weight != 1:
-            loss_fn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([CONFIG.pos_weight] * CONFIG.num_classes).to(device))
+            loss_fn = nn.CrossEntropyLoss(pos_weight=torch.tensor([CONFIG.pos_weight] * CONFIG.num_classes).to(device))
         else:
-            loss_fn = nn.BCEWithLogitsLoss()
+            loss_fn = nn.CrossEntropyLoss()
     else: # weighted loss
         if CONFIG.pos_weight != 1:
-            loss_fn = nn.BCEWithLogitsLoss(
+            loss_fn = nn.CrossEntropyLoss(
                 pos_weight=torch.tensor([CONFIG.pos_weight] * CONFIG.num_classes).to(device),
                 weight=torch.tensor([1 / p for p in train_dataset.class_id_to_num_samples.values()]).to(device)
             )
         else:
-            loss_fn = nn.BCEWithLogitsLoss(weight=torch.tensor([1 / p for p in train_dataset.class_id_to_num_samples.values()]).to(device))
+            loss_fn = nn.CrossEntropyLoss(weight=torch.tensor([1 / p for p in train_dataset.class_id_to_num_samples.values()]).to(device))
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))
 
