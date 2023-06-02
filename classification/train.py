@@ -19,8 +19,8 @@ import datetime
 time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') 
 
 # other files 
-from dataset import BirdCLEFDataset, get_datasets
-from model import BirdCLEFModel, GeM
+from dataset import BirdCLEFDataset, get_datasets, get_s4_dataset
+from model import BirdCLEFModel, GeM, S4Model
 from tqdm import tqdm
 # # cmap metrics
 # import pandas as pd
@@ -28,6 +28,8 @@ from sklearn.metrics import f1_score, average_precision_score
 from sklearn.preprocessing import label_binarize
 from torchmetrics.classification import MultilabelAveragePrecision
 from functools import partial
+from icecream import ic
+import torch.optim as optim
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -47,6 +49,7 @@ parser.add_argument('-j', '--jobs', default=4, type=int)
 parser.add_argument('-l', '--logging', default='True', type=str)
 parser.add_argument('-lf', '--logging_freq', default=20, type=int)
 parser.add_argument('-vf', '--valid_freq', default=1000, type=int)
+parser.add_argument('-mot', '--model_type', default='en', type=str)
 parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)
 parser.add_argument('-md', '--map_debug', action='store_true')
 parser.add_argument('-p', '--p', default=0, type=float, help='p for mixup')
@@ -69,7 +72,7 @@ parser.add_argument('-sm', '--smoothing', type=float, default=0.05, help='label 
 #https://www.kaggle.com/code/imvision12/birdclef-2023-efficientnet-training
 
 
-
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
 def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cmap, epoch):
     print('size of data loader:', len(data_loader))
@@ -81,27 +84,27 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
     correct = 0
     total = 0
 
-    for i, (mels, labels) in enumerate(data_loader):
+    for i, (mels, labels, lens) in enumerate(data_loader):
+        # ic(mels.shape, labels.shape)
         optimizer.zero_grad()
         mels = mels.to(device)
         labels = labels.to(device)
         
         outputs = model(mels)
-        # sigmoid multilabel predictions
-        preds = torch.sigmoid(outputs) > 0.5
+        # softmax multiclass predictions
+        _, preds = torch.max(outputs, dim=-1)
+        # ic(preds)
         
-        loss = loss_fn(outputs, labels)
+        loss = criterion(outputs, labels)
         
         loss.backward()
         optimizer.step()
         
         
-        if scheduler is not None:
-            scheduler.step()
             
         running_loss += loss.item()
         total += labels.size(0)
-        correct += torch.all(preds.eq(labels), dim=-1).sum().item()
+        correct += (preds == labels).sum().item()
         log_loss += loss.item()
         log_n += 1
 
@@ -145,7 +148,7 @@ def valid(model, data_loader, device, step, pad_n=5):
         pred = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
         label = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
     else:
-        for i, (mels, labels) in enumerate(dl):
+        for i, (mels, labels, lens) in enumerate(dl):
             mels = mels.to(device)
             labels = labels.to(device)
             
@@ -228,6 +231,53 @@ def init_wandb(CONFIG):
     run.name = f"EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{CONFIG.sample_rate}-{CONFIG.hop_length}-{CONFIG.max_time}-{CONFIG.n_mels}-{CONFIG.n_fft}-{CONFIG.seed}-" + run.name.split('-')[-1]
     return run
 
+def setup_optimizer(model, lr, weight_decay, epochs):
+    """
+    S4 requires a specific optimizer setup.
+
+    The S4 layer (A, B, C, dt) parameters typically
+    require a smaller learning rate (typically 0.001), with no weight decay.
+
+    The rest of the model can be trained with a higher learning rate (e.g. 0.004, 0.01)
+    and weight decay (if desired).
+    """
+
+    # All parameters in the model
+    all_parameters = list(model.parameters())
+
+    # General parameters don't contain the special _optim key
+    params = [p for p in all_parameters if not hasattr(p, "_optim")]
+
+    # Create an optimizer with the general parameters
+    optimizer = optim.AdamW(params, lr=lr, weight_decay=weight_decay)
+
+    # Add parameters with special hyperparameters
+    hps = [getattr(p, "_optim") for p in all_parameters if hasattr(p, "_optim")]
+    hps = [
+        dict(s) for s in sorted(list(dict.fromkeys(frozenset(hp.items()) for hp in hps)))
+    ]  # Unique dicts
+    for hp in hps:
+        params = [p for p in all_parameters if getattr(p, "_optim", None) == hp]
+        optimizer.add_param_group(
+            {"params": params, **hp}
+        )
+
+    # Create a lr scheduler
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=patience, factor=0.2)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, epochs)
+
+    # Print optimizer info
+    keys = sorted(set([k for hp in hps for k in hp.keys()]))
+    for i, g in enumerate(optimizer.param_groups):
+        group_hps = {k: g.get(k, None) for k in keys}
+        print(' | '.join([
+            f"Optimizer group {i}",
+            f"{len(g['params'])} tensors",
+        ] + [f"{k} {v}" for k, v in group_hps.items()]))
+
+    return optimizer, scheduler
+
+
 if __name__ == '__main__':
     CONFIG = parser.parse_args()
     print(CONFIG)
@@ -235,28 +285,54 @@ if __name__ == '__main__':
     run = init_wandb(CONFIG)
     set_seed()
     print("Loading Model...")
-    model = BirdCLEFModel(CONFIG=CONFIG).to(device)
+    if CONFIG.model_type == 'en':
+        model = BirdCLEFModel(CONFIG=CONFIG).to(device)
+    elif CONFIG.model_type == 's4d':
+        model = S4Model(d_output=CONFIG.num_classes, CONFIG=CONFIG).to(device)
+        # number of parameters
+        print(f"Number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
     if CONFIG.model_checkpoint is not None:
         model.load_state_dict(torch.load(CONFIG.model_checkpoint))
-    optimizer = Adam(model.parameters(), lr=CONFIG.lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
+    # optimizer = Adam(model.parameters(), lr=CONFIG.lr)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
+    criterion = nn.CrossEntropyLoss()
+    optimizer, scheduler = setup_optimizer(
+        model, lr=CONFIG.lr, weight_decay=0.01, epochs=100
+    )
     print("Model / Optimizer Loading Succesful :P")
 
     print("Loading Dataset")
-    train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset,
-        CONFIG.train_batch_size,
-        shuffle=True,
-        num_workers=CONFIG.jobs,
-        collate_fn=train_dataset.collate_fn
-    )
-    val_dataloader = torch.utils.data.DataLoader(
-        val_dataset,
-        CONFIG.valid_batch_size,
-        shuffle=False,
-        num_workers=CONFIG.jobs
-    )
+    if CONFIG.model_type == 'en':
+        train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
+        train_dataloader = torch.utils.data.DataLoader(
+            train_dataset,
+            CONFIG.train_batch_size,
+            shuffle=True,
+            num_workers=CONFIG.jobs,
+            collate_fn=train_dataset.collate_fn
+        )
+        val_dataloader = torch.utils.data.DataLoader(
+            val_dataset,
+            CONFIG.valid_batch_size,
+            shuffle=False,
+            num_workers=CONFIG.jobs
+        )
+    elif CONFIG.model_type == 's4d':
+        data = get_s4_dataset()
+        train_dataloader = torch.utils.data.DataLoader(
+            data.dataset_train,
+            CONFIG.train_batch_size,
+            shuffle=True,
+            num_workers=CONFIG.jobs,
+            collate_fn=data.collate_fn
+        )
+        val_dataloader = torch.utils.data.DataLoader(
+            data.dataset_val,
+            CONFIG.valid_batch_size,
+            shuffle=False,
+            num_workers=CONFIG.jobs,
+            collate_fn=data.collate_fn
+        )
     
     print("Training")
     step = 0
@@ -288,6 +364,8 @@ if __name__ == '__main__':
             best_valid_cmap,
             epoch
         )
+        if scheduler is not None:
+            scheduler.step()
         valid_loss, valid_map = valid(model, val_dataloader, device, step)
         print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
 

@@ -8,6 +8,8 @@ import numpy as np
 import argparse
 import os
 from functools import partial
+from audio import _SpeechCommands09Classification, SpeechCommands09Classification
+from icecream import ic
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 parser = argparse.ArgumentParser()
@@ -29,6 +31,17 @@ parser.add_argument('-vf', '--valid_freq', default=2000, type=int)
 parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)
 parser.add_argument('-md', '--map_debug', action='store_true')
 parser.add_argument('-p', '--p', default=0, type=float, help='p for mixup')
+parser.add_argument('-mp', "--mix_p", type=float, default=0.4, help='mixup p')
+parser.add_argument('-cpa', "--cutmix_alpha", type=float, default=2.5, help='cutmix alpha')
+parser.add_argument('-mpa', "--mixup_alpha", type=float, default=0.6, help='mixup alpha')
+parser.add_argument('-tsp', "--time_shift_p", type=float, default=0, help='time shift p')
+parser.add_argument('-np', "--noise_p", type=float, default=0.35, help='noise p')
+parser.add_argument('-nsd', "--noise_std", type=float, default=0.005, help='noise std')
+parser.add_argument('-fmp', "--freq_mask_p", type=float, default=0.5, help='freq mask p')
+parser.add_argument('-fmpa', "--freq_mask_param", type=int, default=10, help='freq mask param')
+parser.add_argument("-tmp", "--time_mask_p", type=float, default=0.5, help='time mask p')
+parser.add_argument("-tmpa", "--time_mask_param", type=int, default=25, help='time mask param')
+parser.add_argument('-sm', '--smoothing', type=float, default=0.05, help='label smoothing')
 
 
 #https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
@@ -384,6 +397,7 @@ class BirdCLEFDataset(datasets.DatasetFolder):
             
         if audio.shape[0] < self.num_samples:
             audio = self.pad_audio(audio)
+        ic(audio.shape)
         
         if self.train and torch.rand(1) < self.config.time_shift_p: # randomly shift audio
             shift = torch.randint(0, self.num_samples, (1,))
@@ -433,26 +447,34 @@ def get_datasets(path="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunk
     #train_data, val_data = torch.utils.data.random_split(data, [0.8, 0.2])
     return train_data, val_data
 
+def get_s4_dataset():
+    data = SpeechCommands09Classification(data_dir="/share/acoustic_species_id/BirdCLEF2023_resampled_chunks_zn/", _name_='sc09cls')
+    data.setup()
+    return data
+
+
 if __name__ == '__main__':
     CONFIG = parser.parse_args()
     CONFIG.logging = True if CONFIG.logging == 'True' else False
-    # torch.manual_seed(CONFIG.seed)
-    train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset,
-        CONFIG.train_batch_size,
-        shuffle=True,
-        num_workers=CONFIG.jobs,
-        collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
-    )
+    torch.manual_seed(CONFIG.seed)
+    data = get_s4_dataset()
+    ic(data)
+    ic(data.dataset_train)
+    # train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
+    # train_dataloader = torch.utils.data.DataLoader(
+    #     data.dataset_train,
+    #     CONFIG.train_batch_size,
+    #     shuffle=True,
+    #     num_workers=CONFIG.jobs,
+    #     collate_fn=data.collate_fn
+    # )
     val_dataloader = torch.utils.data.DataLoader(
-        val_dataset,
+        data.dataset_val,
         CONFIG.valid_batch_size,
         shuffle=False,
         num_workers=CONFIG.jobs,
-        collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
+        collate_fn=data.collate_fn
     )
-    for batch in train_dataloader:
-        print(batch[0].shape)
-        print(batch[1].shape)
+    for batch in val_dataloader:
+        ic(batch[0].shape)
         break
