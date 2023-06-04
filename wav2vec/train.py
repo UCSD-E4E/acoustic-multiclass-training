@@ -111,7 +111,7 @@ if __name__ == '__main__':
     feature_extractor = AutoFeatureExtractor.from_pretrained("facebook/wav2vec2-base")
     max_duration = 5.0
     
-    encoded_dataset = dataset.map(preprocess_function, remove_columns="audio", batched=True)
+    encoded_dataset = dataset.map(preprocess_function, remove_columns=["audio"], batched=True)
 
     train_dataloader = torch.utils.data.DataLoader(
         encoded_dataset["train"],
