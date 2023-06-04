@@ -25,11 +25,24 @@ parser.add_argument('-s', '--seed', default=0, type=int)
 parser.add_argument('-j', '--jobs', default=4, type=int)
 parser.add_argument('-l', '--logging', default='True', type=str)
 parser.add_argument('-lf', '--logging_freq', default=20, type=int)
-parser.add_argument('-vf', '--valid_freq', default=2000, type=int)
+parser.add_argument('-vf', '--valid_freq', default=1000, type=int)
 parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)
 parser.add_argument('-md', '--map_debug', action='store_true')
 parser.add_argument('-p', '--p', default=0, type=float, help='p for mixup')
-
+parser.add_argument('-i', '--imb', action='store_true', help='imbalance sampler')
+parser.add_argument('-pw', "--pos_weight", type=float, default=1, help='pos weight')
+parser.add_argument('-lr', "--lr", type=float, default=1e-3, help='learning rate')
+parser.add_argument('-mp', "--mix_p", type=float, default=0, help='mixup p')
+parser.add_argument('-cpa', "--cutmix_alpha", type=float, default=0, help='cutmix alpha')
+parser.add_argument('-mpa', "--mixup_alpha", type=float, default=0, help='mixup alpha')
+parser.add_argument('-tsp', "--time_shift_p", type=float, default=0, help='time shift p')
+parser.add_argument('-np', "--noise_p", type=float, default=0, help='noise p')
+parser.add_argument('-nsd', "--noise_std", type=float, default=0, help='noise std')
+parser.add_argument('-fmp', "--freq_mask_p", type=float, default=0, help='freq mask p')
+parser.add_argument('-fmpa', "--freq_mask_param", type=int, default=0, help='freq mask param')
+parser.add_argument("-tmp", "--time_mask_p", type=float, default=0, help='time mask p')
+parser.add_argument("-tmpa", "--time_mask_param", type=int, default=0, help='time mask param')
+parser.add_argument('-sm', '--smoothing', type=float, default=0, help='label smoothing')
 
 #https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
 
@@ -371,7 +384,7 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         return classes, class_to_idx
     
     def __getitem__(self, index):
-        path, target = self.samples[index]
+        path, cl = self.samples[index]
         audio, sample_rate = torchaudio.load(path)
         audio = self.to_mono(audio)
         
@@ -407,6 +420,9 @@ class BirdCLEFDataset(datasets.DatasetFolder):
             image = self.freq_mask(image)
         if self.train and torch.randn(1) < self.config.time_mask_p:
             image = self.time_mask(image)
+
+        target = torch.zeros(self.num_classes)
+        target[cl] = 1
         return image, target
             
     def pad_audio(self, audio):
@@ -425,12 +441,10 @@ class BirdCLEFDataset(datasets.DatasetFolder):
 
 
 def get_datasets(path="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=None):
-    train_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/training", CONFIG=CONFIG)
-    val_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/validation", CONFIG=CONFIG)
-    #data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=CONFIG)
-    #no_bird_data = BirdCLEFDataset(root="/share/acoustic_species_id/no_bird_10_000_audio_chunks", CONFIG=CONFIG)
-    #data = torch.utils.data.ConcatDataset([data, no_bird_data])
-    #train_data, val_data = torch.utils.data.random_split(data, [0.8, 0.2])
+    train_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_resampled_chunks/training", CONFIG=CONFIG)
+    val_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_resampled_chunks/validation", CONFIG=CONFIG)
+    # train_data = BirdCLEFDataset(root="/share/acoustic_species_id/binary_chunks/training", CONFIG=CONFIG)
+    # val_data = BirdCLEFDataset(root="/share/acoustic_species_id/binary_chunks/validation", CONFIG=CONFIG)
     return train_data, val_data
 
 if __name__ == '__main__':
@@ -443,15 +457,14 @@ if __name__ == '__main__':
         CONFIG.train_batch_size,
         shuffle=True,
         num_workers=CONFIG.jobs,
-        collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
         CONFIG.valid_batch_size,
         shuffle=False,
-        num_workers=CONFIG.jobs,
-        collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
+        num_workers=CONFIG.jobs
     )
+    
     for batch in train_dataloader:
         print(batch[0].shape)
         print(batch[1].shape)

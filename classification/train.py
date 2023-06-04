@@ -101,6 +101,7 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
             
         running_loss += loss.item()
         total += labels.size(0)
+        #correct = 0
         correct += torch.all(preds.eq(labels), dim=-1).sum().item()
         log_loss += loss.item()
         log_n += 1
@@ -171,7 +172,7 @@ def valid(model, data_loader, device, step, pad_n=5):
     unq_classes = torch.unique(label)
     print(unq_classes)
     # if len(label.shape) < 2:
-    label = F.one_hot(label, num_classes=CONFIG.num_classes).to(device)
+    #label = F.one_hot(label, num_classes=CONFIG.num_classes).to(device)
     # label = label[:,unq_classes]
 
     # softmax predictions
@@ -237,7 +238,8 @@ if __name__ == '__main__':
     print("Loading Model...")
     model = BirdCLEFModel(CONFIG=CONFIG).to(device)
     if CONFIG.model_checkpoint is not None:
-        model.load_state_dict(torch.load(CONFIG.model_checkpoint))
+        model.load_pretrain_checkpoint(CONFIG.model_checkpoint)
+        
     optimizer = Adam(model.parameters(), lr=CONFIG.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
     print("Model / Optimizer Loading Succesful :P")
@@ -249,7 +251,6 @@ if __name__ == '__main__':
         CONFIG.train_batch_size,
         shuffle=True,
         num_workers=CONFIG.jobs,
-        collate_fn=train_dataset.collate_fn
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
@@ -266,7 +267,7 @@ if __name__ == '__main__':
         if CONFIG.pos_weight != 1:
             loss_fn = nn.CrossEntropyLoss(pos_weight=torch.tensor([CONFIG.pos_weight] * CONFIG.num_classes).to(device))
         else:
-            loss_fn = nn.CrossEntropyLoss()
+            loss_fn = nn.BCEWithLogitsLoss()
     else: # weighted loss
         if CONFIG.pos_weight != 1:
             loss_fn = nn.CrossEntropyLoss(
