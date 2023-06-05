@@ -1,20 +1,18 @@
 import os
 import shutil
+import sys
 from random import shuffle
 from math import floor
 
 
 VALIDATION_DISTR = 0.2
 
-share_path = '/share/acoustic_species_id'
-wav_path = '/share/acoustic_species_id/BirdCLEF2023_split_audio'
-chunk_path_old = '/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks'
-chunk_path_new = '/share/acoustic_species_id/BirdCLEF2023_split_chunks_new'
 
-
-def distribute_files():
+def distribute_files(path):
     
-  file_path = os.path.join(share_path, 'BirdCLEF2023_train_audio')
+  file_path = os.path.join(path, 'BirdCLEF2023_train_audio')
+  wav_path = os.path.join(path, 'BirdCLEF2023_split_audio')
+  chunk_path_old = os.path.join(path, 'BirdCLEF2023_train_audio_chunks')
   subfolders = [f.path for f in os.scandir(file_path) if f.is_dir()]
 
   train_path = os.path.join(wav_path, 'training')
@@ -72,8 +70,10 @@ def distribute_files():
       
 
 
-def distribute_chunks():
-    
+def distribute_chunks(path):
+  wav_path = os.path.join(path, 'BirdCLEF2023_split_audio')
+  chunk_path_old = os.path.join(path, 'BirdCLEF2023_train_audio_chunks')
+  chunk_path_new = os.path.join(path, 'BirdCLEF2023_split_chunks')
   subfolders = [f.path for f in os.scandir(wav_path) if f.is_dir()]
 
   # for training and validation folders:
@@ -123,7 +123,10 @@ def clear_files(path):
 
 
 if __name__ == '__main__':
-    clear_files(wav_path)
-    clear_files(chunk_path_new)
-    distribute_files()
-    distribute_chunks()
+    if len(sys.argv) != 2:
+        print("Incorrect number of args", file=sys.stderr)
+        print("USAGE: python distribute_chunks.py /path", file=sys.stderr)
+        sys.exit(1)
+    distribute_files(sys.argv[1])
+    distribute_chunks(sys.argv[1])
+    clear_files(os.path.join(sys.argv[1], 'BirdCLEF2023_split_audio'))

@@ -1,22 +1,20 @@
 import os
+import sys
 import pydub
 import pandas as pd
 from WTS_chunking import *
 
 
-path = '/share/acoustic_species_id'
-unchunked_df = pd.read_csv(os.path.join(path, 'Test_StrongLabels.csv'))
-chunk_path = os.path.join(path, 'BirdCLEF2023_train_audio_chunks')
-
-def generate_chunked_df(unchunked_df, save_chunks=True):
+def generate_chunked_df(path, save_chunks=True):
+  unchunked_df = pd.read_csv(os.path.join(path, 'BirdCLEF2023_Strong_Labels.csv'))
   chunked_df = dynamic_yan_chunking(unchunked_df, chunk_count=5, chunk_duration=5, only_slide=False)
   if save_chunks:
-      chunked_df.to_csv(os.path.join(path, 'Test_Chunks.csv'))
+      chunked_df.to_csv(os.path.join(path, 'BirdCLEF2023_TweetyNet_Chunks.csv'))
   return chunked_df
 
 
-def generate_wavs_from_chunks(chunk_duration):
-  
+def generate_wavs_from_chunks(path, chunk_duration):
+  chunk_path = os.path.join(path, 'BirdCLEF2023_train_audio_chunks')
   if not os.path.exists(chunk_path):
      os.makedirs(chunk_path)
 
@@ -45,7 +43,7 @@ def generate_wavs_from_chunks(chunk_duration):
     if row['IN FILE'] != file_name:
         
       file_name = row['IN FILE']
-      wave_file_path = os.path.join(path, 'BirdCLEF2023_train_audio', label, file_name)
+      wave_file_path = os.path.join(path, 'train_audio', label, file_name)
       wav_file = pydub.AudioSegment.from_wav(wave_file_path)
       chunk_count = 1
 
@@ -65,7 +63,8 @@ def generate_wavs_from_chunks(chunk_duration):
     chunk_count += 1
 
 
-def delete_chunks_with_len(length):
+def delete_chunks_with_len(path, length):
+  chunk_path = os.path.join(path, 'BirdCLEF2023_train_audio_chunks')
   length *= 1000
   subfolders = [f.path for f in os.scandir(chunk_path) if f.is_dir() ]   
   for subfolder in subfolders:
@@ -81,6 +80,9 @@ def delete_chunks_with_len(length):
 
 
 if __name__ == '__main__':
-  generate_chunked_df(unchunked_df)
-  # generate_wavs_from_chunks(5)
-  # delete_chunks_with_len(3)
+  if len(sys.argv) != 2:
+        print("Incorrect number of args", file=sys.stderr)
+        print("USAGE: python gen_chunks_from_labels.py /path", file=sys.stderr)
+        sys.exit(1)
+  generate_chunked_df(sys.argv[1])
+  generate_wavs_from_chunks(sys.argv[1], 5)

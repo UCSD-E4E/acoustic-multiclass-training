@@ -1,18 +1,17 @@
 import pandas as pd
 import os
+import sys
 
 # NOTE: When copying the unlabeled rows to the new csv,
 #       the floating point values are slightly different. 
 #       We believe the differences are negligable, wo we'll 
 #       ignore it.
 
-path = "/share/acoustic_species_id/"
-
 metadata_file = "train_metadata.csv"
 binary_labels_file = "BirdCLEF2023_TweetyNet_Labels.csv"
-strong_labels_file = "Test_StrongLabels.csv"
+strong_labels_file = "BirdCLEF2023_Strong_Labels.csv"
 
-def attach_labels(binary_labels_file, replace_file=False, new_file_name=strong_labels_file):
+def attach_labels(path, replace_file=False, new_file_name=strong_labels_file):
 
   if replace_file:
      print('Replacing file not implemented')
@@ -40,10 +39,6 @@ def attach_labels(binary_labels_file, replace_file=False, new_file_name=strong_l
             continue
         
         strong_label = metadata_row["primary_label"]
-
-        if strong_label != 'afpkin1' and strong_label != 'golher1':
-           continue
-
         print(strong_label)
         matching_rows['STRONG LABEL'] = [strong_label] * len(matching_rows)
 
@@ -52,4 +47,8 @@ def attach_labels(binary_labels_file, replace_file=False, new_file_name=strong_l
         strong_df.to_csv(strong_path)
 
 if __name__ == "__main__":
-  attach_labels(binary_labels_file)
+   if len(sys.argv) != 2:
+      print("Incorrect number of args", file=sys.stderr)
+      print("USAGE: python attach_strong_labels.py /path", file=sys.stderr)
+      sys.exit(1)
+   attach_labels(sys.argv[1])
