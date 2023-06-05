@@ -6,14 +6,14 @@ Welcome to the Github repository for Acoustic Species Classification - Bird Team
 
 ## Project Overview
 
-Passive acoustic monitoring (PAM) with regards to bird call plays a crucial role in conservation efforts and the preservation of biodiversity. By capturing and analyzing the sounds produced by avian species in their natural habitats, this non-invasive method provides valuable insights into population dynamics, species richness, and habitat quality, as birds may act as key indicators of larger environmental effects. However, as PAM systems may collect Terabytes of noisy audio data, with other species and human encroachment polluting the recordings, actually extracting useful information from such audio recordings (i.e. where are birds present in the recording, what species of birds are they, etc.) remains an open problem. 
+Passive acoustic monitoring (PAM) plays a crucial role in conservation efforts and the preservation of biodiversity. By capturing and analyzing the sounds produced by avian species in their natural habitats, this non-invasive method provides valuable insights into population dynamics, species richness, and habitat quality, as birds may act as key indicators of larger environmental effects. However, as PAM systems may collect terabytes of noisy audio data, with other species and human encroachment polluting the recordings, extracting useful information from such audio recordings (i.e. where are birds present in the recording, what species of birds are they, etc.) remains an open problem. 
 
 Here, we present our joint work with the UCSD [Engineers for Exploration](https://e4e.ucsd.edu/), [PyHa](https://github.com/UCSD-E4E/PyHa), and the [BirdCLEF2023 Kaggle Competition](https://www.kaggle.com/competitions/birdclef-2023), where we have designed a full pipeline for processing noisy audio recordings to train an acoustic bird species classifier.
 
 ![outline](images/main_diag.png)
 
 Our main pipeline (shown above) can be described as follows:
-1. For a given set of weakly-labeled noisy audio recordings (i.e. the entire recording may have a label for a bird species, but no information about where in the recording the call is), we use [PyHa](https://github.com/UCSD-E4E/PyHa) to extract 5s segment mel-spectrograms of the original audio, where each 5s segment is estimated to include the bird call matching the given label.
+1. For a given set of weakly-labeled noisy audio recordings (i.e. the entire recording may have a label for a bird species, but no information about where in the recording the call is), we use [PyHa](https://github.com/UCSD-E4E/PyHa) to extract 5s segment mel-spectrograms of the original audio, where each 5s segment is estimated to  include the bird call matching the given label.
 2. We use this strongly labeled mel-spectra data to train a bird species classifier (as well as an optional bird detector), which at inference time is given an unlabeled 5s audio clip and predicts which species are present in the audio.
 
 A detailed description of the project and producing it is shown below.
@@ -29,6 +29,24 @@ conda env create -f environment.yml
 ```
 
 In order to recreate our results, [PyHa](https://github.com/UCSD-E4E/PyHa) needs to be installed and set up. Furthermore, our results are based off of the [BirdCLEF2023 dataset](https://www.kaggle.com/competitions/birdclef-2023). You may also find it useful to use a  [no-call dataset](https://www.kaggle.com/code/sprestrelski/birdclef23-uniform-no-call-sound-chunks) compiled from previous competitions.
+
+### Data Setup
+The data processing pipeline assume a folder directory structure as follows
+```
+train_audio
+├── abethr1
+|   ├── XC128013.wav
+|   ├── XC363502.wav 
+|   └── XC363504.wav
+├── barswa
+|   ├── XC113914.wav  
+|   ├── XC208241.wav  
+|   └── XC324914.wav
+└── carwoo1
+    ├── XC126500.wav  
+    └── XC294063.wav
+```
+We ran into issues running PyHa over `.ogg` files, so there is an included function in `gen_tweety_labels.py` to convert `.ogg` to `.wav` files and can be swapped out for your original filetype. This is an issue for the data processing pipeline. However, the training pipeline is able to predict on most filetypes.
 
 ### Data Processing
 
@@ -77,7 +95,19 @@ To select a model, add a `model_name` parameter in `CONFIG` when instantiating `
 ```py
 self.model = timm.create_model('tf_efficientnet_b1', checkpoint_path='./models/tf_efficientnet_b1_aa-ea7a6ee0.pth')
 ```
-
+#### Training Binary Classification Models
+To train a binary classification rather than multi-class model, merge all “bird” chunks into a single folder and “no bird”/“no call”/”noise” into another. In `CONFIG`, set `num_classes` to 2. The directory structure should look as follows:
+```
+train_audio
+├── bird
+|   ├── XC120632_2.wav
+|   ├── XC120632_3.wav 
+|   └── XC603432_1.wav
+└── no_bird
+    ├── nocall_122187_0.wav
+    └── noise_30sec_1084_4.wav
+```
+You can produce your own no-call dataset from [this notebook](https://www.kaggle.com/code/sprestrelski/birdclef23-uniform-no-call-sound-chunks), which pulls data from previous BirdCLEF competitions and DCASE 2018
 
 ### Inference 
 The `inference.ipynb` notebook can be directly uploaded to and run on Kaggle. In the import section, the notebook takes in a local path to a pretrained checkpoint (can be replaced with a `timm` fetched model) with the model architecture and to the final model. Replicate any changes you made to the BirdCLEFModel class, or directly import from `train.py` if running on a local machine.
@@ -95,5 +125,3 @@ Under the inference section, modify the `pd.read_csv` line to your training meta
 - [Lorenzo Mendes](https://github.com/lmendes14)
 - [Arthi Haripriyan](https://github.com/aharipriyan)
 - [Zachary Novack](https://github.com/ZacharyNovack)
-
-
