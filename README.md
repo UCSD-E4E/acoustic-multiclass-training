@@ -4,6 +4,11 @@
 
 Welcome to the Github repository for Acoustic Species Classification - Bird Team 1, as part of the UC San Diego CSE 145/237D course project. Below is an overview of the project itself, details on navigating the repository and reproducing results, and links to written reports on the project throughout the quarter.
 
+## Contents
+- [Project Overview](#project-overview)
+- [Replication](#replication)
+- [Class Materials](#class-materials)
+
 ## Project Overview
 
 Passive acoustic monitoring (PAM) plays a crucial role in conservation efforts and the preservation of biodiversity. By capturing and analyzing the sounds produced by avian species in their natural habitats, this non-invasive method provides valuable insights into population dynamics, species richness, and habitat quality, as birds may act as key indicators of larger environmental effects. However, as PAM systems may collect terabytes of noisy audio data, with other species and human encroachment polluting the recordings, extracting useful information from such audio recordings (i.e. where are birds present in the recording, what species of birds are they, etc.) remains an open problem. 
@@ -95,6 +100,12 @@ To select a model, add a `model_name` parameter in `CONFIG` when instantiating `
 ```py
 self.model = timm.create_model('tf_efficientnet_b1', checkpoint_path='./models/tf_efficientnet_b1_aa-ea7a6ee0.pth')
 ```
+
+#### Logging
+This project is set up with [WandB](https://wandb.ai), a dashboard to keep track of hyperparameters and system metrics. You’ll need to make an account and login locally to use it. WandB is extremely helpful for comparing models live and visualizing the training process.
+
+![](images/SampleWandBOutputs.PNG)
+ 
 #### Training Binary Classification Models
 To train a binary classification rather than multi-class model, merge all “bird” chunks into a single folder and “no bird”/“no call”/”noise” into another. In `CONFIG`, set `num_classes` to 2. The directory structure should look as follows:
 ```
