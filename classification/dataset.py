@@ -8,14 +8,18 @@ import numpy as np
 import argparse
 import os
 from functools import partial
+import librosa
+import shutil
+from tqdm import tqdm
+import random
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 parser = argparse.ArgumentParser()
 parser.add_argument('-e', '--epochs', default=10, type=int)
 parser.add_argument('-nf', '--num_fold', default=5, type=int)
 parser.add_argument('-nc', '--num_classes', default=264, type=int)
-parser.add_argument('-tbs', '--train_batch_size', default=32, type=int)
-parser.add_argument('-vbs', '--valid_batch_size', default=32, type=int)
+parser.add_argument('-tbs', '--train_batch_size', default=14, type=int)
+parser.add_argument('-vbs', '--valid_batch_size', default=14, type=int)
 parser.add_argument('-sr', '--sample_rate', default=32_000, type=int)
 parser.add_argument('-hl', '--hop_length', default=512, type=int)
 parser.add_argument('-mt', '--max_time', default=5, type=int)
@@ -34,13 +38,21 @@ parser.add_argument('-p', '--p', default=0, type=float, help='p for mixup')
 #https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
 
 class BirdCLEFDataset(datasets.DatasetFolder):
-    def __init__(self, root, loader=None, CONFIG=None, max_time=5):
-        super().__init__(root, loader, extensions='wav')
+    def __init__(self, root, loader=None, CONFIG=None, max_time=5, unchunked=False):
+        super().__init__(root, loader, extensions=['wav'])
         self.config = CONFIG
         target_sample_rate = CONFIG.sample_rate
         self.target_sample_rate = target_sample_rate
         num_samples = target_sample_rate * max_time
         self.num_samples = num_samples
+        self.max_time = max_time
+        self.unchunked = unchunked
+
+        if (unchunked):
+            self.chunk_samples()
+        #TODO: ADD CASES TO HANDLE THIS
+        #self.chunk_samples()
+
 
     def find_classes(self, directory: str) -> Tuple[List[str], Dict[str, int]]:
         # modify default find_classes to ignore empty folders
@@ -53,14 +65,22 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         self.class_id_to_num_samples = {i: len(os.listdir(os.path.join(directory, cls_name))) for i, cls_name in enumerate(classes)}
         return classes, class_to_idx
     
+    
+    def __len__(self):
+        return len(self.samples)
+    
     def __getitem__(self, index):
-        path, cl = self.samples[index]
-        audio, sample_rate = torchaudio.load(path)
-        audio = self.to_mono(audio)
+        if (not self.unchunked):
+            path, cl = self.samples[index]
+            audio = self.load_audio(path)
+        else:
+            path, cl, start, end = self.samples[index]
+            audio = self.load_audio(path)
+            audio = audio[start:end]
+
+
+        #path = "../acoustic-species-classification/BirdCLEF2023_split_chunks/validation/babwar/XC137588.wav"
         
-        if sample_rate != self.target_sample_rate:
-            resample = audtr.Resample(sample_rate, self.target_sample_rate)
-            audio = resample(audio)
         
         if audio.shape[0] > self.num_samples:
             audio = self.crop_audio(audio)
@@ -83,8 +103,29 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         # one hot target
         target = torch.zeros(self.num_classes)
         target[cl] = 1
+        
+        if (torch.any(torch.isnan(image))):
+            print("ERROR NAN", path)
+            image = torch.zeros(image.shape)
+
+ 
         return image, target
-            
+
+
+    def load_audio(self, path):
+        audio, sample_rate = torchaudio.load(path)
+        audio = self.to_mono(audio)
+        if sample_rate != self.target_sample_rate:
+            resample = audtr.Resample(sample_rate, self.target_sample_rate)
+            try:
+                audio = resample(audio)
+            except Exception as e:
+                print(e)
+                print(path, audio.shape[0])
+                print(type(self.samples))
+                shutil.move(path, "../acoustic-species-classification/bad_files")
+        return audio
+
     def pad_audio(self, audio):
         pad_length = self.num_samples - audio.shape[0]
         last_dim_padding = (0, pad_length)
@@ -92,10 +133,42 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         return audio
         
     def crop_audio(self, audio):
-        return audio[:self.num_samples]
+        audio  = self.random_chunk(audio)
+        return audio #audio[:self.num_samples]
         
     def to_mono(self, audio):
         return torch.mean(audio, axis=0)
+    
+    def chunk_samples(self):
+        new_samples = []
+        print("chunking data")
+        for path, cl in tqdm(self.samples):
+            duration = librosa.get_duration(path=path)
+            chunks = int(duration // self.max_time)
+            
+            if (chunks == 0):
+                new_samples.append((path, cl, 0, self.num_samples))
+            else:
+                for i in range(chunks):
+                    new_samples.append((path, cl, self.num_samples*i, self.num_samples*(i+1)))
+        
+        #randomize to avoid bad fit
+
+        random.shuffle(new_samples)
+
+        self.samples = new_samples
+        print("chunking complete! Big data moment")
+
+    #TODO MAKE PANDAS DF FOR EASIER STORAGE
+    def get_samples(self):
+        return self.samples
+
+    def random_chunk(self, audio):
+        start = np.random.randint(audio.shape[0] - self.num_samples - 1)
+        audio = audio[start:start + self.num_samples]
+        return audio
+
+        
     
     @staticmethod
     def collate(batch, p=0.3):
@@ -116,8 +189,8 @@ class BirdCLEFDataset(datasets.DatasetFolder):
 
 
 def get_datasets(path="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=None):
-    train_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/training", CONFIG=CONFIG)
-    val_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/validation", CONFIG=CONFIG)
+    train_data = BirdCLEFDataset(root="../acoustic-species-classification/BirdCLEF2023_split_chunks/training", CONFIG=CONFIG, unchunked=True)
+    val_data = BirdCLEFDataset(root="../acoustic-species-classification/BirdCLEF2023_split_chunks/validation", CONFIG=CONFIG, unchunked=True)
     #data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=CONFIG)
     #no_bird_data = BirdCLEFDataset(root="/share/acoustic_species_id/no_bird_10_000_audio_chunks", CONFIG=CONFIG)
     #data = torch.utils.data.ConcatDataset([data, no_bird_data])
@@ -127,23 +200,48 @@ def get_datasets(path="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunk
 if __name__ == '__main__':
     CONFIG = parser.parse_args()
     CONFIG.logging = True if CONFIG.logging == 'True' else False
+    train_data = BirdCLEFDataset(root="../acoustic-species-classification/BirdCLEF2023_split_chunks", CONFIG=CONFIG)
+    print(len(train_data), len(train_data.samples))
+    train_data = BirdCLEFDataset(root="../acoustic-species-classification/BirdCLEF2023_split_chunks", CONFIG=CONFIG, unchunked=True)
+    print(len(train_data), len(train_data.samples))
+    
+    print(train_data.__getitem__(0))
+    
+    #for idx in tqdm(range(len(train_data.samples))):
+    #    train_data.__getitem__(idx)
+    # for path, cl in train_data.samples:
+    #     try:
+    #         audio, sample_rate = torchaudio.load(path)
+    #     except:
+    #         os.remove(path)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     # torch.manual_seed(CONFIG.seed)
-    train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset,
-        CONFIG.train_batch_size,
-        shuffle=True,
-        num_workers=CONFIG.jobs,
-        collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
-    )
-    val_dataloader = torch.utils.data.DataLoader(
-        val_dataset,
-        CONFIG.valid_batch_size,
-        shuffle=False,
-        num_workers=CONFIG.jobs,
-        collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
-    )
-    for batch in train_dataloader:
-        print(batch[0].shape)
-        print(batch[1].shape)
-        break
+    # train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
+    # train_dataloader = torch.utils.data.DataLoader(
+    #     train_dataset,
+    #     CONFIG.train_batch_size,
+    #     shuffle=True,
+    #     num_workers=CONFIG.jobs,
+    #     collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
+    # )
+    # val_dataloader = torch.utils.data.DataLoader(
+    #     val_dataset,
+    #     CONFIG.valid_batch_size,
+    #     shuffle=False,
+    #     num_workers=CONFIG.jobs,
+    #     collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
+    # )
+    # for batch in train_dataloader:
+    #     print(batch[0].shape)
+    #     print(batch[1].shape)
+    #     break

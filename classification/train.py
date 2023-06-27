@@ -34,9 +34,9 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 parser = argparse.ArgumentParser()
 parser.add_argument('-e', '--epochs', default=10, type=int)
 parser.add_argument('-nf', '--num_fold', default=5, type=int)
-parser.add_argument('-nc', '--num_classes', default=264, type=int)
-parser.add_argument('-tbs', '--train_batch_size', default=32, type=int)
-parser.add_argument('-vbs', '--valid_batch_size', default=32, type=int)
+parser.add_argument('-nc', '--num_classes', default=574, type=int)
+parser.add_argument('-tbs', '--train_batch_size', default=16, type=int)
+parser.add_argument('-vbs', '--valid_batch_size', default=16, type=int)
 parser.add_argument('-sr', '--sample_rate', default=32_000, type=int)
 parser.add_argument('-hl', '--hop_length', default=512, type=int)
 parser.add_argument('-mt', '--max_time', default=5, type=int)
@@ -46,7 +46,7 @@ parser.add_argument('-s', '--seed', default=0, type=int)
 parser.add_argument('-j', '--jobs', default=4, type=int)
 parser.add_argument('-l', '--logging', default='True', type=str)
 parser.add_argument('-lf', '--logging_freq', default=20, type=int)
-parser.add_argument('-vf', '--valid_freq', default=2000, type=int)
+parser.add_argument('-vf', '--valid_freq', default=16000, type=int)
 parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)
 parser.add_argument('-md', '--map_debug', action='store_true')
 parser.add_argument('-p', '--p', default=0, type=float, help='p for mixup')
@@ -86,7 +86,12 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
         
         if scheduler is not None:
             scheduler.step()
-            
+
+        if np.isnan(loss.item()):
+            print(mels)
+            print(labels)
+            print(outputs)
+            raise "NAN ERROR"   
         running_loss += loss.item()
         total += labels.size(0)
         correct += torch.all(preds.eq(labels), dim=-1).sum().item()
@@ -217,6 +222,7 @@ def init_wandb(CONFIG):
     return run
 
 if __name__ == '__main__':
+    print(device)
     CONFIG = parser.parse_args()
     print(CONFIG)
     CONFIG.logging = True if CONFIG.logging == 'True' else False
@@ -224,8 +230,10 @@ if __name__ == '__main__':
     set_seed()
     print("Loading Model...")
     model = BirdCLEFModel(CONFIG=CONFIG).to(device)
-    if CONFIG.model_checkpoint is not None:
-        model.load_state_dict(torch.load(CONFIG.model_checkpoint))
+    
+    #if CONFIG.model_checkpoint is not None:
+    #model.load_pretrain_checkpoint("EFN-10-16-16-32000-512-5-224-1024-0-57.pt", remove_pretrained_fc=False)
+        
     optimizer = Adam(model.parameters(), lr=CONFIG.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
     print("Model / Optimizer Loading Succesful :P")
@@ -237,7 +245,7 @@ if __name__ == '__main__':
         CONFIG.train_batch_size,
         shuffle=True,
         num_workers=CONFIG.jobs,
-        collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
+        collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p),
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,

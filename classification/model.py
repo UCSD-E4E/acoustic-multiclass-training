@@ -27,7 +27,7 @@ class GeM(nn.Module):
 
 class BirdCLEFModel(nn.Module):
     def __init__(self, 
-                 model_name="tf_efficientnet_b4", 
+                 model_name="tf_efficientnet_b1", 
                  embedding_size=768, 
                  pretrained=True,
                  CONFIG=None):
@@ -40,7 +40,22 @@ class BirdCLEFModel(nn.Module):
         self.pooling = GeM()
         self.embedding = nn.Linear(in_features, embedding_size)
         self.fc = nn.Linear(embedding_size, CONFIG.num_classes)
+        self.embedding_size = embedding_size
     
+    def load_pretrain_checkpoint(self, pretrain_path, remove_pretrained_fc=True):
+        #Load in a pretrained model (that used this class)
+        pretrained_model = torch.load(pretrain_path)
+
+        #remove potnetially conflicting layers 
+        #due to class size differences
+        if(remove_pretrained_fc):
+            pretrained_model.pop("fc.weight")
+            pretrained_model.pop("fc.bias")
+
+        #Load in model so it overwrites only the weights we care about
+        self.load_state_dict(pretrained_model, strict=False)
+        print("pretrained checkpoint loaded :P")
+
     def forward(self, images):
         features = self.model(images)
         pooled_features = self.pooling(features).flatten(1)
