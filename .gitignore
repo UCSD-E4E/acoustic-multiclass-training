@@ -16,3 +16,5 @@ data-augmentation/find_failing_species.py
 data-augmentation/birdclef2023_tweety_labels_log.txt
 data-augmentation/__pycache__/*
 data-augmentation/gen_data_stats.py
+*.mp3
+cosmos_labeled_data_files_added.csv
