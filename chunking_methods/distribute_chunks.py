@@ -3,6 +3,7 @@ import shutil
 import sys
 from random import shuffle
 from math import floor
+from file_utils import clear_files
 
 
 VALIDATION_DISTR = 0.2
@@ -98,23 +99,6 @@ def distribute_chunks(path):
 
                 for chunk in chunks:
                     shutil.copyfile(chunk, os.path.join(chunk_path_dst, chunk.split('/')[-1]))
-
-
-def clear_files(path):
-
-  subfolders = [f.path for f in os.scandir(path) if f.is_dir()]
-
-  for s in subfolders:
-      
-      subfolders_type = [f.path for f in os.scandir(s) if f.is_dir()]
-
-      for s_type in subfolders_type:
-      
-        files = [f.path for f in os.scandir(s_type) if f.is_file()]
-
-        for file in files:
-            os.remove(file)
-
 
 
 if __name__ == '__main__':

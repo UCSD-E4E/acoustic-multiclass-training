@@ -4,6 +4,7 @@ import shutil
 from random import shuffle
 from random import choice
 from math import floor
+from file_utils import clear_files
 
 chunk_path_old = '/share/acoustic_species_id/pretraining_combined'
 chunk_path_new = '/share/acoustic_species_id/pretraining_combined_resampled'
@@ -52,17 +53,8 @@ def distribute_files():
             shutil.copyfile(os.path.join(s, file), os.path.join(s_path, file.split('/')[-1]))
     print(downsampled_classes)
     print(upsampled_classes)
- 
 
 
-def clear_files(path):
-    subfolders = [f.path for f in os.scandir(path) if f.is_dir()]
-    for s in subfolders:
-        subfolders_type = [f.path for f in os.scandir(s) if f.is_dir()]
-        for s_type in subfolders_type:
-            files = [f.path for f in os.scandir(s_type) if f.is_file()]
-            for file in files:
-                os.remove(file)
 
 if __name__ == '__main__':
     clear_files(chunk_path_new)
