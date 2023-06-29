@@ -7,8 +7,14 @@ import torchaudio
 import timm
 
 #https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
-# generalize mean pooling
 class GeM(nn.Module):
+    """ Layer that applies 2d Generalized Mean Pooling (GeM) on an input tensor
+        Args:
+            p: power for generalized mean pooling
+            eps: epsilon (avoid zero division)
+        
+        Layer applies the function ((x_1^p + x_2^p + ... + x_n^p)/n)^(1/p) as compared to max pooling 2d which does something like max(x_1, x_2, ..., x_n)
+    """
     def __init__(self, p=3, eps=1e-6):
         super(GeM, self).__init__()
         self.p = nn.Parameter(torch.ones(1)*p)
@@ -18,9 +24,13 @@ class GeM(nn.Module):
         return self.gem(x, p=self.p, eps=self.eps)
         
     def gem(self, x, p=3, eps=1e-6):
+        """ Applies generalized mean pooling on an input tensor
+        """
         return F.avg_pool2d(x.clamp(min=eps).pow(p), (x.size(-2), x.size(-1))).pow(1./p)
         
     def __repr__(self):
+        """ Returns a string representation of the object
+        """
         return self.__class__.__name__ + \
                 '(' + 'p=' + '{:.4f}'.format(self.p.data.tolist()[0]) + \
                 ', ' + 'eps=' + str(self.eps) + ')'
