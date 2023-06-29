@@ -8,14 +8,16 @@ import numpy as np
 import argparse
 import os
 from functools import partial
+import librosa
+from pydub import AudioSegment
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 parser = argparse.ArgumentParser()
 parser.add_argument('-e', '--epochs', default=10, type=int)
 parser.add_argument('-nf', '--num_fold', default=5, type=int)
 parser.add_argument('-nc', '--num_classes', default=264, type=int)
-parser.add_argument('-tbs', '--train_batch_size', default=32, type=int)
-parser.add_argument('-vbs', '--valid_batch_size', default=32, type=int)
+parser.add_argument('-tbs', '--train_batch_size', default=1, type=int)
+parser.add_argument('-vbs', '--valid_batch_size', default=1, type=int)
 parser.add_argument('-sr', '--sample_rate', default=32_000, type=int)
 parser.add_argument('-hl', '--hop_length', default=512, type=int)
 parser.add_argument('-mt', '--max_time', default=5, type=int)
@@ -29,6 +31,24 @@ parser.add_argument('-vf', '--valid_freq', default=2000, type=int)
 parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)
 parser.add_argument('-md', '--map_debug', action='store_true')
 parser.add_argument('-p', '--p', default=0, type=float, help='p for mixup')
+parser.add_argument('-st', '--start_time_col', default='OFFSET', type=str)
+parser.add_argument('-et', '--end_time_col', default='DURATION', type=str)
+parser.add_argument('-fp', '--file_path_col', default='IN FILE', type=str)
+parser.add_argument('-mi', '--manual_id_col', default='SCIENTIFIC', type=str)
+parser.add_argument('-i', '--imb', action='store_true', help='imbalance sampler')
+parser.add_argument('-pw', "--pos_weight", type=float, default=1, help='pos weight')
+parser.add_argument('-lr', "--lr", type=float, default=1e-3, help='learning rate')
+parser.add_argument('-mp', "--mix_p", type=float, default=0.4, help='mixup p')
+parser.add_argument('-cpa', "--cutmix_alpha", type=float, default=2.5, help='cutmix alpha')
+parser.add_argument('-mpa', "--mixup_alpha", type=float, default=0.6, help='mixup alpha')
+parser.add_argument('-tsp', "--time_shift_p", type=float, default=0, help='time shift p')
+parser.add_argument('-np', "--noise_p", type=float, default=0.35, help='noise p')
+parser.add_argument('-nsd', "--noise_std", type=float, default=0.005, help='noise std')
+parser.add_argument('-fmp', "--freq_mask_p", type=float, default=0.5, help='freq mask p')
+parser.add_argument('-fmpa', "--freq_mask_param", type=int, default=10, help='freq mask param')
+parser.add_argument("-tmp", "--time_mask_p", type=float, default=0.5, help='time mask p')
+parser.add_argument("-tmpa", "--time_mask_param", type=int, default=25, help='time mask param')
+parser.add_argument('-sm', '--smoothing', type=float, default=0.05, help='label smoothing')
 
 
 #https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
@@ -334,12 +354,16 @@ class FastCollateMixup(Mixup):
         target = target[:batch_size]
         return output, target
 
+from torch.utils.data import Dataset
+import pandas as pd
 
-
-class BirdCLEFDataset(datasets.DatasetFolder):
-    def __init__(self, root, loader=None, CONFIG=None, max_time=5, train=True):
-        super().__init__(root, loader, extensions='wav')
+class BirdCLEFDataset(Dataset): #datasets.DatasetFolder
+    def __init__(self, csv_file, loader=None, CONFIG=None, max_time=5, train=True, species=None):
+        super()#.__init__(root, loader, extensions='wav')
+        self.samples = pd.read_csv(csv_file)
+        #print(self.samples)
         self.config = CONFIG
+        self.ignore_bad = True
         target_sample_rate = CONFIG.sample_rate
         self.target_sample_rate = target_sample_rate
         num_samples = target_sample_rate * max_time
@@ -359,26 +383,124 @@ class BirdCLEFDataset(datasets.DatasetFolder):
             switch_prob=0.5
         )
 
-    def find_classes(self, directory: str) -> Tuple[List[str], Dict[str, int]]:
-        # modify default find_classes to ignore empty folders
-        classes = sorted(entry.name for entry in os.scandir(directory) if entry.is_dir())
-        # filter
-        classes = [cls_name for cls_name in classes if len(os.listdir(os.path.join(directory, cls_name))) > 0]
-        classes.sort()
-        class_to_idx = {cls_name: i for i, cls_name in enumerate(classes)}
-        self.num_classes = len(classes)
-        self.class_id_to_num_samples = {i: len(os.listdir(os.path.join(directory, cls_name))) for i, cls_name in enumerate(classes)}
-        return classes, class_to_idx
-    
-    def __getitem__(self, index):
-        path, target = self.samples[index]
+        if (species is not None):
+            #TODO FIX REPLICATION CODE
+            self.classes, self.class_to_idx = species
+        else:
+            self.classes = self.samples[self.config.manual_id_col].unique()
+            class_idx = np.arange(len(self.classes))
+            self.class_to_idx = dict(zip(self.classes, class_idx))
+            #print(self.class_to_idx)
+
+        self.verify_audio_files()
+        self.format_audio()
+        #self.samples[self.config.file_path_col] = self.samples[self.config.file_path_col].apply(self.convert_file_type)
+        
+
+    def verify_audio_files(self):
+        test_df = self.samples[self.config.file_path_col].apply(lambda path: (
+            "SUCCESS" if os.path.exists(path) else path
+        ))
+        missing_files = test_df[test_df != "SUCCESS"].unique()
+        if (missing_files.shape[0] > 0 and not self.ignore_bad):
+            print(missing_files)
+            raise "ERROR MISSING FILES, CHECK DATAFRAME"
+            return False
+        elif (self.ignore_bad):
+            print("ignoring", missing_files.shape[0], "missing files")
+            self.samples = self.samples[
+                ~self.samples[self.config.file_path_col].isin(missing_files)
+            ]
+        
+        print(self.samples.shape[0],"files in use")
+
+        return True
+
+    def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
+        return self.classes, self.class_to_idx
+
+    def format_audio(self):
+        files = pd.DataFrame(
+            self.samples[self.config.file_path_col].unique(),
+            columns=["files"])
+        files = files["files"].apply(self.resample_audio_file)
+        self.samples = self.samples.merge(files, how="left", 
+                       left_on=self.config.file_path_col,
+                       right_on="IN FILE")
+        
+        self.samples["original_file_path"] = self.samples[self.config.file_path_col]
+        self.samples[self.config.file_path_col] = self.samples["files"].copy()
+        self.samples.to_csv("better.csv")
+        #print(self.samples[self.config.file_path_col].iloc[0], self.config.file_path_col)
+        
+
+    def resample_audio_file(self, path):
         audio, sample_rate = torchaudio.load(path)
-        audio = self.to_mono(audio)
+        changed = False
+
+        if (len(audio.shape) > 1):
+            audio = self.to_mono(audio)
+            changed = True
         
         if sample_rate != self.target_sample_rate:
             resample = audtr.Resample(sample_rate, self.target_sample_rate)
             audio = resample(audio)
+            changed = True
         
+        extension = path.split(".")[-1]
+        new_path = path.replace(extension, "wav")
+
+        if (new_path != path or changed):
+            #output of mono is a col vector
+            #torchaudio expects a waveform as row vector
+            #hence the reshape
+            torchaudio.save(
+                new_path,
+                audio.reshape([1, -1]),
+                self.target_sample_rate
+            )
+
+        return pd.Series(
+            {
+            "IN FILE": path,    
+            "files": new_path,
+            }
+        ).T
+            
+        
+            
+    
+    def __len__(self):
+        return self.samples.shape[0]
+    
+    def __getitem__(self, index):
+        annotation = self.samples.iloc[index]
+        path = annotation[self.config.file_path_col]
+
+        #sample_per_sec was defined as total_samples_in_audio/duration
+        #resampling in practice doesn't do extactly target_sample_rate
+        #Its close enough so we remove that computation
+        sample_per_sec = self.target_sample_rate
+
+        #TODO requires int, does this make sense?
+        frame_offset = int(annotation[self.config.start_time_col] * sample_per_sec)
+        num_frames = int(annotation[self.config.end_time_col] * sample_per_sec)
+
+        target = self.class_to_idx[annotation[self.config.manual_id_col]]
+
+        audio, sample_rate = torchaudio.load(
+            path,
+            frame_offset=frame_offset,
+            num_frames=num_frames)
+        
+        print(audio.shape, frame_offset, num_frames, sample_per_sec, num_frames/sample_per_sec, annotation[self.config.start_time_col], annotation[self.config.end_time_col])
+        
+        #Assume audio is all mono and at target sample rate
+        assert audio.shape[0] == 1
+        assert sample_rate == self.target_sample_rate
+        audio = self.to_mono(audio) #basically reshapes to col vect
+        
+
         if audio.shape[0] > self.num_samples:
             audio = self.crop_audio(audio)
             
@@ -396,6 +518,25 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         mel = self.mel_spectogram(audio)
         # label = torch.tensor(self.labels[index])
         
+
+        ##TODO: DELETE
+        import matplotlib.pyplot as plt
+        import librosa
+        def plot_spectrogram(specgram, title=None, ylabel="freq_bin", ax=None):
+            if ax is None:
+                _, ax = plt.subplots(1, 1)
+            if title is not None:
+                ax.set_title(title)
+            ax.set_ylabel(ylabel)
+            ax.imshow(librosa.power_to_db(specgram), origin="lower", aspect="auto", interpolation="nearest")
+            plt.show(block=False)
+        
+        fig, axs = plt.subplots(2, 1)
+        #plot_waveform(SPEECH_WAVEFORM, SAMPLE_RATE, title="Original waveform", ax=axs[0])
+        plot_spectrogram(mel, title="spectrogram", ax=axs[1])
+        fig.tight_layout()
+
+
         # Convert to Image
         image = torch.stack([mel, mel, mel])
         
@@ -422,37 +563,41 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         return torch.mean(audio, axis=0)
     
 
+    
+
 
 
 def get_datasets(path="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=None):
-    train_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/training", CONFIG=CONFIG)
-    val_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/validation", CONFIG=CONFIG)
+    return BirdCLEFDataset(csv_file="C:/Users/seanh/Desktop/E4E/acoustic-species-classification/test.csv", CONFIG=CONFIG)
+    
+    #train_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/training", CONFIG=CONFIG)
+    #val_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/validation", CONFIG=CONFIG)
     #data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=CONFIG)
     #no_bird_data = BirdCLEFDataset(root="/share/acoustic_species_id/no_bird_10_000_audio_chunks", CONFIG=CONFIG)
     #data = torch.utils.data.ConcatDataset([data, no_bird_data])
     #train_data, val_data = torch.utils.data.random_split(data, [0.8, 0.2])
-    return train_data, val_data
+    #return train_data, val_data
 
 if __name__ == '__main__':
     CONFIG = parser.parse_args()
     CONFIG.logging = True if CONFIG.logging == 'True' else False
     # torch.manual_seed(CONFIG.seed)
-    train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
+    #train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
+    train_dataset = get_datasets(CONFIG=CONFIG)
+
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        CONFIG.train_batch_size,
+        1,
         shuffle=True,
         num_workers=CONFIG.jobs,
-        collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
     )
-    val_dataloader = torch.utils.data.DataLoader(
-        val_dataset,
-        CONFIG.valid_batch_size,
-        shuffle=False,
-        num_workers=CONFIG.jobs,
-        collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
-    )
+    # val_dataloader = torch.utils.data.DataLoader(
+    #     val_dataset,
+    #     CONFIG.valid_batch_size,
+    #     shuffle=False,
+    #     num_workers=CONFIG.jobs,
+    #     collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
+    # )
     for batch in train_dataloader:
-        print(batch[0].shape)
-        print(batch[1].shape)
+
         break
