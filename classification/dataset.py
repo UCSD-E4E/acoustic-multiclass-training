@@ -360,6 +360,7 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         self.mel_spectogram = audtr.MelSpectrogram(sample_rate=self.target_sample_rate, 
                                         n_mels=self.config.n_mels, 
                                         n_fft=self.config.n_fft)
+        self.mel_spectogram.cuda(device)
         self.train = train
         self.freq_mask = audtr.FrequencyMasking(freq_mask_param=self.config.freq_mask_param)
         self.time_mask = audtr.TimeMasking(time_mask_param=self.config.time_mask_param)
@@ -387,9 +388,11 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         path, target = self.samples[index]
         audio, sample_rate = torchaudio.load(path)
         audio = self.to_mono(audio)
+        audio = audio.to(device)
         
         if sample_rate != self.target_sample_rate:
             resample = audtr.Resample(sample_rate, self.target_sample_rate)
+            resample.cuda(device)
             audio = resample(audio)
         
         if audio.shape[0] > self.num_samples:
