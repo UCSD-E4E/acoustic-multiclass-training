@@ -1,3 +1,7 @@
+""" Stores default argument information for the argparser
+    Methods:
+        create_parser: returns an ArgumentParser with the default arguments
+"""
 import argparse
 
 def create_parser():

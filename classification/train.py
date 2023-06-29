@@ -1,3 +1,13 @@
+"""
+    Contains the training and validation function and logging to Weights and Biases
+    Methods:
+        train: trains the model
+        valid: calculates validation loss and accuracy
+        set_seed: sets the random seed
+        init_wandb: initializes the Weights and Biases logging
+        
+
+"""
 # pytorch training
 import torch
 import torch.nn as nn
@@ -175,6 +185,8 @@ def valid(model, data_loader, device, step, pad_n=5):
     return running_loss/len(data_loader), valid_map
 
 def set_seed():
+    """ Sets numpy and pytorch seeds to the CONFIG.seed
+    """
     np.random.seed(CONFIG.seed)
     torch.manual_seed(CONFIG.seed)
 

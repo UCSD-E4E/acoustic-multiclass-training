@@ -1,3 +1,11 @@
+""" Contains methods for loading the dataset and also creates dataloaders for training and validation
+    
+    BirdCLEFDataset is a generic loader with a given root directory. It loads the audio files and converts them to mel spectrograms.
+    get_datasets returns the train and validation datasets as BirdCLEFDataset objects.
+    
+    If this module is run directly, it tests that the dataloader works and prints the shape of the first batch.
+
+"""
 from typing import Dict, List, Tuple
 import torch
 import torchaudio

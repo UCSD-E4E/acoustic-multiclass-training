@@ -1,3 +1,9 @@
+""" Contains the model class and the Generalized Mean Pooling layer
+
+    GeM: generalized mean pooling layer
+    BirdCLEFModel: model with forward pass method
+
+"""
 import torch
 import torch.nn as nn
 from torch.optim import Adam
