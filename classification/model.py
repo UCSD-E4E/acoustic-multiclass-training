@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 import torch.nn.functional as F
-import torchaudio 
 
 # timm is a library of premade models
 import timm

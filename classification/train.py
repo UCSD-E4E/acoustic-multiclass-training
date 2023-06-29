@@ -3,13 +3,8 @@ import torch
 import torch.nn as nn
 from torch.optim import Adam
 import torch.nn.functional as F
-import torchaudio 
-
-import timm
 
 # general
-import librosa
-import os
 import numpy as np
 
 # logging
@@ -21,12 +16,8 @@ time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 from dataset import BirdCLEFDataset, get_datasets
 from model import BirdCLEFModel, GeM
 from tqdm import tqdm
-# # cmap metrics
-# import pandas as pd
-from sklearn.metrics import f1_score, average_precision_score
-from sklearn.preprocessing import label_binarize
+
 from torchmetrics.classification import MultilabelAveragePrecision
-from functools import partial
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
