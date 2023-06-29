@@ -4,6 +4,7 @@ from torch.optim import Adam
 import torch.nn.functional as F
 import torchaudio 
 
+# timm is a library of premade models
 import timm
 
 #https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
@@ -43,6 +44,7 @@ class BirdCLEFModel(nn.Module):
                  CONFIG=None):
         super(BirdCLEFModel, self).__init__()
         self.config = CONFIG
+        # Load in the efficientnet_b4 model preset
         self.model = timm.create_model(model_name, pretrained=pretrained)
         in_features = self.model.classifier.in_features
         self.model.classifier = nn.Identity()

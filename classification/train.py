@@ -71,6 +71,7 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
         log_n += 1
 
         if i % (CONFIG.logging_freq) == 0 or i == len(data_loader) - 1:
+            #Log to Weights and Biases
             wandb.log({
                 "train/loss": log_loss / log_n,
                 "train/accuracy": correct / total * 100.,
@@ -105,7 +106,9 @@ def valid(model, data_loader, device, step, pad_n=5):
     pred = []
     label = []
     
+    # tqdm is a progress bar
     dl = tqdm(data_loader, position=5)
+    
     if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
         pred = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
         label = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
@@ -170,6 +173,7 @@ def valid(model, data_loader, device, step, pad_n=5):
     
     print("Validation mAP:", valid_map)
     
+    # Log to Weights and Biases
     wandb.log({
         "valid/loss": running_loss/len(data_loader),
         "valid/cmap": valid_map,
@@ -185,6 +189,8 @@ def set_seed():
 
 
 def init_wandb(CONFIG):
+    """ Initialize the weights and biases logging
+    """
     run = wandb.init(
         project="birdclef-2023",
         config=CONFIG,
