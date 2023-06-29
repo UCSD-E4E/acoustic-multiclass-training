@@ -43,6 +43,8 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         )
 
     def find_classes(self, directory: str) -> Tuple[List[str], Dict[str, int]]:
+        """ Finds the classes from a directory and returns a tuple of (a list of class names, a dictionary of class names to indexes)
+        """
         # modify default find_classes to ignore empty folders
         classes = sorted(entry.name for entry in os.scandir(directory) if entry.is_dir())
         # filter
@@ -54,30 +56,37 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         return classes, class_to_idx
     
     def __getitem__(self, index):
+        """ Returns a tuple of (image,label) for a sample with given index
+        """
+        
+        # Load audio
         path, target = self.samples[index]
         audio, sample_rate = torchaudio.load(path)
         audio = self.to_mono(audio)
         audio = audio.to(device)
         
+        # Resample
         if sample_rate != self.target_sample_rate:
             resample = audtr.Resample(sample_rate, self.target_sample_rate)
             resample.cuda(device)
             audio = resample(audio)
         
+        # Crop if too long
         if audio.shape[0] > self.num_samples:
             audio = self.crop_audio(audio)
-            
+        # Pad if too short
         if audio.shape[0] < self.num_samples:
             audio = self.pad_audio(audio)
-        
-        if self.train and torch.rand(1) < self.config.time_shift_p: # randomly shift audio
+        # Randomly shift audio
+        if self.train and torch.rand(1) < self.config.time_shift_p:
             shift = torch.randint(0, self.num_samples, (1,))
             audio = torch.roll(audio, shift, dims=1)
-        
-        if self.train and torch.randn(1) < self.config.noise_p: # add noise
+        # Add noise
+        if self.train and torch.randn(1) < self.config.noise_p:
             noise = torch.randn_like(audio) * self.config.noise_std
             audio = audio + noise
 
+        # Mel spectrogram
         mel = self.mel_spectogram(audio)
         # label = torch.tensor(self.labels[index])
         
@@ -87,20 +96,26 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         # Normalize Image
         max_val = torch.abs(image).max()
         image = image / max_val
-
+        
+        # Frequency masking and time masking
         if self.train and torch.randn(1) < self.config.freq_mask_p:
             image = self.freq_mask(image)
         if self.train and torch.randn(1) < self.config.time_mask_p:
             image = self.time_mask(image)
+
         return image, target
             
     def pad_audio(self, audio):
+        """Fills the last dimension of the input audio with zeroes until it is num_samples long
+        """
         pad_length = self.num_samples - audio.shape[0]
         last_dim_padding = (0, pad_length)
         audio = F.pad(audio, last_dim_padding)
         return audio
         
     def crop_audio(self, audio):
+        """Cuts audio to num_samples long
+        """
         return audio[:self.num_samples]
         
     def to_mono(self, audio):
