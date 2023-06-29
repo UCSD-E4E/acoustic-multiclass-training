@@ -16,7 +16,7 @@ class GeM(nn.Module):
         Layer applies the function ((x_1^p + x_2^p + ... + x_n^p)/n)^(1/p) as compared to max pooling 2d which does something like max(x_1, x_2, ..., x_n)
     """
     def __init__(self, p=3, eps=1e-6):
-        super(GeM, self).__init__()
+        super().__init__()
         self.p = nn.Parameter(torch.ones(1)*p)
         self.eps = eps
 
@@ -41,7 +41,7 @@ class BirdCLEFModel(nn.Module):
                  embedding_size=768, 
                  pretrained=True,
                  CONFIG=None):
-        super(BirdCLEFModel, self).__init__()
+        super().__init__()
         self.config = CONFIG
         # Load in the efficientnet_b4 model preset
         self.model = timm.create_model(model_name, pretrained=pretrained)
