@@ -357,13 +357,15 @@ class FastCollateMixup(Mixup):
 from torch.utils.data import Dataset
 import pandas as pd
 
-class BirdCLEFDataset(Dataset): #datasets.DatasetFolder
-    def __init__(self, csv_file, loader=None, CONFIG=None, max_time=5, train=True, species=None):
+class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
+    def __init__(self, csv_file, loader=None, CONFIG=None, max_time=5, train=True, species=None, ignore_bad=True):
         super()#.__init__(root, loader, extensions='wav')
         self.samples = pd.read_csv(csv_file)
+        self.csv_file = csv_file
+        self.formatted_csv_file = "not yet formatted"
         #print(self.samples)
         self.config = CONFIG
-        self.ignore_bad = True
+        self.ignore_bad = ignore_bad
         target_sample_rate = CONFIG.sample_rate
         self.target_sample_rate = target_sample_rate
         num_samples = target_sample_rate * max_time
@@ -418,6 +420,12 @@ class BirdCLEFDataset(Dataset): #datasets.DatasetFolder
 
     def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
         return self.classes, self.class_to_idx
+    
+    def get_csv_files(self):
+        return self.csv_file, self.formatted_csv_file
+    
+    def get_DF(self):
+        return self.samples
 
     def format_audio(self):
         files = pd.DataFrame(
@@ -430,7 +438,9 @@ class BirdCLEFDataset(Dataset): #datasets.DatasetFolder
         
         self.samples["original_file_path"] = self.samples[self.config.file_path_col]
         self.samples[self.config.file_path_col] = self.samples["files"].copy()
-        self.samples.to_csv("better.csv")
+        
+        self.formatted_csv_file = ".".join(self.csv_file.split(".")[:-1]) + "formatted.csv"
+        self.samples.to_csv(self.formatted_csv_file)
         #print(self.samples[self.config.file_path_col].iloc[0], self.config.file_path_col)
         
 
@@ -466,10 +476,7 @@ class BirdCLEFDataset(Dataset): #datasets.DatasetFolder
             "files": new_path,
             }
         ).T
-            
-        
-            
-    
+
     def __len__(self):
         return self.samples.shape[0]
     
@@ -493,13 +500,21 @@ class BirdCLEFDataset(Dataset): #datasets.DatasetFolder
             frame_offset=frame_offset,
             num_frames=num_frames)
         
-        print(audio.shape, frame_offset, num_frames, sample_per_sec, num_frames/sample_per_sec, annotation[self.config.start_time_col], annotation[self.config.end_time_col])
+        #TODO DELETE this is just here to make sure the splicing is working correctly
+        torchaudio.save(
+                "test.wav",
+                audio,
+                self.target_sample_rate
+            )
+        
+        print(path, "test.wav", annotation[self.config.start_time_col], annotation[self.config.end_time_col])
         
         #Assume audio is all mono and at target sample rate
         assert audio.shape[0] == 1
         assert sample_rate == self.target_sample_rate
         audio = self.to_mono(audio) #basically reshapes to col vect
-        
+
+
 
         if audio.shape[0] > self.num_samples:
             audio = self.crop_audio(audio)
@@ -519,22 +534,22 @@ class BirdCLEFDataset(Dataset): #datasets.DatasetFolder
         # label = torch.tensor(self.labels[index])
         
 
-        ##TODO: DELETE
-        import matplotlib.pyplot as plt
-        import librosa
-        def plot_spectrogram(specgram, title=None, ylabel="freq_bin", ax=None):
-            if ax is None:
-                _, ax = plt.subplots(1, 1)
-            if title is not None:
-                ax.set_title(title)
-            ax.set_ylabel(ylabel)
-            ax.imshow(librosa.power_to_db(specgram), origin="lower", aspect="auto", interpolation="nearest")
-            plt.show(block=False)
+        # ##TODO: DELETE
+        # import matplotlib.pyplot as plt
+        # import librosa
+        # def plot_spectrogram(specgram, title=None, ylabel="freq_bin", ax=None):
+        #     if ax is None:
+        #         _, ax = plt.subplots(1, 1)
+        #     if title is not None:
+        #         ax.set_title(title)
+        #     ax.set_ylabel(ylabel)
+        #     ax.imshow(librosa.power_to_db(specgram), origin="lower", aspect="auto", interpolation="nearest")
+        #     plt.show(block=False)
         
-        fig, axs = plt.subplots(2, 1)
-        #plot_waveform(SPEECH_WAVEFORM, SAMPLE_RATE, title="Original waveform", ax=axs[0])
-        plot_spectrogram(mel, title="spectrogram", ax=axs[1])
-        fig.tight_layout()
+        # fig, axs = plt.subplots(2, 1)
+        # #plot_waveform(SPEECH_WAVEFORM, SAMPLE_RATE, title="Original waveform", ax=axs[0])
+        # plot_spectrogram(mel, title="spectrogram", ax=axs[1])
+        # fig.tight_layout()
 
 
         # Convert to Image
@@ -568,7 +583,7 @@ class BirdCLEFDataset(Dataset): #datasets.DatasetFolder
 
 
 def get_datasets(path="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=None):
-    return BirdCLEFDataset(csv_file="C:/Users/seanh/Desktop/E4E/acoustic-species-classification/test.csv", CONFIG=CONFIG)
+    return PyhaDF_Dataset(csv_file="C:/Users/seanh/Desktop/E4E/acoustic-species-classification/test.csv", CONFIG=CONFIG)
     
     #train_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/training", CONFIG=CONFIG)
     #val_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/validation", CONFIG=CONFIG)
