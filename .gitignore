@@ -18,4 +18,6 @@ chunking_methods/__pycache__/*
 chunking_methods/gen_data_stats.py
 *.mp3
 cosmos_labeled_data_files_added.csv
+models/*
+data/*
 __pycache__/
