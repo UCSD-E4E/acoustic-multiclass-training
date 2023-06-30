@@ -7,7 +7,7 @@ Welcome to the Github repository for Acoustic Species Classification - Bird Team
 ## Contents
 - [Project Overview](#project-overview)
 - [Replication](#replication)
-- [Class Materials](#class-materials)
+- [Documentation](#documentation)
 
 ## Project Overview
 
@@ -125,13 +125,13 @@ The `inference.ipynb` notebook can be directly uploaded to and run on Kaggle. In
 
 Under the inference section, modify the `pd.read_csv` line to your training metadata file. This is used to get a list of labels to predict. Also, change the `filepaths` variable to where your test data is stored. The given notebook removes two classes from the predictions, as there was no training data actually used (chunks were not able to generate), but these can be removed. The final output is `submission.csv`, which outputs probabilistic predictions for each class for every 5 second chunk of the training data.
 
-## Class Materials
+## Documentation
 - [Project Specification](https://drive.google.com/file/d/1fRkkE5k19Y1tkMqt09pPONkNvDmWV2ux/view?usp=share_link)
 - [Milestone Report](https://drive.google.com/file/d/1o02SRfyTS3GIVdu1qpCXBZATXyBO_V9d/view?usp=share_link)
 - [Final Oral Presentation](https://docs.google.com/presentation/d/15ZEWugpDqcjfeiNdGHxnlNMUc3dn_99cYGKaOZddJ8Q/edit?usp=sharing)
-
+- [Technical Report](https://drive.google.com/file/d/1SXEis3fDLvjq8cCrmwD2GHVhplUxQ8rj/view?usp=sharing)
+  
 ## Contributors
-
 - [Samantha Prestrelski](https://github.com/sprestrelski)
 - [Lorenzo Mendes](https://github.com/lmendes14)
 - [Arthi Haripriyan](https://github.com/aharipriyan)

@@ -44,14 +44,14 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         self.train = train
         self.freq_mask = audtr.FrequencyMasking(freq_mask_param=self.config.freq_mask_param)
         self.time_mask = audtr.TimeMasking(time_mask_param=self.config.time_mask_param)
-        self.collate_fn = FastCollateMixup(
-            prob=self.config.mix_p,
-            num_classes=self.config.num_classes,
-            label_smoothing=self.config.smoothing,
-            mixup_alpha=self.config.mixup_alpha,
-            cutmix_alpha=self.config.cutmix_alpha,
-            switch_prob=0.5
-        )
+        # self.collate_fn = FastCollateMixup(
+        #     prob=self.config.mix_p,
+        #     num_classes=self.config.num_classes,
+        #     label_smoothing=self.config.smoothing,
+        #     mixup_alpha=self.config.mixup_alpha,
+        #     cutmix_alpha=self.config.cutmix_alpha,
+        #     switch_prob=0.5
+        # )
 
         if (species is not None):
             #TODO FIX REPLICATION CODE
@@ -234,10 +234,9 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
 
 
 def get_datasets(path="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=None):
-    return PyhaDF_Dataset(csv_file="C:/Users/seanh/Desktop/E4E/acoustic-species-classification/test.csv", CONFIG=CONFIG)
   
-    #train_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/training", CONFIG=CONFIG)
-    #val_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/validation", CONFIG=CONFIG)
+    return PyhaDF_Dataset(csv_file="C:/Users/seanh/Desktop/E4E/acoustic-species-classification/test.csv", CONFIG=CONFIG)
+
     #data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=CONFIG)
     #no_bird_data = BirdCLEFDataset(root="/share/acoustic_species_id/no_bird_10_000_audio_chunks", CONFIG=CONFIG)
     #data = torch.utils.data.ConcatDataset([data, no_bird_data])
@@ -249,8 +248,8 @@ if __name__ == '__main__':
     CONFIG = parser.parse_args()
     CONFIG.logging = True if CONFIG.logging == 'True' else False
     # torch.manual_seed(CONFIG.seed)
-    #train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
-    train_dataset = get_datasets(CONFIG=CONFIG)
+    train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
+    #train_dataset = get_datasets(CONFIG=CONFIG)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         1,
@@ -264,6 +263,7 @@ if __name__ == '__main__':
     #     num_workers=CONFIG.jobs,
     #     collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
     # )
+
     for batch in train_dataloader:
 
         break
