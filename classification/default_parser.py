@@ -38,4 +38,9 @@ def create_parser():
     parser.add_argument("-tmp", "--time_mask_p", type=float, default=0.5, help='time mask p')
     parser.add_argument("-tmpa", "--time_mask_param", type=int, default=25, help='time mask param')
     parser.add_argument('-sm', '--smoothing', type=float, default=0.05, help='label smoothing')
+
+    parser.add_argument('-st', '--offset_col', default='OFFSET', type=str)
+    parser.add_argument('-et', '--duration_col', default='DURATION', type=str)
+    parser.add_argument('-fp', '--file_path_col', default='IN FILE', type=str)
+    parser.add_argument('-mi', '--manual_id_col', default='SCIENTIFIC', type=str)
     return parser
