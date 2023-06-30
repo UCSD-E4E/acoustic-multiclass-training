@@ -146,6 +146,9 @@ def valid(model, data_loader, device, step, pad_n=5):
     print(unq_classes)
     # if len(label.shape) < 2:
     label = F.one_hot(label, num_classes=CONFIG.num_classes).to(device)
+    #Why are labels moving to device?
+
+
     # label = label[:,unq_classes]
 
     # softmax predictions
@@ -167,7 +170,7 @@ def valid(model, data_loader, device, step, pad_n=5):
     # padded_labels = padded_labels.detach().cpu()
 
     metric = MultilabelAveragePrecision(num_labels=CONFIG.num_classes, average="macro")
-    valid_map = metric(pred, label)
+    valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
     
     #valid_map = metric(padded_preds, padded_labels)
     # calculate average precision
@@ -187,7 +190,7 @@ def valid(model, data_loader, device, step, pad_n=5):
     # Log to Weights and Biases
     wandb.log({
         "valid/loss": running_loss/len(data_loader),
-        "valid/cmap": valid_map,
+        "valid/map": valid_map,
         "custom_step": step,
         
     })
