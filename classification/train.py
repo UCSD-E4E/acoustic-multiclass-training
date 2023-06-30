@@ -1,16 +1,20 @@
+"""
+    Contains the training and validation function and logging to Weights and Biases
+    Methods:
+        train: trains the model
+        valid: calculates validation loss and accuracy
+        set_seed: sets the random seed
+        init_wandb: initializes the Weights and Biases logging
+        
+
+"""
 # pytorch training
 import torch
 import torch.nn as nn
 from torch.optim import Adam
 import torch.nn.functional as F
-import torchaudio 
-
-import timm
 
 # general
-import argparse
-import librosa
-import os
 import numpy as np
 
 # logging
@@ -22,53 +26,15 @@ time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 from dataset import BirdCLEFDataset, get_datasets
 from model import BirdCLEFModel, GeM
 from tqdm import tqdm
-# # cmap metrics
-# import pandas as pd
-from sklearn.metrics import f1_score, average_precision_score
-from sklearn.preprocessing import label_binarize
+
 from torchmetrics.classification import MultilabelAveragePrecision
-from functools import partial
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-e', '--epochs', default=10, type=int)
-parser.add_argument('-nf', '--num_fold', default=5, type=int)
-parser.add_argument('-nc', '--num_classes', default=264, type=int)
-parser.add_argument('-tbs', '--train_batch_size', default=32, type=int)
-parser.add_argument('-vbs', '--valid_batch_size', default=32, type=int)
-parser.add_argument('-sr', '--sample_rate', default=32_000, type=int)
-parser.add_argument('-hl', '--hop_length', default=512, type=int)
-parser.add_argument('-mt', '--max_time', default=5, type=int)
-parser.add_argument('-nm', '--n_mels', default=224, type=int)
-parser.add_argument('-nfft', '--n_fft', default=1024, type=int)
-parser.add_argument('-s', '--seed', default=0, type=int)
-parser.add_argument('-j', '--jobs', default=4, type=int)
-parser.add_argument('-l', '--logging', default='True', type=str)
-parser.add_argument('-lf', '--logging_freq', default=20, type=int)
-parser.add_argument('-vf', '--valid_freq', default=1000, type=int)
-parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)
-parser.add_argument('-md', '--map_debug', action='store_true')
-parser.add_argument('-p', '--p', default=0, type=float, help='p for mixup')
-parser.add_argument('-i', '--imb', action='store_true', help='imbalance sampler')
-parser.add_argument('-pw', "--pos_weight", type=float, default=1, help='pos weight')
-parser.add_argument('-lr', "--lr", type=float, default=1e-3, help='learning rate')
-parser.add_argument('-mp', "--mix_p", type=float, default=0.4, help='mixup p')
-parser.add_argument('-cpa', "--cutmix_alpha", type=float, default=2.5, help='cutmix alpha')
-parser.add_argument('-mpa', "--mixup_alpha", type=float, default=0.6, help='mixup alpha')
-parser.add_argument('-tsp', "--time_shift_p", type=float, default=0, help='time shift p')
-parser.add_argument('-np', "--noise_p", type=float, default=0.35, help='noise p')
-parser.add_argument('-nsd', "--noise_std", type=float, default=0.005, help='noise std')
-parser.add_argument('-fmp', "--freq_mask_p", type=float, default=0.5, help='freq mask p')
-parser.add_argument('-fmpa', "--freq_mask_param", type=int, default=10, help='freq mask param')
-parser.add_argument("-tmp", "--time_mask_p", type=float, default=0.5, help='time mask p')
-parser.add_argument("-tmpa", "--time_mask_param", type=int, default=25, help='time mask param')
-parser.add_argument('-sm', '--smoothing', type=float, default=0.05, help='label smoothing')
-
+from default_parser import create_parser
+parser = create_parser()
 
 #https://www.kaggle.com/code/imvision12/birdclef-2023-efficientnet-training
-
-
 
     
 def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cmap, epoch):
@@ -106,6 +72,7 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
         log_n += 1
 
         if i % (CONFIG.logging_freq) == 0 or i == len(data_loader) - 1:
+            #Log to Weights and Biases
             wandb.log({
                 "train/loss": log_loss / log_n,
                 "train/accuracy": correct / total * 100.,
@@ -140,7 +107,9 @@ def valid(model, data_loader, device, step, pad_n=5):
     pred = []
     label = []
     
+    # tqdm is a progress bar
     dl = tqdm(data_loader, position=5)
+    
     if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
         pred = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
         label = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
@@ -205,6 +174,7 @@ def valid(model, data_loader, device, step, pad_n=5):
     
     print("Validation mAP:", valid_map)
     
+    # Log to Weights and Biases
     wandb.log({
         "valid/loss": running_loss/len(data_loader),
         "valid/cmap": valid_map,
@@ -215,11 +185,15 @@ def valid(model, data_loader, device, step, pad_n=5):
     return running_loss/len(data_loader), valid_map
 
 def set_seed():
+    """ Sets numpy and pytorch seeds to the CONFIG.seed
+    """
     np.random.seed(CONFIG.seed)
     torch.manual_seed(CONFIG.seed)
 
 
 def init_wandb(CONFIG):
+    """ Initialize the weights and biases logging
+    """
     run = wandb.init(
         project="birdclef-2023",
         config=CONFIG,
