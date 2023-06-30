@@ -165,7 +165,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         sample_per_sec = self.target_sample_rate
 
         #TODO requires int, does this make sense?
-        frame_offset = int(annotation[self.config.duration_col] * sample_per_sec)
+        frame_offset = int(annotation[self.config.offset_col] * sample_per_sec)
         num_frames = int(annotation[self.config.duration_col] * sample_per_sec)
 
         target = self.class_to_idx[annotation[self.config.manual_id_col]]
