@@ -64,10 +64,15 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
         
         if scheduler is not None:
             scheduler.step()
-            
+        
         running_loss += loss.item()
         total += labels.size(0)
-        correct += torch.all(preds.eq(labels), dim=-1).sum().item()
+
+        # index of highest predicted class
+        pred_label = torch.argmax(outputs, dim=1)
+
+        # checking highest against true label
+        correct += torch.all(pred_label.eq(labels), dim=-1).sum().item()
         log_loss += loss.item()
         log_n += 1
 
@@ -203,11 +208,13 @@ def init_wandb(CONFIG):
     return run
 
 if __name__ == '__main__':
+    torch.multiprocessing.set_start_method('spawn')
     CONFIG = parser.parse_args()
     print(CONFIG)
     CONFIG.logging = True if CONFIG.logging == 'True' else False
     run = init_wandb(CONFIG)
     set_seed()
+    
     print("Loading Model...")
     model = BirdCLEFModel(CONFIG=CONFIG).to(device)
     if CONFIG.model_checkpoint is not None:
@@ -223,7 +230,7 @@ if __name__ == '__main__':
         CONFIG.train_batch_size,
         shuffle=True,
         num_workers=CONFIG.jobs,
-        collate_fn=train_dataset.collate_fn
+        #collate_fn=train_dataset.collate_fn
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
@@ -271,6 +278,4 @@ if __name__ == '__main__':
             print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
             best_valid_cmap = valid_map
         
-
-
     print(":o wow")

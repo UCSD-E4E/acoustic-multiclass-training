@@ -279,6 +279,7 @@ class FastCollateMixup(Mixup):
                 else:
                     mixed = mixed.type(torch.float32) * lam + batch[j][0].type(torch.float32) * (1 - lam)
                     # np.rint(mixed, out=mixed)
+            mixed.to(output.device)
             output[i] += mixed
         return lam
 
@@ -289,6 +290,8 @@ class FastCollateMixup(Mixup):
         if half:
             batch_size //= 2
         output = torch.zeros((batch_size, *batch[0][0].shape))
+        print(batch[0][0].device)
+        output.to(batch[0][0].device)
         if self.mode == 'elem' or self.mode == 'half':
             lam = self._mix_elem_collate(output, batch, half=half)
         elif self.mode == 'pair':
