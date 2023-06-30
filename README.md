@@ -9,7 +9,6 @@
 - [Data Processing](#data-processing)
 - [Classification](#classification)
     - [Logging](#logging)
-    - [Training Binary Classification Models](#training-binary-classification-models)
 - [Inference](#inference)
 
 ## Project Overview
@@ -39,19 +38,23 @@ In order to recreate our results, [PyHa](https://github.com/UCSD-E4E/PyHa) needs
 ## Data Setup
 The data processing pipeline assume a folder directory structure as follows
 ```
-train_audio
-├── abethr1
-|   ├── XC128013.wav
-|   ├── XC363502.wav 
-|   └── XC363504.wav
-├── barswa
-|   ├── XC113914.wav  
-|   ├── XC208241.wav  
+data
+├── _metadata
+|   ├── all.csv
+|   ├── xeno-canto.csv 
+|   └── test-train.csv
+|   └── ...
+├── randomFolderName
+|   ├── XC113914.wav
+|   ├── XC208241.wav
 |   └── XC324914.wav
-└── carwoo1
-    ├── XC126500.wav  
-    └── XC294063.wav
+└── randomFolderName2
+|   ├── XC126500.wav
+|   └── XC294063.wav
+└── ...
 ```
+The CSV files in `data/_metadata` contain all metadata about clips in that dataset, which includes song file location, offset and duration of the clip, species name, and whether it is in training or validation. Using multiple different CSV files allows for different training scenarios such as using a small subset of clips to test a data augmentation technique.
+
 We ran into issues running PyHa over `.ogg` files, so there is an included function in `gen_tweety_labels.py` to convert `.ogg` to `.wav` files and can be swapped out for your original filetype. This is an issue for the data processing pipeline. However, the training pipeline is able to predict on most filetypes.
 
 ## Data Processing
@@ -106,20 +109,6 @@ self.model = timm.create_model('tf_efficientnet_b1', checkpoint_path='./models/t
 This project is set up with [WandB](https://wandb.ai), a dashboard to keep track of hyperparameters and system metrics. You’ll need to make an account and login locally to use it. WandB is extremely helpful for comparing models live and visualizing the training process.
 
 ![](images/SampleWandBOutputs.PNG)
- 
-### Training Binary Classification Models
-To train a binary classification rather than multi-class model, merge all “bird” chunks into a single folder and “no bird”/“no call”/”noise” into another. In `CONFIG`, set `num_classes` to 2. The directory structure should look as follows:
-```
-train_audio
-├── bird
-|   ├── XC120632_2.wav
-|   ├── XC120632_3.wav 
-|   └── XC603432_1.wav
-└── no_bird
-    ├── nocall_122187_0.wav
-    └── noise_30sec_1084_4.wav
-```
-You can produce your own no-call dataset from [this notebook](https://www.kaggle.com/code/sprestrelski/birdclef23-uniform-no-call-sound-chunks), which pulls data from previous BirdCLEF competitions and DCASE 2018
 
 ## Inference 
 The `inference.ipynb` notebook can be directly uploaded to and run on Kaggle. In the import section, the notebook takes in a local path to a pretrained checkpoint (can be replaced with a `timm` fetched model) with the model architecture and to the final model. Replicate any changes you made to the BirdCLEFModel class, or directly import from `train.py` if running on a local machine.
