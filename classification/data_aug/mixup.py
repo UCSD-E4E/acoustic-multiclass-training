@@ -264,6 +264,7 @@ class FastCollateMixup(Mixup):
         return torch.tensor(lam_batch).unsqueeze(1)
 
     def _mix_batch_collate(self, output, batch):
+        #print("start", output.device, batch[0][0].device)
         batch_size = len(batch)
         lam, use_cutmix = self._params_per_batch()
         if use_cutmix:
@@ -279,7 +280,8 @@ class FastCollateMixup(Mixup):
                 else:
                     mixed = mixed.type(torch.float32) * lam + batch[j][0].type(torch.float32) * (1 - lam)
                     # np.rint(mixed, out=mixed)
-            mixed.to(output.device)
+            
+            print("here", mixed.device, output[i].device, output.device)
             output[i] += mixed
         return lam
 
@@ -290,15 +292,19 @@ class FastCollateMixup(Mixup):
         if half:
             batch_size //= 2
         output = torch.zeros((batch_size, *batch[0][0].shape))
-        print(batch[0][0].device)
-        output.to(batch[0][0].device)
+        #print(batch[0][0].device)
+        output = output.to(batch[0][0].device)
         if self.mode == 'elem' or self.mode == 'half':
             lam = self._mix_elem_collate(output, batch, half=half)
         elif self.mode == 'pair':
             lam = self._mix_pair_collate(output, batch)
         else:
             lam = self._mix_batch_collate(output, batch)
+
+        #print("checking", batch[0][1])
         target = torch.tensor([b[1] for b in batch], dtype=torch.int64)
         target = mixup_target(target, self.num_classes, lam, self.label_smoothing)
         target = target[:batch_size]
+
+        print(output)
         return output, target
