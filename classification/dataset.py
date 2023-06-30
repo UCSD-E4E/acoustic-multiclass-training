@@ -16,8 +16,9 @@ import numpy as np
 import os
 from functools import partial
 from data_aug.mixup import FastCollateMixup
-
+from torch.utils.data import Dataset
 from default_parser import create_parser
+import pandas as pd
 parser = create_parser()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -27,7 +28,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
     def __init__(self, csv_file, loader=None, CONFIG=None, max_time=5, train=True, species=None, ignore_bad=True):
         super()#.__init__(root, loader, extensions='wav')
-        self.samples = pd.read_csv(csv_file)
+        self.samples = pd.read_csv(csv_file, index_col=0)
         self.csv_file = csv_file
         self.formatted_csv_file = "not yet formatted"
         #print(self.samples)
@@ -105,7 +106,11 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
                        right_on="IN FILE")
         
         self.samples["original_file_path"] = self.samples[self.config.file_path_col]
-        self.samples[self.config.file_path_col] = self.samples["files"].copy()
+        print(self.samples.columns)
+        if ("files" in self.samples.columns):
+            self.samples[self.config.file_path_col] = self.samples["files"].copy()
+        if ("files_y" in self.samples.columns):
+            self.samples[self.config.file_path_col] = self.samples["files_y"].copy()
         
         self.formatted_csv_file = ".".join(self.csv_file.split(".")[:-1]) + "formatted.csv"
         self.samples.to_csv(self.formatted_csv_file)
@@ -123,7 +128,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         # Resample
         if sample_rate != self.target_sample_rate:
             resample = audtr.Resample(sample_rate, self.target_sample_rate)
-            resample.cuda(device)
+            #resample.cuda(device)
             audio = resample(audio)
             changed = True
         
@@ -160,8 +165,8 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         sample_per_sec = self.target_sample_rate
 
         #TODO requires int, does this make sense?
-        frame_offset = int(annotation[self.config.start_time_col] * sample_per_sec)
-        num_frames = int(annotation[self.config.end_time_col] * sample_per_sec)
+        frame_offset = int(annotation[self.config.duration_col] * sample_per_sec)
+        num_frames = int(annotation[self.config.duration_col] * sample_per_sec)
 
         target = self.class_to_idx[annotation[self.config.manual_id_col]]
 
@@ -170,7 +175,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
             frame_offset=frame_offset,
             num_frames=num_frames)
   
-        #print(path, "test.wav", annotation[self.config.start_time_col], annotation[self.config.end_time_col])
+        #print(path, "test.wav", annotation[self.config.duration_col], annotation[self.config.duration_col])
         
         #Assume audio is all mono and at target sample rate
         assert audio.shape[0] == 1
@@ -234,7 +239,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
 
 
 def get_datasets(path="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=None):
-    return PyhaDF_Dataset(csv_file="C:/Users/seanh/Desktop/E4E/acoustic-species-classification/test.csv", CONFIG=CONFIG)
+    return PyhaDF_Dataset(csv_file="C:/Users/seanh/Desktop/E4E/acoustic-species-classification/testformatted.csv", CONFIG=CONFIG)
   
     #train_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/training", CONFIG=CONFIG)
     #val_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/validation", CONFIG=CONFIG)
@@ -264,6 +269,8 @@ if __name__ == '__main__':
     #     num_workers=CONFIG.jobs,
     #     collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
     # )
-    for batch in train_dataloader:
 
-        break
+    print("started running batches")
+    for batch in train_dataloader:
+        print("successfully loaded batch")
+    print("end of code")
