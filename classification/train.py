@@ -153,22 +153,27 @@ def valid(model, data_loader, device, step, pad_n=5):
     # pred = pred[:, unq_classes]
 
     # # pad predictions and labels with `pad_n` true positives
-    padded_preds = torch.cat([pred, torch.ones(pad_n, pred.shape[1]).to(pred.device)])
-    padded_labels = torch.cat([label, torch.ones(pad_n, label.shape[1]).to(label.device)])
-    print(label.shape, pred.shape) 
-    # print(padded_labels.shape, padded_preds.shape)
-    # send to cpu
-    padded_preds = padded_preds.detach().cpu()
-    padded_labels = padded_labels.detach().cpu().long()
+
+    # TODO DELETE
+    # This was all padding code used to evaluate 
+    # padded_preds = torch.cat([pred, torch.ones(pad_n, pred.shape[1]).to(pred.device)])
+    # padded_labels = torch.cat([label, torch.ones(pad_n, label.shape[1]).to(label.device)])
+    # print(label.shape, pred.shape) 
+    # # print(padded_labels.shape, padded_preds.shape)
+    # # send to cpu
+    # padded_preds = padded_preds.detach().cpu()
+    # padded_labels = padded_labels.detach().cpu().long()
     # padded_preds = padded_preds.detach().cpu()
     # padded_labels = padded_labels.detach().cpu()
 
-    metric = MultilabelAveragePrecision(num_labels=CONFIG.num_classes, average="weighted")
-    valid_map = metric(padded_preds, padded_labels)
+    metric = MultilabelAveragePrecision(num_labels=CONFIG.num_classes, average="macro")
+    valid_map = metric(pred, label)
+    
+    #valid_map = metric(padded_preds, padded_labels)
     # calculate average precision
     # valid_map = average_precision_score(
-    #     padded_labels,
-    #     padded_preds,
+    #     label.cpu().long(),
+    #     pred.detach().cpu(),
     #     average='macro',
     # )
     # _, padded_preds = torch.max(padded_preds, 1)
