@@ -24,12 +24,15 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 #https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
 
-
-
-class BirdCLEFDataset(datasets.DatasetFolder):
-    def __init__(self, root, loader=None, CONFIG=None, max_time=5, train=True):
-        super().__init__(root, loader, extensions='wav')
+class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
+    def __init__(self, csv_file, loader=None, CONFIG=None, max_time=5, train=True, species=None, ignore_bad=True):
+        super()#.__init__(root, loader, extensions='wav')
+        self.samples = pd.read_csv(csv_file)
+        self.csv_file = csv_file
+        self.formatted_csv_file = "not yet formatted"
+        #print(self.samples)
         self.config = CONFIG
+        self.ignore_bad = ignore_bad
         target_sample_rate = CONFIG.sample_rate
         self.target_sample_rate = target_sample_rate
         num_samples = target_sample_rate * max_time
@@ -50,35 +53,131 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         #     switch_prob=0.5
         # )
 
-    def find_classes(self, directory: str) -> Tuple[List[str], Dict[str, int]]:
-        """ Finds the classes from a directory and returns a tuple of (a list of class names, a dictionary of class names to indexes)
-        """
-        # modify default find_classes to ignore empty folders
-        classes = sorted(entry.name for entry in os.scandir(directory) if entry.is_dir())
-        # filter
-        classes = [cls_name for cls_name in classes if len(os.listdir(os.path.join(directory, cls_name))) > 0]
-        classes.sort()
-        class_to_idx = {cls_name: i for i, cls_name in enumerate(classes)}
-        self.num_classes = len(classes)
-        self.class_id_to_num_samples = {i: len(os.listdir(os.path.join(directory, cls_name))) for i, cls_name in enumerate(classes)}
-        return classes, class_to_idx
-    
-    def __getitem__(self, index):
-        """ Returns a tuple of (image,label) for a sample with given index
-        """
+        if (species is not None):
+            #TODO FIX REPLICATION CODE
+            self.classes, self.class_to_idx = species
+        else:
+            self.classes = self.samples[self.config.manual_id_col].unique()
+            class_idx = np.arange(len(self.classes))
+            self.class_to_idx = dict(zip(self.classes, class_idx))
+            #print(self.class_to_idx)
+
+        self.verify_audio_files()
+        self.format_audio()
+        #self.samples[self.config.file_path_col] = self.samples[self.config.file_path_col].apply(self.convert_file_type)
         
-        # Load audio
-        path, target = self.samples[index]
+
+    def verify_audio_files(self):
+        test_df = self.samples[self.config.file_path_col].apply(lambda path: (
+            "SUCCESS" if os.path.exists(path) else path
+        ))
+        missing_files = test_df[test_df != "SUCCESS"].unique()
+        if (missing_files.shape[0] > 0 and not self.ignore_bad):
+            print(missing_files)
+            raise "ERROR MISSING FILES, CHECK DATAFRAME"
+            return False
+        elif (self.ignore_bad):
+            print("ignoring", missing_files.shape[0], "missing files")
+            self.samples = self.samples[
+                ~self.samples[self.config.file_path_col].isin(missing_files)
+            ]
+        
+        print(self.samples.shape[0],"files in use")
+
+        return True
+
+    def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
+        return self.classes, self.class_to_idx
+    
+    def get_csv_files(self):
+        return self.csv_file, self.formatted_csv_file
+    
+    def get_DF(self):
+        return self.samples
+
+    def format_audio(self):
+        files = pd.DataFrame(
+            self.samples[self.config.file_path_col].unique(),
+            columns=["files"])
+        files = files["files"].apply(self.resample_audio_file)
+        self.samples = self.samples.merge(files, how="left", 
+                       left_on=self.config.file_path_col,
+                       right_on="IN FILE")
+        
+        self.samples["original_file_path"] = self.samples[self.config.file_path_col]
+        self.samples[self.config.file_path_col] = self.samples["files"].copy()
+        
+        self.formatted_csv_file = ".".join(self.csv_file.split(".")[:-1]) + "formatted.csv"
+        self.samples.to_csv(self.formatted_csv_file)
+        #print(self.samples[self.config.file_path_col].iloc[0], self.config.file_path_col)
+        
+
+    def resample_audio_file(self, path):
         audio, sample_rate = torchaudio.load(path)
-        audio = self.to_mono(audio)
-        audio = audio.to(device)
+        changed = False
+
+        if (len(audio.shape) > 1):
+            audio = self.to_mono(audio)
+            changed = True
         
         # Resample
         if sample_rate != self.target_sample_rate:
             resample = audtr.Resample(sample_rate, self.target_sample_rate)
             resample.cuda(device)
             audio = resample(audio)
+            changed = True
         
+        extension = path.split(".")[-1]
+        new_path = path.replace(extension, "wav")
+
+        if (new_path != path or changed):
+            #output of mono is a col vector
+            #torchaudio expects a waveform as row vector
+            #hence the reshape
+            torchaudio.save(
+                new_path,
+                audio.reshape([1, -1]),
+                self.target_sample_rate
+            )
+
+        return pd.Series(
+            {
+            "IN FILE": path,    
+            "files": new_path,
+            }
+        ).T
+
+    def __len__(self):
+        return self.samples.shape[0]
+    
+    def __getitem__(self, index):
+        annotation = self.samples.iloc[index]
+        path = annotation[self.config.file_path_col]
+
+        #sample_per_sec was defined as total_samples_in_audio/duration
+        #resampling in practice doesn't do extactly target_sample_rate
+        #Its close enough so we remove that computation
+        sample_per_sec = self.target_sample_rate
+
+        #TODO requires int, does this make sense?
+        frame_offset = int(annotation[self.config.start_time_col] * sample_per_sec)
+        num_frames = int(annotation[self.config.end_time_col] * sample_per_sec)
+
+        target = self.class_to_idx[annotation[self.config.manual_id_col]]
+
+        audio, sample_rate = torchaudio.load(
+            path,
+            frame_offset=frame_offset,
+            num_frames=num_frames)
+  
+        #print(path, "test.wav", annotation[self.config.start_time_col], annotation[self.config.end_time_col])
+        
+        #Assume audio is all mono and at target sample rate
+        assert audio.shape[0] == 1
+        assert sample_rate == self.target_sample_rate
+        audio = self.to_mono(audio) #basically reshapes to col vect
+        audio = audio.to(device)
+
         # Crop if too long
         if audio.shape[0] > self.num_samples:
             audio = self.crop_audio(audio)
@@ -97,7 +196,7 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         # Mel spectrogram
         mel = self.mel_spectogram(audio)
         # label = torch.tensor(self.labels[index])
-        
+
         # Convert to Image
         image = torch.stack([mel, mel, mel])
         
@@ -130,17 +229,19 @@ class BirdCLEFDataset(datasets.DatasetFolder):
         return torch.mean(audio, axis=0)
     
 
+    
+
 
 
 def get_datasets(path="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=None):
-    #return BirdCLEFDataset(root="/home/benc/code/acoustic-multiclass-training/all_10_species/", CONFIG=CONFIG)
-    train_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/training", CONFIG=CONFIG)
-    val_data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_split_chunks_new/validation", CONFIG=CONFIG)
+  
+    return PyhaDF_Dataset(csv_file="C:/Users/seanh/Desktop/E4E/acoustic-species-classification/test.csv", CONFIG=CONFIG)
+
     #data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=CONFIG)
     #no_bird_data = BirdCLEFDataset(root="/share/acoustic_species_id/no_bird_10_000_audio_chunks", CONFIG=CONFIG)
     #data = torch.utils.data.ConcatDataset([data, no_bird_data])
     #train_data, val_data = torch.utils.data.random_split(data, [0.8, 0.2])
-    return train_data, val_data
+    #return train_data, val_data
 
 if __name__ == '__main__':
     torch.multiprocessing.set_start_method('spawn')
@@ -151,21 +252,18 @@ if __name__ == '__main__':
     #train_dataset = get_datasets(CONFIG=CONFIG)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        CONFIG.train_batch_size,
+        1,
         shuffle=True,
         num_workers=CONFIG.jobs,
-        #collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
     )
-    val_dataloader = torch.utils.data.DataLoader(
-       val_dataset,
-       CONFIG.valid_batch_size,
-       shuffle=False,
-       num_workers=CONFIG.jobs,
-       #collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
-    )
+    # val_dataloader = torch.utils.data.DataLoader(
+    #     val_dataset,
+    #     CONFIG.valid_batch_size,
+    #     shuffle=False,
+    #     num_workers=CONFIG.jobs,
+    #     collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
+    # )
+
     for batch in train_dataloader:
-        print(batch[0].shape)
-        print(batch[1].shape)
-        print(batch[0].device)
-        print(batch[1].device)
+
         break

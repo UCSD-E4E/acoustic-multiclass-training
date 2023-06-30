@@ -168,4 +168,6 @@ dependencies:
       - typing-extensions==4.4.0
       - wandb==0.15.0
       - pydub
+      - matplotlib
+      - librosa
 prefix: /home/znovak/miniconda3/envs/asid
