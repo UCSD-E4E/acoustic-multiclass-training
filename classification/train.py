@@ -51,7 +51,7 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
         optimizer.zero_grad()
         mels = mels.to(device)
         labels = labels.to(device)
-        
+
         outputs = model(mels)
         # sigmoid multilabel predictions
         preds = torch.sigmoid(outputs) > 0.5
@@ -72,8 +72,6 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
         pred_label = torch.argmax(outputs, dim=1)
 
         # checking highest against true label
-
-        print("LOSS FUNCTION", outputs.shape, labels.shape)
         correct += torch.all(torch.round(outputs).eq(labels), dim=-1).sum().item()
         log_loss += loss.item()
         log_n += 1
