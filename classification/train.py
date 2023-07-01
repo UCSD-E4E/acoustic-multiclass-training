@@ -23,7 +23,7 @@ import datetime
 time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') 
 
 # other files 
-from dataset import BirdCLEFDataset, get_datasets
+from dataset import PyhaDF_Dataset, get_datasets
 from model import BirdCLEFModel, GeM
 from tqdm import tqdm
 
@@ -72,7 +72,9 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
         pred_label = torch.argmax(outputs, dim=1)
 
         # checking highest against true label
-        correct += torch.all(pred_label.eq(labels), dim=-1).sum().item()
+
+        print("LOSS FUNCTION", outputs.shape, labels.shape)
+        correct += torch.all(torch.round(outputs).eq(labels), dim=-1).sum().item()
         log_loss += loss.item()
         log_n += 1
 
@@ -244,7 +246,8 @@ if __name__ == '__main__':
         val_dataset,
         CONFIG.valid_batch_size,
         shuffle=False,
-        num_workers=CONFIG.jobs
+        num_workers=CONFIG.jobs,
+        #collate_fn=train_dataset.collate_fn
     )
     
     print("Training")
