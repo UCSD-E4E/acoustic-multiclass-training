@@ -1,3 +1,7 @@
+"""Split data into training and validation sets.
+Distributes files using a 4:1 split, then distributes chunks
+according to those files to avoid leakage between sets
+"""
 import os
 import shutil
 import sys
@@ -5,12 +9,12 @@ from random import shuffle
 from math import floor
 from file_utils import clear_files
 
-
 VALIDATION_DISTR = 0.2
 
-
 def distribute_files(path):
-
+    """Shuffle splits the original audio files (non-chunked).
+    Only move files that chunks were successfully generated for.
+    """
     file_path = os.path.join(path, 'BirdCLEF2023_train_audio')
     wav_path = os.path.join(path, 'BirdCLEF2023_split_audio')
     chunk_path_old = os.path.join(path, 'BirdCLEF2023_train_audio_chunks')
@@ -43,7 +47,6 @@ def distribute_files(path):
 
         # if the number of files is 1, we'll keep the same file in both training and validation
         if len(files) == 1:
-
             file = files[0]
             file_name = file.split('/')[-1]
 
@@ -51,9 +54,7 @@ def distribute_files(path):
             shutil.copyfile(os.path.join(s, file), os.path.join(s_validation_path, file_name))
 
         else:
-            
-            num_validation = max(1, floor(num_files * VALIDATION_DISTR))
-            
+            num_validation = max(1, floor(num_files * VALIDATION_DISTR))            
             shuffle(files)
 
             train_files = files[:-num_validation]
@@ -67,6 +68,8 @@ def distribute_files(path):
 
 
 def distribute_chunks(path):
+    """Move chunks into respective training/validation folders
+    """
     wav_path = os.path.join(path, 'BirdCLEF2023_split_audio')
     chunk_path_old = os.path.join(path, 'BirdCLEF2023_train_audio_chunks')
     chunk_path_new = os.path.join(path, 'BirdCLEF2023_split_chunks')
@@ -75,7 +78,6 @@ def distribute_chunks(path):
     # for training and validation folders:
     for s in subfolders:
         # s: /share/acoustic_species_id/BirdCLEF2023_split_audio/validation
-
         species_folders = [f.path for f in os.scandir(s) if f.is_dir()]
 
         for species_path in species_folders:
