@@ -67,7 +67,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         #self.samples[self.config.file_path_col] = self.samples[self.config.file_path_col].apply(self.convert_file_type)
         
 
-    def verify_audio_files(self):
+    def verify_audio_files(self) -> bool:
         test_df = self.samples[self.config.file_path_col].apply(lambda path: (
             "SUCCESS" if os.path.exists(path) else path
         ))
@@ -89,13 +89,13 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
     def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
         return self.classes, self.class_to_idx
     
-    def get_num_classes(self):
+    def get_num_classes(self) -> int:
         return self.num_classes
     
-    def get_csv_files(self):
+    def get_csv_files(self) -> Tuple[str, str]:
         return self.csv_file, self.formatted_csv_file
     
-    def get_DF(self):
+    def get_DF(self) -> pd.DataFrame:
         return self.samples
 
     def format_audio(self):
@@ -119,7 +119,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         #print(self.samples[self.config.file_path_col].iloc[0], self.config.file_path_col)
         
 
-    def resample_audio_file(self, path):
+    def resample_audio_file(self, path: str) -> pd.Series:
         audio, sample_rate = torchaudio.load(path)
         changed = False
 
@@ -154,10 +154,10 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
             }
         ).T
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.samples.shape[0]
         
-    def get_clip(self, index):
+    def get_clip(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         annotation = self.samples.iloc[index]
         path = annotation[self.config.file_path_col]
         sample_per_sec = self.target_sample_rate
@@ -195,7 +195,9 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         return audio, target
 
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """ Takes an index and returns tuple of spectrogram image with corresponding label
+        """
 
         audio, target = self.get_clip(index)
 
@@ -238,7 +240,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         #print(target)
         return image, target
             
-    def pad_audio(self, audio):
+    def pad_audio(self, audio: torch.Tensor) -> torch.Tensor:
         """Fills the last dimension of the input audio with zeroes until it is num_samples long
         """
         pad_length = self.num_samples - audio.shape[0]
@@ -246,12 +248,12 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         audio = F.pad(audio, last_dim_padding)
         return audio
         
-    def crop_audio(self, audio):
+    def crop_audio(self, audio: torch.Tensor) -> torch.Tensor:
         """Cuts audio to num_samples long
         """
         return audio[:self.num_samples]
         
-    def to_mono(self, audio):
+    def to_mono(self, audio: torch.Tensor) -> torch.Tensor:
         return torch.mean(audio, axis=0)
     
 

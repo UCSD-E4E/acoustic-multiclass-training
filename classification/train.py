@@ -16,6 +16,7 @@ import torch.nn.functional as F
 
 # general
 import numpy as np
+from typing import Dict, Any, Tuple, List
 
 # logging
 import wandb
@@ -37,7 +38,14 @@ parser = create_parser()
 #https://www.kaggle.com/code/imvision12/birdclef-2023-efficientnet-training
 
     
-def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cmap, epoch):
+def train(model: BirdCLEFModel,
+        data_loader: PyhaDF_Dataset,
+        optimizer: torch.optim.Optimizer,
+        scheduler,
+        device: str,
+        step: int,
+        best_valid_cmap: float,
+        epoch: int) -> Tuple[float, int, float]:
     print('size of data loader:', len(data_loader))
     model.train()
 
@@ -107,7 +115,11 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
 
     return running_loss/len(data_loader), step, best_valid_cmap
 
-def valid(model, data_loader, device, step, pad_n=5):
+def valid(model: BirdCLEFModel,
+          data_loader: PyhaDF_Dataset,
+          device: str,
+          step: int,
+          pad_n=5) -> Tuple[float, float]:
     model.eval()
     
     running_loss = 0
@@ -206,7 +218,7 @@ def set_seed():
     torch.manual_seed(CONFIG.seed)
 
 
-def init_wandb(CONFIG):
+def init_wandb(CONFIG: Dict[str, Any]):
     """ Initialize the weights and biases logging
     """
     run = wandb.init(
