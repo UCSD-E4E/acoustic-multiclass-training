@@ -144,6 +144,7 @@ dependencies:
       - pathtools==0.1.2
       - protobuf==4.22.3
       - psutil==5.9.5
+      - pydub==0.25.1
       - pygments==2.15.1
       - pylint==2.17.4
       - pyqt5-sip==12.11.0
