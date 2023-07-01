@@ -92,7 +92,20 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
             ]
         
         print(self.samples.shape[0],"files in use")
+        print("testing file quality")
 
+        #Run the data getting code and check to make sure preprocessing did not break code
+        #poor files may contain null values, or sections of files might contain null files
+        bad_files = []
+        for i in range(len(self)):
+            spectrogram, target = self[i]
+            if spectrogram.isnan().any():
+                bad_files.append(i)
+
+        print("DEBUG:", self.samples.shape[0])
+        self.samples = self.samples.drop(bad_files)
+        print("removed", len(bad_files), "corrupted annotations")
+        print("final annotations count:", self.samples.shape[0])
         return True
 
     def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
@@ -181,7 +194,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
 
         target = self.class_to_idx[annotation[self.config.manual_id_col]]
         target = one_hot(torch.Tensor([target]), self.num_classes)[0]
-        print(target, target.dtype)
+        #print(target, target.dtype)
         #input()
 
         # print(target)
@@ -217,18 +230,14 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
             noise = torch.randn_like(audio) * self.config.noise_std
             audio = audio + noise
 
-        #print(audio)
         # Mel spectrogram
         mel = self.mel_spectogram(audio)
-        # label = torch.tensor(self.labels[index])
-        
-        #print(mel)
 
         # Convert to Image
         image = torch.stack([mel, mel, mel])
         
         # Normalize Image
-        max_val = torch.abs(image).max()
+        max_val = torch.abs(image).max() + 0.000001
         image = image / max_val
         
         # Frequency masking and time masking
@@ -237,6 +246,10 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         if self.train and torch.randn(1) < self.config.time_mask_p:
             image = self.time_mask(image)
 
+        if image.isnan().any():
+            print("ERROR IN", path)
+            print(index)
+            raise Exception("NANS IN INPUT FOUND")
         #print(image)
         #print(target)
         return image, target
