@@ -8,9 +8,15 @@
         
 
 """
+
+# other files 
+from dataset import PyhaDF_Dataset, get_datasets
+from model import BirdCLEFModel, GeM
+from tqdm import tqdm
+
 # pytorch training
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.optim import Adam
 import torch.nn.functional as F
 
@@ -22,11 +28,6 @@ from typing import Dict, Any, Tuple, List
 import wandb
 import datetime
 time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') 
-
-# other files 
-from dataset import PyhaDF_Dataset, get_datasets
-from model import BirdCLEFModel, GeM
-from tqdm import tqdm
 
 from torchmetrics.classification import MultilabelAveragePrecision
 
@@ -46,6 +47,12 @@ def train(model: BirdCLEFModel,
         step: int,
         best_valid_cmap: float,
         epoch: int) -> Tuple[float, int, float]:
+    """ Trains the model
+        Returns: 
+            loss: the average loss over the epoch
+            step: the current step
+            best_valid_cmap: the best validation mAP
+    """
     print('size of data loader:', len(data_loader))
     model.train()
 
@@ -226,7 +233,16 @@ def init_wandb(CONFIG: Dict[str, Any]):
         config=CONFIG,
         mode="disabled" if CONFIG.logging == False else "online"
     )
-    run.name = f"EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{CONFIG.sample_rate}-{CONFIG.hop_length}-{CONFIG.max_time}-{CONFIG.n_mels}-{CONFIG.n_fft}-{CONFIG.seed}-" + run.name.split('-')[-1]
+    run.name = f"EFN-{CONFIG.epochs}-" + \
+            f"{CONFIG.train_batch_size}-" + \
+            f"{CONFIG.valid_batch_size}-" + \
+            f"{CONFIG.sample_rate}-" + \
+            f"{CONFIG.hop_length}-" + \
+            f"{CONFIG.max_time}-" + \
+            f"{CONFIG.n_mels}-" + \
+            f"{CONFIG.n_fft}-" + \
+            f"{CONFIG.seed}-" + \
+            run.name.split('-')[-1]
     return run
 
 if __name__ == '__main__':
@@ -278,7 +294,8 @@ if __name__ == '__main__':
                 weight=torch.tensor([1 / p for p in train_dataset.class_id_to_num_samples.values()]).to(device)
             )
         else:
-            loss_fn = nn.CrossEntropyLoss(weight=torch.tensor([1 / p for p in train_dataset.class_id_to_num_samples.values()]).to(device))
+            loss_fn = nn.CrossEntropyLoss(
+                weight=torch.tensor([1 / p for p in train_dataset.class_id_to_num_samples.values()]).to(device))
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))
 
@@ -300,5 +317,3 @@ if __name__ == '__main__':
             print(run.name + '.pt')
             print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
             best_valid_cmap = valid_map
-        
-    print(":o wow")

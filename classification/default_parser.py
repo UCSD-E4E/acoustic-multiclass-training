@@ -5,6 +5,8 @@
 import argparse
 
 def create_parser():
+    """ Returns an ArgumentParser with the default arguments
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('-e', '--epochs', default=10, type=int)
     parser.add_argument('-nf', '--num_fold', default=5, type=int)

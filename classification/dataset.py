@@ -1,35 +1,41 @@
 """ Contains methods for loading the dataset and also creates dataloaders for training and validation
     
-    BirdCLEFDataset is a generic loader with a given root directory. It loads the audio files and converts them to mel spectrograms.
+    BirdCLEFDataset is a generic loader with a given root directory. 
+    It loads the audio files and converts them to mel spectrograms.
     get_datasets returns the train and validation datasets as BirdCLEFDataset objects.
     
     If this module is run directly, it tests that the dataloader works and prints the shape of the first batch.
 
 """
-from typing import Dict, List, Tuple
+
 import torch
 import torchaudio
-from torchvision import datasets, transforms
 import torch.nn.functional as F
 from torchaudio import transforms as audtr
-import numpy as np
-import os
-from functools import partial
 from torch.utils.data import Dataset
-from default_parser import create_parser
+
+from typing import Dict, List, Tuple
+import os
+
 import pandas as pd
+import numpy as np
+
+from default_parser import create_parser
 parser = create_parser()
+
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 #https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
 
 class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
+    """ A dataset that loads audio files and converts them to mel spectrograms
+    """
     def __init__(self, csv_file, loader=None, CONFIG=None, max_time=5, train=True, species=None, ignore_bad=True):
         super()#.__init__(root, loader, extensions='wav')
-        if (type(csv_file) is str):
+        if isinstance(csv_file,str):
             self.samples = pd.read_csv(csv_file, index_col=0)
-        elif (type(csv_file) is pd.DataFrame):
+        elif isinstance(csv_file,pd.DataFrame):
             self.samples = csv_file
             self.csv_file = f"data_train-{train}.csv"
         else:
@@ -52,7 +58,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         self.freq_mask = audtr.FrequencyMasking(freq_mask_param=self.config.freq_mask_param)
         self.time_mask = audtr.TimeMasking(time_mask_param=self.config.time_mask_param)
 
-        if (species is not None):
+        if species is not None:
             #TODO FIX REPLICATION CODE
             self.classes, self.class_to_idx = species
         else:
@@ -68,15 +74,16 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         
 
     def verify_audio_files(self) -> bool:
+        """ Checks that all files in the dataframe exist
+        """
         test_df = self.samples[self.config.file_path_col].apply(lambda path: (
             "SUCCESS" if os.path.exists(path) else path
         ))
         missing_files = test_df[test_df != "SUCCESS"].unique()
         if (missing_files.shape[0] > 0 and not self.ignore_bad):
             print(missing_files)
-            raise "ERROR MISSING FILES, CHECK DATAFRAME"
-            return False
-        elif (self.ignore_bad):
+            raise RuntimeError("ERROR MISSING FILES, CHECK DATAFRAME")
+        if self.ignore_bad:
             print("ignoring", missing_files.shape[0], "missing files")
             self.samples = self.samples[
                 ~self.samples[self.config.file_path_col].isin(missing_files)
@@ -89,7 +96,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         #poor files may contain null values, or sections of files might contain null files
         bad_files = []
         for i in range(len(self)):
-            spectrogram, target = self[i]
+            spectrogram, _ = self[i]
             if spectrogram.isnan().any():
                 bad_files.append(i)
 
@@ -100,18 +107,29 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         return True
 
     def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
+        """ Returns tuple of class list and class to index dictionary
+        """
         return self.classes, self.class_to_idx
     
     def get_num_classes(self) -> int:
+        """ Returns number of classes
+        """
         return self.num_classes
     
     def get_csv_files(self) -> Tuple[str, str]:
+        """ Returns tuple of original csv file and formatted csv file
+        """
         return self.csv_file, self.formatted_csv_file
     
     def get_DF(self) -> pd.DataFrame:
+        """ Returns dataframe of all annotations
+        """
         return self.samples
 
     def format_audio(self):
+        """ Formats all audio files in the list of annotations
+            Saves new file paths in a file ending in formatted.csv
+        """
         files = pd.DataFrame(
             self.samples[self.config.file_path_col].unique(),
             columns=["files"])
@@ -122,9 +140,9 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         
         self.samples["original_file_path"] = self.samples[self.config.file_path_col]
 
-        if ("files" in self.samples.columns):
+        if "files" in self.samples.columns:
             self.samples[self.config.file_path_col] = self.samples["files"].copy()
-        if ("files_y" in self.samples.columns):
+        if "files_y" in self.samples.columns:
             self.samples[self.config.file_path_col] = self.samples["files_y"].copy()
         
         self.formatted_csv_file = ".".join(self.csv_file.split(".")[:-1]) + "formatted.csv"
@@ -133,10 +151,13 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         
 
     def resample_audio_file(self, path: str) -> pd.Series:
+        """ Converts audio at path to mono and resamples to target sample rate
+            Saves as new file
+        """
         audio, sample_rate = torchaudio.load(path)
         changed = False
 
-        if (len(audio.shape) > 1):
+        if len(audio.shape) > 1:
             audio = self.to_mono(audio)
             changed = True
         
@@ -168,9 +189,13 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         ).T
 
     def __len__(self) -> int:
+        """ Returns number of annotations
+        """
         return self.samples.shape[0]
         
     def get_clip(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """ Returns tuple of audio waveform and its one-hot label
+        """
         annotation = self.samples.iloc[index]
         path = annotation[self.config.file_path_col]
         sample_per_sec = self.target_sample_rate
@@ -246,9 +271,8 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
             image = self.time_mask(image)
 
         if image.isnan().any():
-            print("ERROR IN", path)
-            print(index)
-            raise Exception("NANS IN INPUT FOUND")
+            print("ERROR IN ANNOTATION #", index)
+            raise RuntimeError("NANS IN INPUT FOUND")
         #print(image)
         #print(target)
         return image, target
@@ -267,6 +291,8 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         return audio[:self.num_samples]
         
     def to_mono(self, audio: torch.Tensor) -> torch.Tensor:
+        """ Converts audio to mono by averaging the channels
+        """
         return torch.mean(audio, axis=0)
     
 
@@ -274,9 +300,10 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
 
 
 
-def get_datasets(path="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=None):
-
-    data = pd.read_csv("testformatted.csv")
+def get_datasets(path="testformatted.csv", CONFIG=None):
+    """ Returns train and validation datasets
+    """
+    data = pd.read_csv(path)
     train = data.sample(frac=1/2)
     valid = data[~data.index.isin(train.index)]
     return PyhaDF_Dataset(csv_file=train, CONFIG=CONFIG), PyhaDF_Dataset(csv_file=valid,train=False, CONFIG=CONFIG)
@@ -289,7 +316,7 @@ def get_datasets(path="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunk
 if __name__ == '__main__':
     torch.multiprocessing.set_start_method('spawn')
     CONFIG = parser.parse_args()
-    CONFIG.logging = True if CONFIG.logging == 'True' else False
+    CONFIG.logging = CONFIG.logging == 'True'
     # torch.manual_seed(CONFIG.seed)
     train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
     print(train_dataset.get_classes()[1])
