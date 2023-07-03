@@ -22,6 +22,7 @@ chunking_methods/birdclef2023_tweety_labels_log.txt
 chunking_methods/__pycache__/*
 chunking_methods/gen_data_stats.py
 
+Miniconda3-*.sh
 
 *.mp3
 *.wav
