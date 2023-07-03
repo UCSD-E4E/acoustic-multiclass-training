@@ -42,12 +42,12 @@ cd acoustic-multiclass-training
 Run the setup and mount scripts using
 ```bash
 bash documentation/aws/setup.sh
-bahs documentation/aws/mount.sh
+bash documentation/aws/mount.sh
 ```
 
 This setup script will
 1. Update the machine
-2. Install miniconda, check it's sha checksum, and create the asid environment
+2. Install miniconda, check its SHA checksum, and create the asid environment
 3. Install aws-cli and s3 file system
 4. Configure aws setup so you can enter access keys
 
