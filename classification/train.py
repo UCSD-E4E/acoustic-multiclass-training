@@ -16,6 +16,7 @@ import torch.nn.functional as F
 
 # general
 import numpy as np
+from typing import Dict, Any, Tuple, List
 
 # logging
 import wandb
@@ -23,7 +24,7 @@ import datetime
 time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') 
 
 # other files 
-from dataset import BirdCLEFDataset, get_datasets
+from dataset import PyhaDF_Dataset, get_datasets
 from model import BirdCLEFModel, GeM
 from tqdm import tqdm
 
@@ -37,7 +38,14 @@ parser = create_parser()
 #https://www.kaggle.com/code/imvision12/birdclef-2023-efficientnet-training
 
     
-def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cmap, epoch):
+def train(model: BirdCLEFModel,
+        data_loader: PyhaDF_Dataset,
+        optimizer: torch.optim.Optimizer,
+        scheduler,
+        device: str,
+        step: int,
+        best_valid_cmap: float,
+        epoch: int) -> Tuple[float, int, float]:
     print('size of data loader:', len(data_loader))
     model.train()
 
@@ -72,7 +80,9 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
         pred_label = torch.argmax(outputs, dim=1)
 
         # checking highest against true label
-        correct += torch.all(pred_label.eq(labels), dim=-1).sum().item()
+
+        print("LOSS FUNCTION", outputs.shape, labels.shape)
+        correct += torch.all(torch.round(outputs).eq(labels), dim=-1).sum().item()
         log_loss += loss.item()
         log_n += 1
 
@@ -105,7 +115,11 @@ def train(model, data_loader, optimizer, scheduler, device, step, best_valid_cma
 
     return running_loss/len(data_loader), step, best_valid_cmap
 
-def valid(model, data_loader, device, step, pad_n=5):
+def valid(model: BirdCLEFModel,
+          data_loader: PyhaDF_Dataset,
+          device: str,
+          step: int,
+          pad_n=5) -> Tuple[float, float]:
     model.eval()
     
     running_loss = 0
@@ -204,7 +218,7 @@ def set_seed():
     torch.manual_seed(CONFIG.seed)
 
 
-def init_wandb(CONFIG):
+def init_wandb(CONFIG: Dict[str, Any]):
     """ Initialize the weights and biases logging
     """
     run = wandb.init(
@@ -244,7 +258,8 @@ if __name__ == '__main__':
         val_dataset,
         CONFIG.valid_batch_size,
         shuffle=False,
-        num_workers=CONFIG.jobs
+        num_workers=CONFIG.jobs,
+        #collate_fn=train_dataset.collate_fn
     )
     
     print("Training")
