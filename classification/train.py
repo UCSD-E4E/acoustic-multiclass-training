@@ -10,7 +10,7 @@
 """
 
 # other files 
-from dataset import PyhaDF_Dataset, get_datasets
+from dataset import PyhaDF_Dataset, get_datasets, one_hot
 from model import BirdCLEFModel, GeM
 from tqdm import tqdm
 
@@ -177,18 +177,6 @@ def valid(model: BirdCLEFModel,
         if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
             torch.save(pred, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
             torch.save(label, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
-
-    # print(torch.unique(label))
-    # convert to one-hot encoding
-    unq_classes = torch.unique(label)
-    print(unq_classes)
-    # if len(label.shape) < 2:
-    label.long() 
-    label = F.one_hot(label, num_classes=CONFIG.num_classes).to(device)
-    #Why are labels moving to device?
-
-
-    # label = label[:,unq_classes]
 
     # softmax predictions
     pred = F.softmax(pred).to(device)
