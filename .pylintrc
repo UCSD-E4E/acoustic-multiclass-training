@@ -319,8 +319,8 @@ min-public-methods=2
 [EXCEPTIONS]
 
 # Exceptions that will emit a warning when caught.
-overgeneral-exceptions=builtins.BaseException,
-                       builtins.Exception
+overgeneral-exceptions=BaseException,
+                       Exception
 
 
 [FORMAT]
@@ -357,7 +357,7 @@ single-line-if-stmt=no
 
 # List of modules that can be imported at any level, not just the top level
 # one.
-allow-any-import-level=
+allow-any-import-level=pandas, numpy, pydub, torch, torchaudio, timm, tqdm, wandb
 
 # Allow wildcard imports from modules that define __all__.
 allow-wildcard-with-all=no
