@@ -211,7 +211,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
 
         target = one_hot(
                 torch.tensor(self.class_to_idx[class_name]),
-                self.num_classes)
+                self.num_classes)[0]
         target = target.float()
 
         audio, sample_rate = torchaudio.load(
