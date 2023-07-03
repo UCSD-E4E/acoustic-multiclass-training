@@ -8,32 +8,35 @@
 
 """
 
-import torch
-import torchaudio
-import torch.nn.functional as F
-from torchaudio import transforms as audtr
-from torch.utils.data import Dataset
-
+# Standard library imports
 from typing import Dict, List, Tuple
 import os
 
+# Math library imports
 import pandas as pd
 import numpy as np
 
+# Torch imports
+import torch
+from torch.utils.data import Dataset
+import torch.nn.functional as F
+import torchaudio
+from torchaudio import transforms as audtr
+
+# Local imports
 from utils import print_verbose, set_seed
 from default_parser import create_parser
+
 parser = create_parser()
-
-
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-#https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
-
+# pylint: disable=too-many-instance-attributes
 class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
     """ A dataset that loads audio files and converts them to mel spectrograms
     """
-    def __init__(self, csv_file, loader=None, CONFIG=None, max_time=5, train=True, species=None, ignore_bad=True):
-        super()#.__init__(root, loader, extensions='wav')
+    # pylint: disable=too-many-arguments
+    def __init__(self, csv_file, CONFIG=None, max_time=5, train=True, species=None, ignore_bad=True):
+        super()
         if isinstance(csv_file,str):
             self.samples = pd.read_csv(csv_file, index_col=0)
         elif isinstance(csv_file,pd.DataFrame):
@@ -41,15 +44,12 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
             self.csv_file = f"data_train-{train}.csv"
         else:
             raise RuntimeError("csv_file must be a str or dataframe!")
-        
-        
+
         self.formatted_csv_file = "not yet formatted"
-        #print(self.samples)
         self.config = CONFIG
         self.ignore_bad = ignore_bad
-        target_sample_rate = CONFIG.sample_rate
-        self.target_sample_rate = target_sample_rate
-        num_samples = target_sample_rate * max_time
+        self.target_sample_rate = CONFIG.sample_rate
+        num_samples = CONFIG.sample_rate * max_time
         self.num_samples = num_samples
         self.mel_spectogram = audtr.MelSpectrogram(sample_rate=self.target_sample_rate, 
                                         n_mels=self.config.n_mels, 
@@ -60,13 +60,13 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         self.time_mask = audtr.TimeMasking(time_mask_param=self.config.time_mask_param)
 
         if species is not None:
+            # pylint: disable=fixme
             #TODO FIX REPLICATION CODE
             self.classes, self.class_to_idx = species
         else:
             self.classes = self.samples[self.config.manual_id_col].unique()
             class_idx = np.arange(len(self.classes))
             self.class_to_idx = dict(zip(self.classes, class_idx))
-            #print(self.class_to_idx)
         self.num_classes = len(self.classes)
 
         self.verify_audio_files()
@@ -95,8 +95,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         #Run the data getting code and check to make sure preprocessing did not break code
         #poor files may contain null values, or sections of files might contain null files
         bad_files = []
-        for i in range(len(self)):
-            spectrogram, _ = self[i]
+        for i, (spectrogram, _) in enumerate(self):
             if spectrogram.isnan().any():
                 bad_files.append(i)
 
@@ -214,8 +213,6 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
             frame_offset=frame_offset,
             num_frames=num_frames)
 
-        #print(path, "test.wav", annotation[self.config.duration_col], annotation[self.config.duration_col])
-
         #Assume audio is all mono and at target sample rate
         assert audio.shape[0] == 1
         assert sample_rate == self.target_sample_rate
@@ -273,8 +270,6 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         if image.isnan().any():
             print("ERROR IN ANNOTATION #", index)
             raise RuntimeError("NANS IN INPUT FOUND")
-        #print(image)
-        #print(target)
         return image, target
             
     def pad_audio(self, audio: torch.Tensor) -> torch.Tensor:
@@ -307,39 +302,25 @@ def get_datasets(path="testformatted.csv", CONFIG=None):
     train = data.sample(frac=1/2)
     valid = data[~data.index.isin(train.index)]
     return PyhaDF_Dataset(csv_file=train, CONFIG=CONFIG), PyhaDF_Dataset(csv_file=valid,train=False, CONFIG=CONFIG)
-    #data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=CONFIG)
-    #no_bird_data = BirdCLEFDataset(root="/share/acoustic_species_id/no_bird_10_000_audio_chunks", CONFIG=CONFIG)
-    #data = torch.utils.data.ConcatDataset([data, no_bird_data])
-    #train_data, val_data = torch.utils.data.random_split(data, [0.8, 0.2])
-    #return train_data, val_data
 
 def main():
+    """ Main function
+    """
     torch.multiprocessing.set_start_method('spawn')
     CONFIG = parser.parse_args()
     CONFIG.logging = CONFIG.logging == 'True'
+    CONFIG.verbose = CONFIG.verbose == 'True'
     set_seed(CONFIG.seed)
     train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
-    print(train_dataset.get_classes()[1])
-    print(train_dataset.__getitem__(0))
-    input()
-    #train_dataset = get_datasets(CONFIG=CONFIG)
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset,
-        1,
-        shuffle=True,
-        num_workers=CONFIG.jobs,
-    )
-    val_dataloader = torch.utils.data.DataLoader(
-        val_dataset,
-        CONFIG.valid_batch_size,
-        shuffle=False,
-        num_workers=CONFIG.jobs,
-    )
 
-    for i in range(train_dataset.__len__()):
-        print("entry", i)
-        train_dataset.__getitem__(i)
-        input()
+    # note: this calls __getitem__ on the dataset and discards the result
+    for i, _ in enumerate(train_dataset):
+        print_verbose("train entry", i,verbose=CONFIG.verbose)
+    print("Loaded all training data")
+
+    for i, _ in enumerate(val_dataset):
+        print_verbose("validation entry", i,verbose=CONFIG.verbose)
+    print("Loaded all validation data")
 
 if __name__ == '__main__':
     main()
