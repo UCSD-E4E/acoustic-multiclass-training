@@ -25,15 +25,14 @@ If you didn't make an SSH key on the previous step, open the find Network & Secu
 
 Store the key file in a secure location and on linux run `sudo chmod 400 {filename}.pem` to make it read only for just your user. To connect run `ssh -i "path/to/key.pem" ubuntu@{servername}.compute.amazonaws.com`. You can find the domain name in the EC2 dashboard.
 
+
 ## Creating IAM roles
 
-You need to save a valid access key on EC2 in order to mount an s3 filesystem. To do that, search for IAM in the AWS console, click on users and create a new IAM user. Give them a username. Click attach policies directly and give them `AmazonS3FullAccess`. Create new user. Next you have to get their access token. Click on the new user -> security credentials -> create access key. Give CLI access. Stay on this page.
+You need to save a valid access key on EC2 in order to mount an s3 filesystem. To do that, search for IAM in the AWS console, click on users and create a new IAM user. Give them a username. Click attach policies directly and give them `AmazonS3FullAccess`. Create new user. Next you have to get their access token. Click on the new user -> security credentials -> create access key. Give CLI access. Stay on this page or save the secret access key.
 
-Open up your SSH session and run the command `aws configure`. Paste in the access key from this user and the secret access key. The region and output format can be left blank.
-
-Alternatively, you can make an IAM role to have AmazonS3FullAccess and assign it to the EC2 instance, but I kept getting permission denied errors.
 
 ## Run setup script
+
 Before running the setup script, you need to install the repo onto the machine.
 ```bash
 git clone https://github.com/UCSD-E4E/acoustic-multiclass-training.git
@@ -49,15 +48,25 @@ bahs documentation/aws/mount.sh
 This setup script will
 1. Update the machine
 2. Install miniconda, check it's sha checksum, and create the asid environment
+3. Install aws-cli and s3 file system
+4. Configure aws setup so you can enter access keys
+
 
 ## Manual setup
+
 Below are the instructions for manual setup if you need to reference them.
+
 ### EC2 setup 
 
 Before starting anything, run `sudo apt update -y` followed by `sudo apt upgrade -y` to ensure that apt's repository cache is up to date.
 
 Install the aws tools using the command: `sudo apt install awscli s3fs`.
 
+## IAM roles
+
+Open up your SSH session and run the command `aws configure`. Paste in the access key from this user and the secret access key. The region and output format can be left blank.
+
+Alternatively, you can make an IAM role to have AmazonS3FullAccess and assign it to the EC2 instance, but I kept getting permission denied errors.
 
 ### Mounting S3 in EC2
 
