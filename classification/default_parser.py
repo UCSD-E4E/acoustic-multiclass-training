@@ -21,6 +21,7 @@ def create_parser():
     parser.add_argument('-s', '--seed', default=0, type=int)
     parser.add_argument('-j', '--jobs', default=4, type=int)
     parser.add_argument('-l', '--logging', default='True', type=str)
+    parser.add_argument('-v', '--verbose', default='False', type=str)
     parser.add_argument('-lf', '--logging_freq', default=20, type=int)
     parser.add_argument('-vf', '--valid_freq', default=1000, type=int)
     parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)

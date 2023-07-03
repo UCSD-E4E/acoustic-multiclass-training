@@ -10,9 +10,11 @@
 """
 
 # other files 
-from dataset import PyhaDF_Dataset, get_datasets, one_hot
+from dataset import PyhaDF_Dataset, get_datasets
 from model import BirdCLEFModel, GeM
 from tqdm import tqdm
+from utils import set_seed, print_verbose
+from default_parser import create_parser
 
 # pytorch training
 import torch
@@ -31,7 +33,6 @@ from typing import Dict, Any, Tuple
 from model import BirdCLEFModel #, GeM
 from tqdm import tqdm
 from torchmetrics.classification import MultilabelAveragePrecision
-from default_parser import create_parser
 
 
 # pytorch training
@@ -67,7 +68,7 @@ def train(model: BirdCLEFModel,
             step: the current step
             best_valid_cmap: the best validation mAP
     """
-    print('size of data loader:', len(data_loader))
+    print_verbose('size of data loader:', len(data_loader),verbose=CONFIG.verbose)
     model.train()
 
     running_loss = 0
@@ -102,7 +103,6 @@ def train(model: BirdCLEFModel,
 
         # checking highest against true label
 
-        print("LOSS FUNCTION", outputs.shape, labels.shape)
         correct += torch.all(torch.round(outputs).eq(labels), dim=-1).sum().item()
         log_loss += loss.item()
         log_n += 1
@@ -120,16 +120,16 @@ def train(model: BirdCLEFModel,
             correct = 0
             total = 0
         
-        if step % CONFIG.valid_freq == 0 and step != 0:
-            del mels, labels, outputs, preds # clear memory
-            valid_loss, valid_map = valid(model, val_dataloader, device, step)
-            print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
-            if valid_map > best_valid_cmap:
-                print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
-                best_valid_cmap = valid_map
-                torch.save(model.state_dict(), wandb_run.name + '.pt')
-                print(wandb_run.name + '.pt')
-            model.train()
+        #if step % CONFIG.valid_freq == 0 and step != 0:
+        #    del mels, labels, outputs, preds # clear memory
+        #    valid_loss, valid_map = valid(model, val_dataloader, device, step)
+        #    print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
+        #    if valid_map > best_valid_cmap:
+        #        print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
+        #        best_valid_cmap = valid_map
+        #        torch.save(model.state_dict(), wandb_run.name + '.pt')
+        #        print(wandb_run.name + '.pt')
+        #    model.train()
             
         
         step += 1
@@ -212,12 +212,6 @@ def valid(model: BirdCLEFModel,
     
     return running_loss/len(data_loader), valid_map
 
-def set_seed(CONFIG: Dict[str, Any]):
-    """ Sets numpy and pytorch seeds to the CONFIG.seed
-    """
-    np.random.seed(CONFIG.seed)
-    torch.manual_seed(CONFIG.seed)
-
 
 def init_wandb(CONFIG: Dict[str, Any]):
     """ 
@@ -265,9 +259,10 @@ def main():
     CONFIG = parser.parse_args()
     print(CONFIG)
     CONFIG.logging = CONFIG.logging == 'True'
+    CONFIG.verbose = CONFIG.verbose == 'True'
     global wandb_run
     wandb_run = init_wandb(CONFIG)
-    set_seed(CONFIG)
+    set_seed(CONFIG.seed)
     
     # Load in dataset
     print("Loading Dataset")

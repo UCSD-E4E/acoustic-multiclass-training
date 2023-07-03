@@ -20,6 +20,7 @@ import os
 import pandas as pd
 import numpy as np
 
+from utils import print_verbose, set_seed
 from default_parser import create_parser
 parser = create_parser()
 
@@ -89,8 +90,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
                 ~self.samples[self.config.file_path_col].isin(missing_files)
             ]
         
-        print(self.samples.shape[0],"files in use")
-        print("testing file quality")
+        print_verbose(self.samples.shape[0], "files found", verbose=self.config.verbose)
 
         #Run the data getting code and check to make sure preprocessing did not break code
         #poor files may contain null values, or sections of files might contain null files
@@ -100,10 +100,10 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
             if spectrogram.isnan().any():
                 bad_files.append(i)
 
-        print("DEBUG:", self.samples.shape[0])
         self.samples = self.samples.drop(bad_files)
-        print("removed", len(bad_files), "corrupted annotations")
-        print("final annotations count:", self.samples.shape[0])
+        if len(bad_files) > 0 and not self.ignore_bad: 
+            print("removed", len(bad_files), "corrupted annotations")
+        print("Annotations count:", self.samples.shape[0])
         return True
 
     def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
@@ -317,7 +317,7 @@ def main():
     torch.multiprocessing.set_start_method('spawn')
     CONFIG = parser.parse_args()
     CONFIG.logging = CONFIG.logging == 'True'
-    torch.manual_seed(CONFIG.seed)
+    set_seed(CONFIG.seed)
     train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
     print(train_dataset.get_classes()[1])
     print(train_dataset.__getitem__(0))
