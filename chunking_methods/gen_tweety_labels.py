@@ -1,8 +1,13 @@
-from PyHa.IsoAutio import *
-import pandas as pd
-import os 
+"""Generates binary annotations using TweetyNet from unlabeled audio.
+This file should be run from inside the PyHa directory.
+"""
+import os
 import sys
-
+import pandas as pd
+# pylint: disable=import-error, wildcard-import
+from PyHa.IsoAutio import *
+# for converting to wav files
+from pydub import AudioSegment
 
 isolation_parameters_tweety = {
     "model" : "tweetynet",
@@ -10,15 +15,17 @@ isolation_parameters_tweety = {
     "verbose" : True
 }
 
-
-# for converting to wav files
-from pydub import AudioSegment
 def ogg2wav(ofn):
+    """Convert .ogg files to .wav, as required for TweetyNet predictions.
+    Can be replaced with .mp3 or other formats.
+    """
     wfn = ofn.replace('.ogg', '.wav')
     x = AudioSegment.from_file(ofn)
     x.export(wfn, format='wav')
 
 def gen_labels(path):
+    """Generate labels using PyHa using the above isolation parameters.
+    """
     if not os.path.exists(os.path.join(path, "train_audio")):
         print(f"Directory \"train_audio\" not found in path {path}", file=sys.stderr)
         sys.exit(1)
@@ -32,7 +39,8 @@ def gen_labels(path):
             if fn.endswith('.ogg'):
                 f = os.path.join(s,fn)
                 ogg2wav(f)
-        print(s + "/")
+        # tweetynet needs the filepath to end with a "/" to do predictions
+        # pylint: disable=undefined-variable
         temp_df = generate_automated_labels(s+ "/", isolation_parameters_tweety)
         if temp_df.empty:
             continue

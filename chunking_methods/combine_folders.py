@@ -1,3 +1,5 @@
+"""For mixing multiple datasets together in pretraining.
+"""
 import os
 import shutil
 
@@ -5,9 +7,10 @@ base_path = '/share/acoustic_species_id/pretraining_data_combined'
 combine_path = '/share/acoustic_species_id/BirdCLEF2021_audio'
 
 def combine_folders():
+    """Combine multiple datasets into the same folder. Removes "duplicate" files.
+    """
     base_subfolders = [f.path.split('/')[-1] for f in os.scandir(base_path) if f.is_dir()]
     combine_subfolders = [f.path.split('/')[-1] for f in os.scandir(combine_path) if f.is_dir()]
-
     for species in combine_subfolders:
         # diff species, can move directly
         if species not in base_subfolders:
@@ -25,5 +28,3 @@ def combine_folders():
 
 if __name__ == '__main__':
     combine_folders()
-
-
