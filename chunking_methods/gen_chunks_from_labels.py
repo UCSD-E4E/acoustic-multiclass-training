@@ -11,7 +11,7 @@ def generate_chunked_df(path, save_chunks=True):
     """Return a dataframe with sliding window chunked annotations
     """
     unchunked_df = pd.read_csv(os.path.join(path, 'BirdCLEF2023_Strong_Labels.csv'))
-    chunked_df = dynamic_yan_chunking(unchunked_df, chunk_count=5, chunk_duration=5, only_slide=False)
+    chunked_df = dynamic_yan_chunking(unchunked_df, chunk_duration=5, only_slide=False)
     if save_chunks:
         chunked_df.to_csv(os.path.join(path, 'BirdCLEF2023_TweetyNet_Chunks.csv'))
     return chunked_df

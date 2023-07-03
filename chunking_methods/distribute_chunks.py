@@ -7,7 +7,7 @@ import shutil
 import sys
 from random import shuffle
 from math import floor
-from file_utils import clear_files
+from file_utils import clear_files, make_dirs
 
 VALIDATION_DISTR = 0.2
 
@@ -32,19 +32,11 @@ def distribute_files(path):
     for s in subfolders:
         species = s.split('/')[-1]
         num_files = int(len(os.listdir(s)) / 2)
-        s_train_path = os.path.join(train_path, species)
-        s_validation_path = os.path.join(validation_path, species)
-
+        s_train_path, s_validation_path = make_dirs(species, train_path, validation_path)
         files = [f.path.split('/')[-1] for f in os.scandir(s) if f.path.endswith('.wav') and contains_chunks(f)]
 
         if len(files) == 0:
             continue
-
-        if not os.path.exists(s_train_path):
-            os.makedirs(s_train_path)
-        if not os.path.exists(s_validation_path):
-            os.makedirs(s_validation_path)
-
         # if the number of files is 1, we'll keep the same file in both training and validation
         if len(files) == 1:
             file = files[0]
