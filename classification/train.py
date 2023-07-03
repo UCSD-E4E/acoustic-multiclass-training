@@ -59,7 +59,8 @@ def train(model: BirdCLEFModel,
         device: str,
         step: int,
         best_valid_cmap: float,
-        epoch: int) -> Tuple[float, int, float]:
+        epoch: int,
+        CONFIG) -> Tuple[float, int, float]:
     """ Trains the model
         Returns: 
             loss: the average loss over the epoch
@@ -84,7 +85,7 @@ def train(model: BirdCLEFModel,
         # sigmoid multilabel predictions
         preds = torch.sigmoid(outputs) > 0.5
         
-        loss = loss_fn(outputs, labels)
+        loss = model.loss_fn(outputs, labels)
         
         loss.backward()
         optimizer.step()
@@ -126,8 +127,8 @@ def train(model: BirdCLEFModel,
             if valid_map > best_valid_cmap:
                 print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
                 best_valid_cmap = valid_map
-                torch.save(model.state_dict(), run.name + '.pt')
-                print(run.name + '.pt')
+                torch.save(model.state_dict(), wandb_run.name + '.pt')
+                print(wandb_run.name + '.pt')
             model.train()
             
         
@@ -138,7 +139,8 @@ def train(model: BirdCLEFModel,
 def valid(model: BirdCLEFModel,
           data_loader: PyhaDF_Dataset,
           device: str,
-          step: int) -> Tuple[float, float]:
+          step: int,
+          CONFIG) -> Tuple[float, float]:
     """
     Run a validation loop
     """
@@ -163,7 +165,7 @@ def valid(model: BirdCLEFModel,
             outputs = model(mels)
             #_, preds = torch.max(outputs, 1)
             
-            loss = loss_fn(outputs, labels)
+            loss = model.loss_fn(outputs, labels)
                 
             running_loss += loss.item()
             
@@ -181,6 +183,7 @@ def valid(model: BirdCLEFModel,
     unq_classes = torch.unique(label)
     print(unq_classes)
     # if len(label.shape) < 2:
+    label.long() 
     label = F.one_hot(label, num_classes=CONFIG.num_classes).to(device)
     #Why are labels moving to device?
 
@@ -221,7 +224,7 @@ def valid(model: BirdCLEFModel,
     
     return running_loss/len(data_loader), valid_map
 
-def set_seed():
+def set_seed(CONFIG: Dict[str, Any]):
     """ Sets numpy and pytorch seeds to the CONFIG.seed
     """
     np.random.seed(CONFIG.seed)
@@ -248,63 +251,53 @@ def init_wandb(CONFIG: Dict[str, Any]):
     run.name = f"EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{CONFIG.sample_rate}-{CONFIG.hop_length}-{CONFIG.max_time}-{CONFIG.n_mels}-{CONFIG.n_fft}-{CONFIG.seed}-" + run.name.split('-')[-1]
     return run
 
-if __name__ == '__main__':
-    torch.multiprocessing.set_start_method('spawn')
-    global CONFIG
-    CONFIG = parser.parse_args()
-    print(CONFIG)
-    CONFIG.logging = True if CONFIG.logging == 'True' else False
-    global run
-    run = init_wandb(CONFIG)
-    set_seed()
-    
-    print("Loading Model...")
-    model_for_run = BirdCLEFModel(CONFIG=CONFIG).to(device)
-    if CONFIG.model_checkpoint is not None:
-        model_for_run.load_state_dict(torch.load(CONFIG.model_checkpoint))
-    optimizer = Adam(model_for_run.parameters(), lr=CONFIG.lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
-    print("Model / Optimizer Loading Succesful :P")
+def load_datasets(CONFIG: Dict[str, Any]) \
+    -> Tuple[PyhaDF_Dataset, PyhaDF_Dataset, torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+    """
+        Loads datasets and dataloaders for train and validation
+    """
 
-    print("Loading Dataset")
     train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         CONFIG.train_batch_size,
         shuffle=True,
         num_workers=CONFIG.jobs,
-        #collate_fn=train_dataset.collate_fn
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
         CONFIG.valid_batch_size,
         shuffle=False,
         num_workers=CONFIG.jobs,
-        #collate_fn=train_dataset.collate_fn
     )
+    return train_dataset, val_dataset, train_dataloader, val_dataloader
+
+def main():
+    torch.multiprocessing.set_start_method('spawn')
+    CONFIG = parser.parse_args()
+    print(CONFIG)
+    CONFIG.logging = CONFIG.logging == 'True'
+    global wandb_run
+    wandb_run = init_wandb(CONFIG)
+    set_seed(CONFIG)
+    
+    # Load in dataset
+    print("Loading Dataset")
+    train_dataset, val_dataset, train_dataloader, val_dataloader = load_datasets(CONFIG)
+    
+    print("Loading Model...")
+    model_for_run = BirdCLEFModel(CONFIG=CONFIG).to(device)
+    model_for_run.create_loss_fn(train_dataset)
+    if CONFIG.model_checkpoint is not None:
+        model_for_run.load_state_dict(torch.load(CONFIG.model_checkpoint))
+    optimizer = Adam(model_for_run.parameters(), lr=CONFIG.lr)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
+    print("Model / Optimizer Loading Succesful :P")
     
     print("Training")
     step = 0
     best_valid_cmap = 0
 
-    global loss_fn
-    if not CONFIG.imb: # normal loss
-        if CONFIG.pos_weight != 1:
-            loss_fn = nn.CrossEntropyLoss(pos_weight=torch.tensor([CONFIG.pos_weight] * CONFIG.num_classes).to(device))
-        else:
-            loss_fn = nn.CrossEntropyLoss()
-    else: # weighted loss
-        if CONFIG.pos_weight != 1:
-            loss_fn = nn.CrossEntropyLoss(
-                pos_weight=torch.tensor([CONFIG.pos_weight] * CONFIG.num_classes).to(device),
-                weight=torch.tensor([1 / p for p in train_dataset.class_id_to_num_samples.values()]).to(device)
-            )
-        else:
-            loss_fn = nn.CrossEntropyLoss(
-                weight=torch.tensor(
-                    [1 / p for p in train_dataset.class_id_to_num_samples.values()]
-                ).to(device)
-            )
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))
 
@@ -316,14 +309,18 @@ if __name__ == '__main__':
             device,
             step,
             best_valid_cmap,
-            epoch
+            epoch,
+            CONFIG
         )
         
-        valid_loss, valid_map = valid(model_for_run, val_dataloader, device, step)
+        valid_loss, valid_map = valid(model_for_run, val_dataloader, device, step, CONFIG)
         print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
 
         if valid_map > best_valid_cmap:
-            torch.save(model_for_run.state_dict(), run.name + '.pt')
-            print(run.name + '.pt')
+            torch.save(model_for_run.state_dict(), wandb_run.name + '.pt')
+            print(wandb_run.name + '.pt')
             print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
             best_valid_cmap = valid_map
+
+if __name__ == '__main__':
+    main()

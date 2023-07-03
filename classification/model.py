@@ -74,3 +74,25 @@ class BirdCLEFModel(nn.Module):
         embedding = self.embedding(pooled_features)
         output = self.fc(embedding)
         return output
+    
+    def create_loss_fn(self,train_dataset):
+        """ Returns the loss function and sets self.loss_fn
+        """
+        if not self.config.imb: # normal loss
+            if self.config.pos_weight != 1:
+                self.loss_fn = nn.CrossEntropyLoss(pos_weight=torch.tensor([self.config.pos_weight] * self.config.num_classes).to(self.device))
+            else:
+                self.loss_fn = nn.CrossEntropyLoss()
+        else: # weighted loss
+            if self.config.pos_weight != 1:
+                self.loss_fn = nn.CrossEntropyLoss(
+                    pos_weight=torch.tensor([self.config.pos_weight] * self.config.num_classes).to(self.device),
+                    weight=torch.tensor([1 / p for p in train_dataset.class_id_to_num_samples.values()]).to(self.device)
+                )
+            else:
+                self.loss_fn = nn.CrossEntropyLoss(
+                    weight=torch.tensor(
+                        [1 / p for p in train_dataset.class_id_to_num_samples.values()]
+                    ).to(self.device)
+                )
+        return self.loss_fn

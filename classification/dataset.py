@@ -313,11 +313,11 @@ def get_datasets(path="testformatted.csv", CONFIG=None):
     #train_data, val_data = torch.utils.data.random_split(data, [0.8, 0.2])
     #return train_data, val_data
 
-if __name__ == '__main__':
+def main():
     torch.multiprocessing.set_start_method('spawn')
     CONFIG = parser.parse_args()
     CONFIG.logging = CONFIG.logging == 'True'
-    # torch.manual_seed(CONFIG.seed)
+    torch.manual_seed(CONFIG.seed)
     train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
     print(train_dataset.get_classes()[1])
     print(train_dataset.__getitem__(0))
@@ -329,20 +329,17 @@ if __name__ == '__main__':
         shuffle=True,
         num_workers=CONFIG.jobs,
     )
-    # val_dataloader = torch.utils.data.DataLoader(
-    #     val_dataset,
-    #     CONFIG.valid_batch_size,
-    #     shuffle=False,
-    #     num_workers=CONFIG.jobs,
-    #     collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
-    # )
+    val_dataloader = torch.utils.data.DataLoader(
+        val_dataset,
+        CONFIG.valid_batch_size,
+        shuffle=False,
+        num_workers=CONFIG.jobs,
+    )
 
     for i in range(train_dataset.__len__()):
         print("entry", i)
         train_dataset.__getitem__(i)
         input()
 
-    # print("started running batches")
-    # for batch in train_dataloader:
-    #     print("successfully loaded batch")
-    # print("end of code")
+if __name__ == '__main__':
+    main()
