@@ -204,7 +204,12 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
 
         # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
         class_name = annotation[self.config.manual_id_col]
-        target = torch.nn.functional.one_hot(
+
+        def one_hot(x, num_classes, on_value=1., off_value=0.):
+            x = x.long().view(-1, 1)
+            return torch.full((x.size()[0], num_classes), off_value, device=x.device).scatter_(1, x, on_value)
+
+        target = one_hot(
                 torch.tensor(self.class_to_idx[class_name]),
                 self.num_classes)
         target = target.float()
