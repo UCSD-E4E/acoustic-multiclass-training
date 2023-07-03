@@ -25,9 +25,8 @@ from torchaudio import transforms as audtr
 
 # Local imports
 from utils import print_verbose, set_seed
-from default_parser import create_parser
+from config import get_config
 
-parser = create_parser()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # pylint: disable=too-many-instance-attributes
@@ -307,9 +306,7 @@ def main():
     """ Main function
     """
     torch.multiprocessing.set_start_method('spawn')
-    CONFIG = parser.parse_args()
-    CONFIG.logging = CONFIG.logging == 'True'
-    CONFIG.verbose = CONFIG.verbose == 'True'
+    CONFIG = get_config()
     set_seed(CONFIG.seed)
     train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
 

@@ -17,7 +17,7 @@ from typing import Dict, Any, Tuple
 from dataset import PyhaDF_Dataset, get_datasets
 from model import BirdCLEFModel
 from utils import set_seed, print_verbose
-from default_parser import create_parser
+from config import get_config
 
 # Torch imports
 import torch
@@ -33,7 +33,6 @@ import wandb
 wandb_run = None
 time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-parser = create_parser()
 
 
 def train(model: BirdCLEFModel,
@@ -194,10 +193,7 @@ def main():
     """ Main function
     """
     torch.multiprocessing.set_start_method('spawn')
-    CONFIG = parser.parse_args()
-    print(CONFIG)
-    CONFIG.logging = CONFIG.logging == 'True'
-    CONFIG.verbose = CONFIG.verbose == 'True'
+    CONFIG = get_config()
     # Needed to redefine wandb_run as a global variable
     # pylint: disable=global-statement
     global wandb_run
