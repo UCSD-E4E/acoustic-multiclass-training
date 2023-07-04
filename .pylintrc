@@ -64,7 +64,7 @@ ignore-patterns=^\.#
 # (useful for modules/projects where namespaces are manipulated during runtime
 # and thus existing member attributes cannot be deduced by static analysis). It
 # supports qualified module names, as well as Unix pattern matching.
-ignored-modules=ps
+ignored-modules=pandas, numpy, pydub, torch, torchaudio, timm, tqdm, wandb
 
 # Python code to execute, usually for sys.path manipulation such as
 # pygtk.require().
@@ -319,8 +319,8 @@ min-public-methods=2
 [EXCEPTIONS]
 
 # Exceptions that will emit a warning when caught.
-overgeneral-exceptions=BaseException,
-                       Exception
+overgeneral-exceptions=builtins.BaseException,
+                       builtins.Exception
 
 
 [FORMAT]
