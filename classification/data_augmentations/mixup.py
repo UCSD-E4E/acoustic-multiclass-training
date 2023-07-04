@@ -15,8 +15,12 @@ class Mixup(torch.nn.Module):
     def forward(
         self, clip: torch.Tensor, target: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        other_idx = np.random.randint(0, len(self.dataset))
-        other_clip, other_target = self.dataset.get_clip(other_idx)
+        other_idx = np.random.randint(len(self.dataset))
+        try:
+            other_clip, other_target = self.dataset.get_clip(other_idx)
+        except:
+            print('Error loading other clip, mixup not performed')
+            return clip, target
         mixed_clip = self.alpha * clip + (1 - self.alpha) * other_clip
         mixed_target = self.alpha * target + (1 - self.alpha) * other_target
         return mixed_clip, mixed_target
