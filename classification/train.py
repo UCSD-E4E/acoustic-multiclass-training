@@ -33,6 +33,7 @@ import os
 # other files 
 from model import BirdCLEFModel #, GeM
 from tqdm import tqdm
+tqdm.pandas()
 from torchmetrics.classification import MultilabelAveragePrecision
 
 
@@ -86,8 +87,9 @@ def train(model: BirdCLEFModel,
         
         outputs = model(mels)
         # sigmoid multilabel predictions
-        preds = torch.sigmoid(outputs) > 0.5
+        # preds = torch.sigmoid(outputs) > 0.5
         
+
         loss = model.loss_fn(outputs, labels)
         
         loss.backward()
