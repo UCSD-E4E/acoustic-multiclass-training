@@ -311,6 +311,8 @@ def get_datasets(path="testformatted.csv", CONFIG=None):
     #TODO create config for this
     train_p = 0.8
     data = pd.read_csv(path, index_col=0)
+
+    #for each species, get a random sample of files for train/valid split
     train_files = data.groupby(CONFIG.manual_id_col, as_index=False).apply(
         lambda x: pd.Series(x[CONFIG.file_path_col].unique()).sample(frac=train_p)
     )
