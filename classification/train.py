@@ -50,6 +50,7 @@ time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 from torchmetrics.classification import MultilabelAveragePrecision
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(device)
 parser = create_parser()
 
 

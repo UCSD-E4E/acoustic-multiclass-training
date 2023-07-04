@@ -308,9 +308,16 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
 def get_datasets(path="testformatted.csv", CONFIG=None):
     """ Returns train and validation datasets
     """
-    data = pd.read_csv(path)
-    train = data.sample(frac=1/2)
+    #TODO create config for this
+    train_p = 0.8
+    data = pd.read_csv(path, index_col=0)
+    train = data.groupby(CONFIG.manual_id_col, as_index=False).apply(lambda x: x.sample(frac=train_p))
+    train = train.reset_index().rename(columns={"level_1": "index"}).set_index("index").drop(columns="level_0")
     valid = data[~data.index.isin(train.index)]
+
+    print(data[CONFIG.manual_id_col].value_counts())
+    print(train[CONFIG.manual_id_col].value_counts())
+    print(valid[CONFIG.manual_id_col].value_counts())
     return PyhaDF_Dataset(csv_file=train, CONFIG=CONFIG), PyhaDF_Dataset(csv_file=valid,train=False, CONFIG=CONFIG)
     #data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=CONFIG)
     #no_bird_data = BirdCLEFDataset(root="/share/acoustic_species_id/no_bird_10_000_audio_chunks", CONFIG=CONFIG)
