@@ -40,7 +40,3 @@ class BackgroundNoise(torch.nn.Module):
         waveform, _ = torchaudio.load(noise_file, sample_rate=self.sample_rate)
         start_idx = np.random.randint(len(waveform)-clip_len)
         return waveform[start_idx, start_idx+clip_len]
-
-
-        
-
