@@ -96,8 +96,15 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         #poor files may contain null values, or sections of files might contain null files
         bad_files = []
         for i in range(len(self)):
-            spectrogram, _ = self[i]
-            if spectrogram.isnan().any():
+            try:
+                spectrogram, _ = self[i]
+                if spectrogram.isnan().any():
+                    bad_files.append(i)
+            except Exception as e:
+                #Sam if this broke something I'm sorry
+                #If there is any error, mostly likely due to headers confusing the decoder
+                #Ignore this file
+                print_verbose(e, verbose=self.CONFIG.verbose)
                 bad_files.append(i)
 
         self.samples = self.samples.drop(bad_files)
