@@ -1,3 +1,9 @@
+""" 
+Contains class for applying mixup data augmentation. The class acts as a 
+regular torch module, but cannot be used in a torch.nn.Sequential object.
+Instead, use the mixup function as a wrapper, passing the other augmentations
+to the mixup function in a torch.nn.Sequential object.
+"""
 import sys
 from typing import Tuple, Callable
 import numpy as np
@@ -26,7 +32,7 @@ class Mixup(torch.nn.Module):
         return mixed_clip, mixed_target
 
 
-def mixup_wrapper(sequential: torch.nn.Sequential, idx) -> Callable:
+def mixup(sequential: torch.nn.Sequential, idx) -> Callable:
     def helper(
         clip: torch.Tensor, target: torch.Tensor, dataset: PyhaDF_Dataset, alpha: float
     ) -> Tuple[torch.Tensor, torch.Tensor]:
