@@ -314,7 +314,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         return torch.mean(audio, axis=0)
     
 
-def get_datasets(path="/share/acoustic_species_id/132PeruXC_Chunks_Stripped.csv", CONFIG=None):
+def get_datasets(path="testformatted.csv", CONFIG=None):
     """ Returns train and validation datasets
     """
     #TODO create config for this
