@@ -1,9 +1,10 @@
-import os
-from pathlib import Path
+""" 
+Contains class for applying white/pink/brown/blue/violet noise augmentation. 
+The class acts as a regular torch module and can be used in a torch.nn.Sequential 
+object.
+"""
 import torch
-import torchaudio
 import numpy as np
-import matplotlib.pyplot as plt
 from typing import Callable
 
 def noise_from_PSD_func(num_samples: int, func_PSD:Callable)-> np.ndarray:
