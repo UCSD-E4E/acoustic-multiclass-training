@@ -11,8 +11,8 @@ def create_parser():
     parser.add_argument('-e', '--epochs', default=10, type=int)
     parser.add_argument('-nf', '--num_fold', default=5, type=int)
     parser.add_argument('-nc', '--num_classes', default=13, type=int)
-    parser.add_argument('-tbs', '--train_batch_size', default=4, type=int)
-    parser.add_argument('-vbs', '--valid_batch_size', default=4, type=int)
+    parser.add_argument('-tbs', '--train_batch_size', default=16, type=int)
+    parser.add_argument('-vbs', '--valid_batch_size', default=16, type=int)
     parser.add_argument('-sr', '--sample_rate', default=32_000, type=int)
     parser.add_argument('-hl', '--hop_length', default=512, type=int)
     parser.add_argument('-mt', '--max_time', default=5, type=int)
@@ -43,5 +43,5 @@ def create_parser():
     parser.add_argument('-st', '--offset_col', default='OFFSET', type=str)
     parser.add_argument('-et', '--duration_col', default='DURATION', type=str)
     parser.add_argument('-fp', '--file_path_col', default='IN FILE', type=str)
-    parser.add_argument('-mi', '--manual_id_col', default='SCIENTIFIC', type=str)
+    parser.add_argument('-mi', '--manual_id_col', default='Species eBird Code', type=str)
     return parser

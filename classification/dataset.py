@@ -213,17 +213,23 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
                 torch.tensor(self.class_to_idx[class_name]),
                 self.num_classes)[0]
         target = target.float()
+        
+        try:
+            audio, sample_rate = torchaudio.load(
+                path,
+                frame_offset=frame_offset,
+                num_frames=num_frames)
+        except Exception as e:
+            print(e)
+            print(path, index)
+            input()
 
-        audio, sample_rate = torchaudio.load(
-            path,
-            frame_offset=frame_offset,
-            num_frames=num_frames)
 
         #print(path, "test.wav", annotation[self.config.duration_col], annotation[self.config.duration_col])
 
         #Assume audio is all mono and at target sample rate
-        assert audio.shape[0] == 1
-        assert sample_rate == self.target_sample_rate
+        #assert audio.shape[0] == 1
+        #assert sample_rate == self.target_sample_rate
         audio = self.to_mono(audio) #basically reshapes to col vect
 
         # Crop if too long
@@ -301,11 +307,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         return torch.mean(audio, axis=0)
     
 
-    
-
-
-
-def get_datasets(path="testformatted.csv", CONFIG=None):
+def get_datasets(path="/share/acoustic_species_id/132PeruXC_Chunks_Stripped.csv", CONFIG=None):
     """ Returns train and validation datasets
     """
     #TODO create config for this

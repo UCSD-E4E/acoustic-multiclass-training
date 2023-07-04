@@ -219,7 +219,7 @@ def init_wandb(CONFIG: Dict[str, Any]):
     Initialize the weights and biases logging
     """
     run = wandb.init(
-        project="birdclef-2023",
+        project="acoustic-species-reu2023",
         config=CONFIG,
         mode="disabled" if CONFIG.logging is False else "online"
     )
