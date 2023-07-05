@@ -1,3 +1,10 @@
+# pylint: disable=R0902
+# pylint: disable=W0621
+# pylint: disable=R0913
+# pylint: disable=E1121
+# R0902, W0621 -> Not redefining these values, they are all the same value,
+# R0913, E1121 -> These functions just have a lot of args that are frequently changed since ML
+
 """
     Contains the training and validation function and logging to Weights and Biases
     Methods:
@@ -8,37 +15,64 @@
         
 
 """
-
-# Standard library imports
-import datetime
 from typing import Dict, Any, Tuple
+import os
+import datetime
+from torchmetrics.classification import MultilabelAveragePrecision
 
-# Local imports 
+import torch
+import torch.nn.functional as F
+from torch.optim import Adam
 from dataset import PyhaDF_Dataset, get_datasets
 from model import BirdCLEFModel
 from utils import set_seed, print_verbose
 from config import get_config
-
-# Torch imports
-import torch
-import torch.nn.functional as F
-from torch.optim import Adam
-from torchmetrics.classification import MultilabelAveragePrecision
-
-# Other imports
 from tqdm import tqdm
 import wandb
 
 
-wandb_run = None
-time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
+
+
+
+
+
+# other files 
+
+
+# pytorch training
+
+
+
+
+# general
+
+
+
+
+# other files 
+
+
+
+#https://www.kaggle.com/code/imvision12/birdclef-2023-efficientnet-training
+
+# logging
+
+
+
+tqdm.pandas()
+time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') 
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(device)
+wandb_run = None
 
 def train(model: BirdCLEFModel,
         data_loader: PyhaDF_Dataset,
         optimizer: torch.optim.Optimizer,
         scheduler,
+        device: str,
+        step: int,
         CONFIG) -> Tuple[float, int, float]:
     """ Trains the model
         Returns: 
@@ -60,7 +94,6 @@ def train(model: BirdCLEFModel,
         labels = labels.to(device)
         
         outputs = model(mels)
-        
         loss = model.loss_fn(outputs, labels)
         
         loss.backward()
@@ -87,7 +120,9 @@ def train(model: BirdCLEFModel,
             log_n = 0
             correct = 0
             total = 0
+        step += 1
     return running_loss/len(data_loader)
+
 
 def valid(model: BirdCLEFModel,
           data_loader: PyhaDF_Dataset,
@@ -149,12 +184,33 @@ def valid(model: BirdCLEFModel,
     return running_loss/len(data_loader), valid_map
 
 
+def test_loop(model: BirdCLEFModel,
+          data_loaders: PyhaDF_Dataset):
+    """
+    Checks to make sure shapes are correct before training
+    """
+
+    model.eval()
+    for dl in data_loaders:
+        (mels, labels) = next(iter(dl))
+
+        out = model(mels)
+
+        if out.shape != labels.shape:
+            print(out.shape)
+            print(labels.shape)
+            raise RuntimeError("Shape diff between output of models and labels, see above and debug")
+
+    print("successful shapes!")
+    del mels, out, labels
+
+
 def init_wandb(CONFIG: Dict[str, Any]):
     """ 
     Initialize the weights and biases logging
     """
     run = wandb.init(
-        project="birdclef-2023",
+        project="acoustic-species-reu2023",
         config=CONFIG,
         mode="disabled" if CONFIG.logging is False else "online"
     )
@@ -166,6 +222,7 @@ def init_wandb(CONFIG: Dict[str, Any]):
         f"-{CONFIG.n_fft}-{CONFIG.seed}-" +
         run.name.split('-')[-1]
     )
+
     return run
 
 def load_datasets(CONFIG: Dict[str, Any]) \
@@ -218,6 +275,8 @@ def main():
     step = 0
     best_valid_cmap = 0
 
+    test_loop(model_for_run, [train_dataloader, val_dataloader])
+
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))
 
@@ -226,6 +285,8 @@ def main():
             train_dataloader,
             optimizer,
             scheduler,
+            device,
+            step,
             CONFIG
         )
         step += 1
@@ -234,8 +295,11 @@ def main():
         print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
 
         if valid_map > best_valid_cmap:
-            torch.save(model_for_run.state_dict(), wandb_run.name + '.pt')
-            print(wandb_run.name + '.pt')
+            path = os.path.join("models",wandb_run.name + '.pt')
+            if not os.path.exists("models"):
+                os.mkdir("models")
+            torch.save(model_for_run.state_dict(), path)
+            print("Model saved in:", path)
             print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
             best_valid_cmap = valid_map
 

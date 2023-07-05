@@ -1,3 +1,8 @@
+# pylint: disable=R0902
+# Disables number of instance attributes
+# Could be simplifed in future and more put into config
+# but for MVP ignore this for now
+
 """ Contains methods for loading the dataset and also creates dataloaders for training and validation
     
     BirdCLEFDataset is a generic loader with a given root directory. 
@@ -7,190 +12,161 @@
     If this module is run directly, it tests that the dataloader works and prints the shape of the first batch.
 
 """
-
-# Standard library imports
-from typing import Dict, List, Tuple
 import os
+from typing import Dict, List, Tuple
+
+import torch
+import torch.nn.functional as F
+from torch.utils.data import Dataset
+import torchaudio
+from torchaudio import transforms as audtr
 
 # Math library imports
 import pandas as pd
 import numpy as np
 
-# Torch imports
-import torch
-from torch.utils.data import Dataset
-import torch.nn.functional as F
-import torchaudio
-from torchaudio import transforms as audtr
-
-# Local imports
-from utils import print_verbose, set_seed
+from utils import set_seed #print_verbose
 from config import get_config
+from tqdm import tqdm
 
+
+tqdm.pandas()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-# pylint: disable=too-many-instance-attributes
-class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
-    """ A dataset that loads audio files and converts them to mel spectrograms
-    """
-    # pylint: disable=too-many-arguments
-    def __init__(self, csv_file, CONFIG=None, max_time=5, train=True, species=None, ignore_bad=True):
-        super()
-        if isinstance(csv_file,str):
-            self.samples = pd.read_csv(csv_file, index_col=0)
-        elif isinstance(csv_file,pd.DataFrame):
-            self.samples = csv_file
-            self.csv_file = f"data_train-{train}.csv"
-        else:
-            raise RuntimeError("csv_file must be a str or dataframe!")
 
-        self.formatted_csv_file = "not yet formatted"
+#https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
+class PyhaDF_Dataset(Dataset):
+    """
+        Dataset designed to work with pyha output
+        Save unchunked data
+    """
+    
+    # df, csv_file, train, and species decided outside of config, so those cannot be added in there
+    # pylint: disable-next=too-many-instance-attributes
+    # pylint: disable-next=too-many-arguments
+    def __init__(self, df, csv_file="test.csv", CONFIG=None, train=True, species=None):
         self.config = CONFIG
-        self.ignore_bad = ignore_bad
+        self.samples = df[~(df[self.config.file_path_col].isnull())]
+        self.csv_file = csv_file
+        self.formatted_csv_file = "not yet formatted"
         self.target_sample_rate = CONFIG.sample_rate
-        num_samples = CONFIG.sample_rate * max_time
+        num_samples = self.target_sample_rate * CONFIG.max_time
         self.num_samples = num_samples
+        self.train = train
+
+
         self.mel_spectogram = audtr.MelSpectrogram(sample_rate=self.target_sample_rate, 
                                         n_mels=self.config.n_mels, 
                                         n_fft=self.config.n_fft)
         self.mel_spectogram.cuda(device)
-        self.train = train
         self.freq_mask = audtr.FrequencyMasking(freq_mask_param=self.config.freq_mask_param)
         self.time_mask = audtr.TimeMasking(time_mask_param=self.config.time_mask_param)
+        
+        #Log bad files
+        self.bad_files = []
 
+        #Preprocessing start
         if species is not None:
-            # pylint: disable=fixme
-            #TODO FIX REPLICATION CODE
             self.classes, self.class_to_idx = species
         else:
             self.classes = self.samples[self.config.manual_id_col].unique()
             class_idx = np.arange(len(self.classes))
             self.class_to_idx = dict(zip(self.classes, class_idx))
+
         self.num_classes = len(self.classes)
+        self.serialize_data()
 
-        self.verify_audio_files()
-        self.format_audio()
-        #self.samples[self.config.file_path_col] = self.samples[self.config.file_path_col].apply(self.convert_file_type)
-        
-
-    def verify_audio_files(self) -> bool:
-        """ Checks that all files in the dataframe exist
+    def verify_audio(self):
+        """
+        Checks to make sure files exist that are refrenced in input df
         """
         test_df = self.samples[self.config.file_path_col].apply(lambda path: (
             "SUCCESS" if os.path.exists(path) else path
         ))
         missing_files = test_df[test_df != "SUCCESS"].unique()
-        if (missing_files.shape[0] > 0 and not self.ignore_bad):
-            print(missing_files)
-            raise RuntimeError("ERROR MISSING FILES, CHECK DATAFRAME")
-        if self.ignore_bad:
-            print("ignoring", missing_files.shape[0], "missing files")
-            self.samples = self.samples[
-                ~self.samples[self.config.file_path_col].isin(missing_files)
-            ]
+        print("ignoring", missing_files.shape[0], "missing files")
+        self.samples = self.samples[
+            ~self.samples[self.config.file_path_col].isin(missing_files)
+        ]
         
-        print_verbose(self.samples.shape[0], "files found", verbose=self.config.verbose)
+    def process_audio_file(self, path):
+        """
+        Save waveform of audio file as a tensor and save that tensor to .pt
+        """
 
-        #Run the data getting code and check to make sure preprocessing did not break code
-        #poor files may contain null values, or sections of files might contain null files
-        bad_files = []
-        for i, (spectrogram, _) in enumerate(self):
-            if spectrogram.isnan().any():
-                bad_files.append(i)
+        exts = "." + path.split(".")[-1]
+        new_path = path.replace(exts, ".pt")
+        if os.path.exists(new_path):
+            #ASSUME WE HAVE ALREADY PREPROCESSED THIS CORRECTLY
+            return pd.Series({
+                "IN FILE": path,    
+                "files": new_path
+            }).T
 
-        self.samples = self.samples.drop(bad_files)
-        if len(bad_files) > 0 and not self.ignore_bad: 
-            print("removed", len(bad_files), "corrupted annotations")
-        print("Annotations count:", self.samples.shape[0])
-        return True
 
-    def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
-        """ Returns tuple of class list and class to index dictionary
-        """
-        return self.classes, self.class_to_idx
-    
-    def get_num_classes(self) -> int:
-        """ Returns number of classes
-        """
-        return self.num_classes
-    
-    def get_csv_files(self) -> Tuple[str, str]:
-        """ Returns tuple of original csv file and formatted csv file
-        """
-        return self.csv_file, self.formatted_csv_file
-    
-    def get_DF(self) -> pd.DataFrame:
-        """ Returns dataframe of all annotations
-        """
-        return self.samples
+        try:
+            audio, sample_rate = torchaudio.load(path)
+        
+        
+        # IO is messy, I want any file that could be problematic
+        # removed from training so it isn't stopped after hours of time
+        # Hence broad exception
+        # pylint: disable-next=W0718
+        except Exception as e:
+            print(path, "is bad", e)
+            return pd.Series({
+                "IN FILE": path,    
+                "files": "bad"
+            }).T
+        
+        if len(audio.shape) > 1:
+            audio = self.to_mono(audio)
+      
+        # Resample
+        if sample_rate != self.target_sample_rate:
+            resample = audtr.Resample(sample_rate, self.target_sample_rate)
+            #resample.cuda(device)
+            audio = resample(audio)
 
-    def format_audio(self):
-        """ Formats all audio files in the list of annotations
-            Saves new file paths in a file ending in formatted.csv
+        
+        torch.save(audio, new_path)
+        return pd.Series({
+                "IN FILE": path,    
+                "files": new_path
+            }).T
+
+
+    def serialize_data(self):
         """
+        For each file, check to see if the file is already a presaved tensor
+        If the files is not a presaved tensor and is an audio file, convert to tensor to make
+        Future training faster
+        """
+        print("old size:", self.samples.shape)
+        self.verify_audio()
         files = pd.DataFrame(
             self.samples[self.config.file_path_col].unique(),
-            columns=["files"])
-        files = files["files"].apply(self.resample_audio_file)
+            columns=["files"]
+        )
+        files = files["files"].progress_apply(self.process_audio_file)
+
+        files = files[files["files"] != "bad"]
         self.samples = self.samples.merge(files, how="left", 
                        left_on=self.config.file_path_col,
-                       right_on="IN FILE")
-        
-        self.samples["original_file_path"] = self.samples[self.config.file_path_col]
+                       right_on="IN FILE").dropna()
+    
+        print("fixed size:", self.samples.shape)
 
         if "files" in self.samples.columns:
             self.samples[self.config.file_path_col] = self.samples["files"].copy()
         if "files_y" in self.samples.columns:
             self.samples[self.config.file_path_col] = self.samples["files_y"].copy()
         
+        self.samples["original_file_path"] = self.samples[self.config.file_path_col]
+
         self.formatted_csv_file = ".".join(self.csv_file.split(".")[:-1]) + "formatted.csv"
         self.samples.to_csv(self.formatted_csv_file)
-        #print(self.samples[self.config.file_path_col].iloc[0], self.config.file_path_col)
-        
 
-    def resample_audio_file(self, path: str) -> pd.Series:
-        """ Converts audio at path to mono and resamples to target sample rate
-            Saves as new file
-        """
-        audio, sample_rate = torchaudio.load(path)
-        changed = False
-
-        if len(audio.shape) > 1:
-            audio = self.to_mono(audio)
-            changed = True
-        
-        # Resample
-        if sample_rate != self.target_sample_rate:
-            resample = audtr.Resample(sample_rate, self.target_sample_rate)
-            #resample.cuda(device)
-            audio = resample(audio)
-            changed = True
-        
-        extension = path.split(".")[-1]
-        new_path = path.replace(extension, "wav")
-
-        if (new_path != path or changed):
-            #output of mono is a col vector
-            #torchaudio expects a waveform as row vector
-            #hence the reshape
-            torchaudio.save(
-                new_path,
-                audio.reshape([1, -1]),
-                self.target_sample_rate
-            )
-
-        return pd.Series(
-            {
-            "IN FILE": path,    
-            "files": new_path,
-            }
-        ).T
-
-    def __len__(self) -> int:
-        """ Returns number of annotations
-        """
-        return self.samples.shape[0]
-        
     def get_clip(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Returns tuple of audio waveform and its one-hot label
         """
@@ -211,16 +187,24 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
                 torch.tensor(self.class_to_idx[class_name]),
                 self.num_classes)[0]
         target = target.float()
+        
+        try:
+            audio = torch.load(path)
+            
+            if audio.shape[0] > num_frames:
+                audio = audio[frame_offset:frame_offset+num_frames]
+            else:
+                print("SHOULD BE SMALL DELETE LATER:", audio.shape)
+        except Exception as e:
+            print(e)
+            print(path, index)
+            raise RuntimeError("Bad Audio") from e
 
-        audio, sample_rate = torchaudio.load(
-            path,
-            frame_offset=frame_offset,
-            num_frames=num_frames)
 
         #Assume audio is all mono and at target sample rate
-        assert audio.shape[0] == 1
-        assert sample_rate == self.target_sample_rate
-        audio = self.to_mono(audio) #basically reshapes to col vect
+        #assert audio.shape[0] == 1
+        #assert sample_rate == self.target_sample_rate
+        #audio = self.to_mono(audio) #basically reshapes to col vect
 
         # Crop if too long
         if audio.shape[0] > self.num_samples:
@@ -234,7 +218,10 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         return audio, target
 
 
-    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def __len__(self):
+        return self.samples.shape[0]
+    
+    def __getitem__(self, index): #-> Any:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
 
@@ -273,7 +260,10 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
 
         if image.isnan().any():
             print("ERROR IN ANNOTATION #", index)
-            raise RuntimeError("NANS IN INPUT FOUND")
+            self.bad_files.append(index)
+            #try again with a diff annotation to avoid training breaking
+            image, target = self[self.samples.sample(1).index[0]]
+            
         return image, target
             
     def pad_audio(self, audio: torch.Tensor) -> torch.Tensor:
@@ -293,36 +283,85 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
         """ Converts audio to mono by averaging the channels
         """
         return torch.mean(audio, axis=0)
+        
+    def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
+        """ Returns tuple of class list and class to index dictionary
+        """
+        return self.classes, self.class_to_idx
+    
+    def get_num_classes(self) -> int:
+        """ Returns number of classes
+        """
+        return self.num_classes   
     
 
-    
-
-
-
-def get_datasets(path="testformatted.csv", CONFIG=None):
+def get_datasets(CONFIG=None):
     """ Returns train and validation datasets
     """
-    data = pd.read_csv(path)
-    train = data.sample(frac=1/2)
+
+    train_p = CONFIG.train_test_split
+    path = CONFIG.dataframe
+    data = pd.read_csv(path, index_col=0)
+
+    #for each species, get a random sample of files for train/valid split
+    train_files = data.groupby(CONFIG.manual_id_col, as_index=False).apply(
+        lambda x: pd.Series(x[CONFIG.file_path_col].unique()).sample(frac=train_p)
+    )
+    train = data[data[CONFIG.file_path_col].isin(train_files)]
+
+    #train = train.reset_index().rename(columns={"level_1": "index"}).set_index("index").drop(columns="level_0")
     valid = data[~data.index.isin(train.index)]
-    return PyhaDF_Dataset(csv_file=train, CONFIG=CONFIG), PyhaDF_Dataset(csv_file=valid,train=False, CONFIG=CONFIG)
+
+    # print(len(data[CONFIG.file_path_col].unique()),
+    #     len(train[CONFIG.file_path_col].unique()), 
+    #     len(valid[CONFIG.file_path_col].unique()), 
+    #     )
+
+    # print(train[CONFIG.file_path_col].isin(valid[CONFIG.file_path_col]).sum())
+
+    # print(data[CONFIG.manual_id_col].value_counts())
+    # print(train[CONFIG.manual_id_col].value_counts())
+    # print(valid[CONFIG.manual_id_col].value_counts())
+    return (
+        PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG),
+        PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, CONFIG=CONFIG)
+    )
+    #data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=CONFIG)
+    #no_bird_data = BirdCLEFDataset(root="/share/acoustic_species_id/no_bird_10_000_audio_chunks", CONFIG=CONFIG)
+    #data = torch.utils.data.ConcatDataset([data, no_bird_data])
+    #train_data, val_data = torch.utils.data.random_split(data, [0.8, 0.2])
+    #return train_data, val_data
 
 def main():
-    """ Main function
+    """
+    testing function.
     """
     torch.multiprocessing.set_start_method('spawn')
     CONFIG = get_config()
     set_seed(CONFIG.seed)
-    train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
+    get_datasets(CONFIG=CONFIG)
+    #train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
+    # print(train_dataset.get_classes()[1])
+    # print(train_dataset[0])
+    # input()
+    # #train_dataset = get_datasets(CONFIG=CONFIG)
+    # train_dataloader = torch.utils.data.DataLoader(
+    #     train_dataset,
+    #     1,
+    #     shuffle=True,
+    #     num_workers=CONFIG.jobs,
+    # )
+    # val_dataloader = torch.utils.data.DataLoader(
+    #     val_dataset,
+    #     CONFIG.valid_batch_size,
+    #     shuffle=False,
+    #     num_workers=CONFIG.jobs,
+    # )
 
-    # note: this calls __getitem__ on the dataset and discards the result
-    for i, _ in enumerate(train_dataset):
-        print_verbose("train entry", i,verbose=CONFIG.verbose)
-    print("Loaded all training data")
-
-    for i, _ in enumerate(val_dataset):
-        print_verbose("validation entry", i,verbose=CONFIG.verbose)
-    print("Loaded all validation data")
+    # for i in range(len(train_dataset)):
+    #     print("entry", i)
+    #     train_dataset[i]
+    #     input()
 
 if __name__ == '__main__':
     main()

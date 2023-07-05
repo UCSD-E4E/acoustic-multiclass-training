@@ -1,6 +1,7 @@
-""" Stores default argument information for CONFIG variable
+
+""" Stores default argument information for the argparser
     Methods:
-        get_config: returns config data that's parsed from the command line
+        get_config: returns an ArgumentParser with the default arguments
 """
 import argparse
 
@@ -8,24 +9,41 @@ def get_config():
     """ Returns a config variable with the command line arguments or defaults
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('-e', '--epochs', default=10, type=int)
-    parser.add_argument('-nf', '--num_fold', default=5, type=int)
-    parser.add_argument('-nc', '--num_classes', default=13, type=int)
+
+    # Dataset settings
+    parser.add_argument('-df', '--dataframe', default='CHANGEME.csv', type=str)
+
+    parser.add_argument('-st', '--offset_col', default='OFFSET', type=str)
+    parser.add_argument('-et', '--duration_col', default='DURATION', type=str)
+    parser.add_argument('-fp', '--file_path_col', default='IN FILE', type=str)
+    parser.add_argument('-mi', '--manual_id_col', default='SCIENTIFIC', type=str)
+
+    # Env settings
     parser.add_argument('-tbs', '--train_batch_size', default=4, type=int)
     parser.add_argument('-vbs', '--valid_batch_size', default=4, type=int)
+
+    # Functional settings
+    parser.add_argument('-j', '--jobs', default=2, type=int)
+    parser.add_argument('-s', '--seed', default=0, type=int)
+    parser.add_argument('-l', '--logging', default='True', type=str)
+    parser.add_argument('-v', '--verbose', default='False', type=str)
+    parser.add_argument('-lf', '--logging_freq', default=20, type=int)
+    parser.add_argument('-vf', '--valid_freq', default=1000, type=int)
+
+    # Model Training settings
+    parser.add_argument('-nc', '--num_classes', default=13, type=int)
+    parser.add_argument('-e', '--epochs', default=10, type=int)
+    parser.add_argument('-nf', '--num_fold', default=5, type=int)
+    parser.add_argument('-tts', '--train_test_split', default=0.8, type=float)
     parser.add_argument('-sr', '--sample_rate', default=32_000, type=int)
     parser.add_argument('-hl', '--hop_length', default=512, type=int)
     parser.add_argument('-mt', '--max_time', default=5, type=int)
     parser.add_argument('-nm', '--n_mels', default=224, type=int)
     parser.add_argument('-nfft', '--n_fft', default=1024, type=int)
-    parser.add_argument('-s', '--seed', default=0, type=int)
-    parser.add_argument('-j', '--jobs', default=4, type=int)
-    parser.add_argument('-l', '--logging', default='True', type=str)
-    parser.add_argument('-v', '--verbose', default='False', type=str)
-    parser.add_argument('-lf', '--logging_freq', default=20, type=int)
-    parser.add_argument('-vf', '--valid_freq', default=1000, type=int)
     parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)
     parser.add_argument('-md', '--map_debug', action='store_true')
+
+    # Transforms settings
     parser.add_argument('-p', '--p', default=0, type=float, help='probability for mixup')
     parser.add_argument('-i', '--imb', action='store_true', help='imbalance sampler')
     parser.add_argument('-pw', "--pos_weight", type=float, default=1, help='pos weight')
@@ -39,11 +57,6 @@ def get_config():
     parser.add_argument("-tmp", "--time_mask_p", type=float, default=0.5, help='time mask probability')
     parser.add_argument("-tmpa", "--time_mask_param", type=int, default=25, help='time mask param')
     parser.add_argument('-sm', '--smoothing', type=float, default=0.05, help='label smoothing')
-
-    parser.add_argument('-st', '--offset_col', default='OFFSET', type=str)
-    parser.add_argument('-et', '--duration_col', default='DURATION', type=str)
-    parser.add_argument('-fp', '--file_path_col', default='IN FILE', type=str)
-    parser.add_argument('-mi', '--manual_id_col', default='SCIENTIFIC', type=str)
 
     CONFIG = parser.parse_args()
     
