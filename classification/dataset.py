@@ -28,13 +28,12 @@ from torchaudio import transforms as audtr
 import pandas as pd
 import numpy as np
 
+
 from utils import set_seed #print_verbose
-from default_parser import create_parser
+from config import get_config
 from tqdm import tqdm
+
 tqdm.pandas()
-parser = create_parser()
-
-
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
@@ -302,7 +301,7 @@ class PyhaDF_Dataset(Dataset):
         return self.num_classes   
     
 
-def get_datasets(path="data_train-Trueformatted.csv", CONFIG=None):
+def get_datasets(path="/share/acoustic_species_id/132PeruXC_Chunks_Stripped.csv", CONFIG=None):
     """ Returns train and validation datasets
     """
 
@@ -343,8 +342,7 @@ def main():
     testing function.
     """
     torch.multiprocessing.set_start_method('spawn')
-    CONFIG = parser.parse_args()
-    CONFIG.logging = CONFIG.logging == 'True'
+    CONFIG = get_config()
     set_seed(CONFIG.seed)
     get_datasets(CONFIG=CONFIG)
     #train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)

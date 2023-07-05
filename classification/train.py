@@ -26,7 +26,7 @@ from torch.optim import Adam
 from dataset import PyhaDF_Dataset, get_datasets
 from model import BirdCLEFModel
 from utils import set_seed, print_verbose
-from default_parser import create_parser
+from config import get_config
 from tqdm import tqdm
 import wandb
 
@@ -67,7 +67,6 @@ time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(device)
-parser = create_parser()
 wandb_run = None
 
 def train(model: BirdCLEFModel,
@@ -299,7 +298,7 @@ def main():
     Run training
     """
     torch.multiprocessing.set_start_method('spawn')
-    CONFIG = parser.parse_args()
+    CONFIG = get_config()
     print(CONFIG)
     CONFIG.logging = CONFIG.logging == 'True'
     CONFIG.verbose = CONFIG.verbose == 'True'
@@ -353,7 +352,8 @@ def main():
 
         if valid_map > best_valid_cmap:
             path = os.path.join("models",wandb_run.name + '.pt')
-            os.mkdir("models")
+            if not os.path.exists("models"):
+                os.mkdir("models")
             torch.save(model_for_run.state_dict(), path)
             print("Model saved in:", path)
             print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
