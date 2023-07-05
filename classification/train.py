@@ -73,9 +73,9 @@ def check_shape(outputs, labels):
     Checks to make sure the output is the same
     """
     if outputs.shape != labels.shape:
-            print(outputs.shape)
-            print(labels.shape)
-            raise RuntimeError("Shape diff between output of models and labels, see above and debug")
+        print(outputs.shape)
+        print(labels.shape)
+        raise RuntimeError("Shape diff between output of models and labels, see above and debug")
 
 
 def train(model: BirdCLEFModel,
