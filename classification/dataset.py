@@ -104,7 +104,7 @@ class PyhaDF_Dataset(Dataset): #datasets.DatasetFolder
                 #Sam if this broke something I'm sorry
                 #If there is any error, mostly likely due to headers confusing the decoder
                 #Ignore this file
-                print_verbose(e, verbose=self.CONFIG.verbose)
+                print_verbose(e, verbose=self.config.verbose)
                 bad_files.append(i)
 
         self.samples = self.samples.drop(bad_files)
