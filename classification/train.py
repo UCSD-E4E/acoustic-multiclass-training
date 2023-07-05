@@ -137,7 +137,7 @@ def valid(model: BirdCLEFModel,
     # softmax predictions
     pred = F.softmax(pred).to(device)
 
-    metric = MultilabelAveragePrecision(num_labels=CONFIG.num_classes, average="macro")
+    metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
     valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
     
     # Log to Weights and Biases
@@ -230,7 +230,7 @@ def main():
     train_dataset, val_dataset, train_dataloader, val_dataloader = load_datasets(CONFIG)
     
     print("Loading Model...")
-    model_for_run = BirdCLEFModel(CONFIG=CONFIG).to(device)
+    model_for_run = BirdCLEFModel(train_dataset.num_classes,CONFIG=CONFIG).to(device)
     model_for_run.create_loss_fn(train_dataset)
     if CONFIG.model_checkpoint is not None:
         model_for_run.load_state_dict(torch.load(CONFIG.model_checkpoint))

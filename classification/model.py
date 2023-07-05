@@ -54,6 +54,7 @@ class BirdCLEFModel(nn.Module):
     """ Efficient net neural network
     """
     def __init__(self, 
+                 num_classes,
                  model_name="tf_efficientnet_b4", 
                  embedding_size=768, 
                  pretrained=True,
@@ -62,6 +63,7 @@ class BirdCLEFModel(nn.Module):
         """
         super().__init__()
         self.config = CONFIG
+        self.num_classes = num_classes
         # Load in the efficientnet_b4 model preset
         self.model = timm.create_model(model_name, pretrained=pretrained)
         in_features = self.model.classifier.in_features
@@ -69,7 +71,7 @@ class BirdCLEFModel(nn.Module):
         self.model.global_pool = nn.Identity()
         self.pooling = GeM()
         self.embedding = nn.Linear(in_features, embedding_size)
-        self.fc = nn.Linear(embedding_size, CONFIG.num_classes)
+        self.fc = nn.Linear(embedding_size, num_classes)
         self.loss_fn = None
     
     def forward(self, images):

@@ -31,7 +31,6 @@ def get_config():
     parser.add_argument('-vf', '--valid_freq', default=1000, type=int)
 
     # Model Training settings
-    parser.add_argument('-nc', '--num_classes', default=13, type=int)
     parser.add_argument('-e', '--epochs', default=10, type=int)
     parser.add_argument('-nf', '--num_fold', default=5, type=int)
     parser.add_argument('-tts', '--train_test_split', default=0.8, type=float)
