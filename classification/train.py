@@ -76,7 +76,6 @@ def train(model: BirdCLEFModel,
         device: str,
         step: int,
         best_valid_cmap: float,
-        #epoch: int,
         CONFIG) -> Tuple[float, int, float]:
     """ Trains the model
         Returns: 
@@ -328,7 +327,7 @@ def main():
     step = 0
     best_valid_cmap = 0
 
-    test_loop(model_for_run, [train_dataloader, val_dataloader], device, step, CONFIG)
+    test_loop(model_for_run, [train_dataloader, val_dataloader])
 
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))
@@ -341,7 +340,6 @@ def main():
             device,
             step,
             best_valid_cmap,
-            epoch,
             CONFIG
         )
 
