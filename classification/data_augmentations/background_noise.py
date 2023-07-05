@@ -1,6 +1,6 @@
 """ 
-Contains class for applying background noise augmentation. The class acts as a 
-regular torch module and can be used in a torch.nn.Sequential object.
+Contains class for applying background noise augmentation. The class acts as
+a regular torch module and can be used in a torch.nn.Sequential object.
 """
 import os
 from pathlib import Path
@@ -9,6 +9,13 @@ import torchaudio
 import numpy as np
 
 class BackgroundNoise(torch.nn.Module):
+    """
+    torch module for adding background noise to audio tensors
+    Attributes: 
+        alpha: Strength (proportion) of original audio in augmented clip
+        sample_rate: Sample rate (Hz)
+        length: Length of audio clip (s)
+    """
     def __init__(
             self, noise_path: Path, alpha: float, sample_rate=44100, length=5
             ):
@@ -24,16 +31,26 @@ class BackgroundNoise(torch.nn.Module):
         self.length = length
 
     def forward(self, clip: torch.Tensor)->torch.Tensor:
+        """
+        Mixes clip with noise chosen from noise_path
+        Args:
+            clip: Tensor of audio data
+
+        Returns: Tensor of original clip mixed with noise
+        """
         # If loading fails, skip for now
         try:
             noise_clip = self.choose_random_noise()
-        except:
+        except RuntimeError:
             print('Error loading noise clip, '
                   + 'background noise augmentation not performed')
             return clip
         return self.alpha*clip + (1-self.alpha)*noise_clip
 
     def choose_random_noise(self):
+        """
+        Returns: Tensor of random noise, loaded from self.noise_path
+        """
         audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere")
         files = list(os.listdir(self.noise_path))
         noise_clips = [f for f in files if f.endswith(audio_extensions)]

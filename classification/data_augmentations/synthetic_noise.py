@@ -65,7 +65,7 @@ class SyntheticNoise(torch.nn.Module):
     """
     Attributes: 
         noise_type: type of noise to add to clips
-        snr: signal to noise ratio
+        alpha: Strength (proportion) of original audio in augmented clip
     """
     noise_names = {'pink': pink_noise,
                    'brown': brown_noise,
