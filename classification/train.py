@@ -147,10 +147,10 @@ def train(model: BirdCLEFModel,
             wandb.log({
                 "train/loss": log_loss / log_n,
                 "train/mAP": mAP / log_n,
-                "train/accuracy": correct / total * 100.,
+                "train/accuracy": correct / total,
                 
             })
-            print("Loss:", log_loss / log_n, "Accuracy:", correct / total * 100., "mAP", mAP / log_n)
+            print("Loss:", log_loss / log_n, "Accuracy:", correct / total, "mAP", mAP / log_n)
             log_loss = 0
             log_n = 0
             correct = 0
