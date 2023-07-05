@@ -26,7 +26,7 @@ def get_config():
     parser.add_argument('-j', '--jobs', default=2, type=int)
     parser.add_argument('-s', '--seed', default=0, type=int)
     parser.add_argument('-l', '--logging', default='True', type=str)
-    parser.add_argument('-v', '--verbose', default='False', type=str)
+    parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('-lf', '--logging_freq', default=20, type=int)
     parser.add_argument('-vf', '--valid_freq', default=1000, type=int)
 
@@ -61,6 +61,5 @@ def get_config():
     
     # Convert string arguments to boolean
     CONFIG.logging = CONFIG.logging == 'True'
-    CONFIG.verbose = CONFIG.verbose == 'True'
     
     return CONFIG
