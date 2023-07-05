@@ -7,18 +7,20 @@ import torch
 import numpy as np
 from typing import Callable
 
-def noise_from_PSD_func(num_samples: int, func_PSD:Callable)-> np.ndarray:
+def gen_noise(num_samples: int, psd_shape_func:Callable)-> np.ndarray:
     #Reverse fourier transfrom of random array to get white noise
-        white_noise = np.fft.rfft(np.random.randn(num_samples));
-        shaped_signal = func_PSD(np.fft.rfftfreq(num_samples))
-        # Normalize signal 
-        shaped_signal = shaped_signal / np.sqrt(np.mean(shaped_signal**2))
-        # Adjust frequency amplitudes according to noise type
-        noise = white_noise * shaped_signal;
-        return np.fft.irfft(noise);
+    white_noise = np.fft.rfft(np.random.randn(num_samples));
+    # Adjust frequency amplitudes according to 
+    # function determining the psd shape
+    shape_signal = psd_shape_func(np.fft.rfftfreq(num_samples))
+    # Normalize signal 
+    shape_signal = shape_signal / np.sqrt(np.mean(shape_signal**2))
+    # Adjust frequency amplitudes according to noise type
+    noise = white_noise * shape_signal;
+    return np.fft.irfft(noise);
 
 def gen_noise_func(f):
-    return lambda N: noise_from_PSD_func(N, f)
+    return lambda N: gen_noise(N, f)
 
 @gen_noise_func
 def white_noise(f):
@@ -40,25 +42,46 @@ def brown_noise(f):
 def pink_noise(f):
     return 1/np.where(f == 0, float('inf'), np.sqrt(f))
 
+#Norms signal to be in range [0,1]
+def norm(s):
+    return s/max(s)
+
+def mix_audio(signal, noise, snr):
+    if len(signal) != len(noise):
+        raise ValueError('Signal and noise must have same length')
+    # To avoid overflow when squaring
+    noise = noise.astype(np.float32)
+    signal = signal.astype(np.float32)
+    
+    # get the initial energy for reference
+    signal_energy = np.mean(signal**2)
+    noise_energy = np.mean(noise**2)
+    # calculates the gain to be applied to the noise 
+    # to achieve the given SNR
+    gain = np.sqrt(10.0 ** (-snr/10) * signal_energy / noise_energy)
+    
+    # Assumes signal and noise to be decorrelated
+    # and calculate (a, b) such that energy of 
+    # a*signal + b*noise matches the energy of the input signal
+    a = np.sqrt(1 / (1 + gain**2))
+    b = np.sqrt(gain**2 / (1 + gain**2))
+    # mix the signals
+    return a * signal + b * noise
+
+# For some reason this class can't be printed in the repl, 
+# but works fine in scripts?
 class SyntheticNoise(torch.nn.Module):
     noise_names = {'pink': pink_noise,
                    'brown': brown_noise,
                    'violet': violet_noise,
                    'blue': blue_noise,
                    'white': white_noise}
-    # Potential TODO: Use SNR instead of alpha
-    def __init__(
-            self, noise_type: str, alpha: float, sr:int=44100, length:int=5
-            ):
+    def __init__(self, noise_type: str, snr: float):
         self.noise_type = noise_type
-        self.alpha = alpha
-        self.sr = sr
-        self.length = length
-        self.num_samples = self.sr * self.length
+        self.snr = snr
         self.noise_function = self.noise_names[self.noise_type]
     def forward(self, clip: torch.Tensor)->torch.Tensor:
-        noise = self.noise_function(self.num_samples)
+        noise = self.noise_function(len(clip))
+        augmented = mix_audio(clip, noise, self.snr)
         # Compress noise to be between 0 and 1
-        # TODO: Check when to do (0,1) vs (-1, 1)
-        noise = torch.tensor((noise-np.mean(noise))/(max(noise)-min(noise)))
-        return self.alpha*clip + (1-self.alpha)*noise
+        return torch.tensor(augmented)/max(augmented)
