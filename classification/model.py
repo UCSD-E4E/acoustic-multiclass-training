@@ -1,3 +1,8 @@
+# pylint: disable=E1123:
+# Litteraly I don't know why this code contains a pos_weight for CEL
+# This code comes from the BIRDCLEF2023 code, a review is despertely needed to understand why
+# This is being done to the loss function. 
+
 """ Contains the model class and the Generalized Mean Pooling layer
 
     GeM: generalized mean pooling layer
@@ -65,6 +70,7 @@ class BirdCLEFModel(nn.Module):
         self.pooling = GeM()
         self.embedding = nn.Linear(in_features, embedding_size)
         self.fc = nn.Linear(embedding_size, CONFIG.num_classes)
+        self.loss_fn = None
     
     def forward(self, images):
         """ Forward pass of the model
@@ -80,7 +86,9 @@ class BirdCLEFModel(nn.Module):
         """
         if not self.config.imb: # normal loss
             if self.config.pos_weight != 1:
-                self.loss_fn = nn.CrossEntropyLoss(pos_weight=torch.tensor([self.config.pos_weight] * self.config.num_classes).to(self.device))
+                self.loss_fn = nn.CrossEntropyLoss(
+                    pos_weight=torch.tensor([self.config.pos_weight] * self.config.num_classes).to(self.device)
+                )
             else:
                 self.loss_fn = nn.CrossEntropyLoss()
         else: # weighted loss
