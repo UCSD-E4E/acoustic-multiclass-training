@@ -87,6 +87,7 @@ def train(model: BirdCLEFModel,
     log_loss = 0
     correct = 0
     total = 0
+    mAP = 0
 
     for i, (mels, labels) in enumerate(data_loader):
         optimizer.zero_grad()
@@ -105,21 +106,35 @@ def train(model: BirdCLEFModel,
         running_loss += loss.item()
         total += labels.size(0)
 
-        correct += torch.all(torch.round(outputs).eq(labels), dim=-1).sum().item()
+        out_max_inx = torch.argmax(outputs, dim=-1)
+        lab_max_inx = torch.argmax(labels, dim=-1)
+        
+        metric = MultilabelAveragePrecision(num_labels=CONFIG.num_classes, average="macro")
+        mAP += metric(outputs, labels.detach().cpu().long())
+
+        correct += (out_max_inx == lab_max_inx).sum().item()
+
         log_loss += loss.item()
         log_n += 1
+
+
 
         if i % (CONFIG.logging_freq) == 0 or i == len(data_loader) - 1:
             #Log to Weights and Biases
             wandb.log({
                 "train/loss": log_loss / log_n,
+                "train/mAP": mAP / log_n,
                 "train/accuracy": correct / total * 100.,
+                
             })
-            print("Loss:", log_loss / log_n, "Accuracy:", correct / total * 100.)
+            print("Loss:", log_loss / log_n, "Accuracy:", correct / total * 100., mAP, mAP / log_n,)
             log_loss = 0
             log_n = 0
             correct = 0
             total = 0
+            mAP = 0
+
+
         step += 1
     return running_loss/len(data_loader)
 
