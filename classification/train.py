@@ -120,7 +120,7 @@ def train(model: BirdCLEFModel,
             scheduler.step()
         
         running_loss += loss.item()
-        total += labels.size(0)
+        
 
         
         
@@ -135,6 +135,7 @@ def train(model: BirdCLEFModel,
         out_max_inx = torch.round(outputs)
         lab_max_inx = torch.round(labels)
         correct += (out_max_inx == lab_max_inx).sum().item()
+        total += labels.shape[0] * labels.shape[1]
 
         log_loss += loss.item()
         log_n += 1
