@@ -38,8 +38,8 @@ def get_config():
     parser.add_argument('-sr', '--sample_rate', default=32_000, type=int)
     parser.add_argument('-hl', '--hop_length', default=512, type=int)
     parser.add_argument('-mt', '--max_time', default=5, type=int)
-    parser.add_argument('-nm', '--n_mels', default=224, type=int)
-    parser.add_argument('-nfft', '--n_fft', default=1024, type=int)
+    parser.add_argument('-nm', '--n_mels', default=194, type=int)
+    parser.add_argument('-nfft', '--n_fft', default=1400, type=int)
     parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)
     parser.add_argument('-md', '--map_debug', action='store_true')
 
