@@ -60,5 +60,5 @@ class SyntheticNoise(torch.nn.Module):
         noise = self.noise_function(self.num_samples)
         # Compress noise to be between 0 and 1
         # TODO: Check when to do (0,1) vs (-1, 1)
-        noise = (noise-np.mean(noise))/(max(noise)-min(noise))
+        noise = torch.tensor((noise-np.mean(noise))/(max(noise)-min(noise)))
         return self.alpha*clip + (1-self.alpha)*noise
