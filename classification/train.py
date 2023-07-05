@@ -33,39 +33,9 @@ import wandb
 
 
 
-
-
-
-
-
-# other files 
-
-
-# pytorch training
-
-
-
-
-# general
-
-
-
-
-# other files 
-
-
-
-#https://www.kaggle.com/code/imvision12/birdclef-2023-efficientnet-training
-
-# logging
-
-
-
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') 
-
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-print(device)
 wandb_run = None
 
 def check_shape(outputs, labels):
@@ -124,7 +94,7 @@ def train(model: BirdCLEFModel,
 
         
         
-        metric = MultilabelAveragePrecision(num_labels=CONFIG.num_classes, average="macro")
+        metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
         batch_mAP = metric(outputs.detach().cpu(), labels.detach().cpu().long()).item()
         # https://forums.fast.ai/t/nan-values-when-using-precision-in-multi-classification/59767/2
         # Could be possible when model is untrained so we only have FNs
@@ -206,22 +176,17 @@ def valid(model: BirdCLEFModel,
     # softmax predictions
     pred = F.softmax(pred).to(device)
 
-    metric = MultilabelAveragePrecision(num_labels=CONFIG.num_classes, average="macro")
+    metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
     valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
-    
-    
-    print("Validation mAP:", valid_map)
     
     # Log to Weights and Biases
     wandb.log({
         "valid/loss": running_loss/len(data_loader),
         "valid/map": valid_map,
         "custom_step": step,
-        
     })
     
     return running_loss/len(data_loader), valid_map
-
 
 
 def init_wandb(CONFIG: Dict[str, Any]):
@@ -269,6 +234,7 @@ def main():
     """ Main function
     """
     torch.multiprocessing.set_start_method('spawn')
+    print("Device is: ",device)
     CONFIG = get_config()
     # Needed to redefine wandb_run as a global variable
     # pylint: disable=global-statement
@@ -282,7 +248,7 @@ def main():
     train_dataset, val_dataset, train_dataloader, val_dataloader = load_datasets(CONFIG)
     
     print("Loading Model...")
-    model_for_run = BirdCLEFModel(CONFIG=CONFIG).to(device)
+    model_for_run = BirdCLEFModel(train_dataset.num_classes,CONFIG=CONFIG).to(device)
     model_for_run.create_loss_fn(train_dataset)
     if CONFIG.model_checkpoint is not None:
         model_for_run.load_state_dict(torch.load(CONFIG.model_checkpoint))
@@ -293,8 +259,6 @@ def main():
     print("Training")
     step = 0
     best_valid_cmap = 0
-
-    #test_loop(model_for_run, [train_dataloader, val_dataloader])
 
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))

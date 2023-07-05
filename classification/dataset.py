@@ -25,7 +25,7 @@ from torchaudio import transforms as audtr
 import pandas as pd
 import numpy as np
 
-from utils import set_seed #print_verbose
+from utils import set_seed, print_verbose
 from config import get_config
 from tqdm import tqdm
 
@@ -142,7 +142,6 @@ class PyhaDF_Dataset(Dataset):
         If the files is not a presaved tensor and is an audio file, convert to tensor to make
         Future training faster
         """
-        print("old size:", self.samples.shape)
         self.verify_audio()
         files = pd.DataFrame(
             self.samples[self.config.file_path_col].unique(),
@@ -155,7 +154,7 @@ class PyhaDF_Dataset(Dataset):
                        left_on=self.config.file_path_col,
                        right_on="IN FILE").dropna()
     
-        print("fixed size:", self.samples.shape)
+        print_verbose("Serialized form, fixed size:", self.samples.shape, verbose=self.config.verbose)
 
         if "files" in self.samples.columns:
             self.samples[self.config.file_path_col] = self.samples["files"].copy()
@@ -194,7 +193,7 @@ class PyhaDF_Dataset(Dataset):
             if audio.shape[0] > num_frames:
                 audio = audio[frame_offset:frame_offset+num_frames]
             else:
-                print("SHOULD BE SMALL DELETE LATER:", audio.shape)
+                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=self.config.verbose)
         except Exception as e:
             print(e)
             print(path, index)
@@ -296,7 +295,7 @@ class PyhaDF_Dataset(Dataset):
     
 
 def get_datasets(CONFIG=None):
-    """ Returns train and validation datasets
+    """ Returns train and validation datasets, does random sampling for train/valid split
     """
 
     train_p = CONFIG.train_test_split
@@ -311,17 +310,13 @@ def get_datasets(CONFIG=None):
 
     #train = train.reset_index().rename(columns={"level_1": "index"}).set_index("index").drop(columns="level_0")
     valid = data[~data.index.isin(train.index)]
-
+    
     train_ds = PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG)
     species = train_ds.get_classes()
 
     valid_ds = PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, species=species, CONFIG=CONFIG)
     return train_ds, valid_ds
-    #data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=CONFIG)
-    #no_bird_data = BirdCLEFDataset(root="/share/acoustic_species_id/no_bird_10_000_audio_chunks", CONFIG=CONFIG)
-    #data = torch.utils.data.ConcatDataset([data, no_bird_data])
-    #train_data, val_data = torch.utils.data.random_split(data, [0.8, 0.2])
-    #return train_data, val_data
+
 
 def main():
     """
