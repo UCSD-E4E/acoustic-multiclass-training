@@ -194,7 +194,6 @@ def test_loop(model: BirdCLEFModel,
     for dl in data_loaders:
         (mels, labels) = next(iter(dl))
 
-        print(mels.shape)
         out = model(mels)
 
         if out.shape != labels.shape:
