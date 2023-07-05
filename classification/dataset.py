@@ -295,11 +295,12 @@ class PyhaDF_Dataset(Dataset):
         return self.num_classes   
     
 
-def get_datasets(path="/share/acoustic_species_id/132PeruXC_Chunks_Stripped.csv", CONFIG=None):
+def get_datasets(CONFIG=None):
     """ Returns train and validation datasets
     """
 
     train_p = CONFIG.train_test_split
+    path = CONFIG.dataframe
     data = pd.read_csv(path, index_col=0)
 
     #for each species, get a random sample of files for train/valid split
