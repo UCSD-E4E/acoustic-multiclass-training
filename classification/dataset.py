@@ -124,14 +124,14 @@ class PyhaDF_Dataset(Dataset):
                        right_on="IN FILE").dropna()
     
         print("fixed size:", self.samples.shape)
-        
-        self.samples["original_file_path"] = self.samples[self.config.file_path_col]
 
         if "files" in self.samples.columns:
             self.samples[self.config.file_path_col] = self.samples["files"].copy()
         if "files_y" in self.samples.columns:
             self.samples[self.config.file_path_col] = self.samples["files_y"].copy()
         
+        self.samples["original_file_path"] = self.samples[self.config.file_path_col]
+
         self.formatted_csv_file = ".".join(self.csv_file.split(".")[:-1]) + "formatted.csv"
         self.samples.to_csv(self.formatted_csv_file)
 

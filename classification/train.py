@@ -87,7 +87,6 @@ def train(model: BirdCLEFModel,
         outputs = model(mels)
         # sigmoid multilabel predictions
         # preds = torch.sigmoid(outputs) > 0.5
-        
 
         loss = model.loss_fn(outputs, labels)
         
@@ -216,6 +215,25 @@ def valid(model: BirdCLEFModel,
     return running_loss/len(data_loader), valid_map
 
 
+def test_loop(model: BirdCLEFModel,
+          data_loaders: PyhaDF_Dataset,
+          device: str,
+          step: int,
+          CONFIG):
+
+    model.eval()
+    for dl in data_loaders:
+        (mels, labels) = next(iter(dl))
+
+        print(mels.shape)
+        out = model(mels)
+
+        if (out.shape != labels.shape):
+            print(out.shape)
+            print(labels.shape)
+            raise RuntimeError("Shape diff between output of models and labels, see above and debug")
+
+
 def init_wandb(CONFIG: Dict[str, Any]):
     """ 
     Initialize the weights and biases logging
@@ -281,6 +299,8 @@ def main():
     print("Training")
     step = 0
     best_valid_cmap = 0
+
+    test_loop(model_for_run, [train_dataloader, val_dataloader], device, step, CONFIG)
 
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))
