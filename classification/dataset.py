@@ -1,3 +1,8 @@
+# pylint: disable=R0902
+# Disables number of instance attributes
+# Could be simplifed in future and more put into config
+# but for MVP ignore this for now
+
 """ Contains methods for loading the dataset and also creates dataloaders for training and validation
     
     BirdCLEFDataset is a generic loader with a given root directory. 
@@ -7,23 +12,26 @@
     If this module is run directly, it tests that the dataloader works and prints the shape of the first batch.
 
 """
+import os
+from typing import Dict, List, Tuple
 
 import torch
-import torchaudio
 import torch.nn.functional as F
-from torchaudio import transforms as audtr
 from torch.utils.data import Dataset
+import torchaudio
+from torchaudio import transforms as audtr
 
-from typing import Dict, List, Tuple
-import os
+
+
+
 
 import pandas as pd
 import numpy as np
 
-from utils import print_verbose, set_seed
+from utils import set_seed #print_verbose
 from default_parser import create_parser
 from tqdm import tqdm
-
+tqdm.pandas()
 parser = create_parser()
 
 
@@ -32,13 +40,20 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 #https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
 class PyhaDF_Dataset(Dataset):
-    def __init__(self, df, csv_file="test.csv", CONFIG=None, max_time=5, train=True, species=None, ignore_bad=True):
+    """
+        Dataset designed to work with pyha output
+        Save unchunked data
+    """
+    
+    # df, csv_file, train, and species decided outside of config, so those cannot be added in there
+    # pylint: disable-next=R0913
+    def __init__(self, df, csv_file="test.csv", CONFIG=None, train=True, species=None):
         self.config = CONFIG
         self.samples = df[~(df[self.config.file_path_col].isnull())]
         self.csv_file = csv_file
         self.formatted_csv_file = "not yet formatted"
         self.target_sample_rate = CONFIG.sample_rate
-        num_samples = self.target_sample_rate * max_time
+        num_samples = self.target_sample_rate * CONFIG.max_time
         self.num_samples = num_samples
         self.train = train
 
@@ -65,6 +80,9 @@ class PyhaDF_Dataset(Dataset):
         self.serialize_data()
 
     def verify_audio(self):
+        """
+        Checks to make sure files exist that are refrenced in input df
+        """
         test_df = self.samples[self.config.file_path_col].apply(lambda path: (
             "SUCCESS" if os.path.exists(path) else path
         ))
@@ -75,6 +93,10 @@ class PyhaDF_Dataset(Dataset):
         ]
         
     def process_audio_file(self, path):
+        """
+        Save waveform of audio file as a tensor and save that tensor to .pt
+        """
+
         exts = "." + path.split(".")[-1]
         new_path = path.replace(exts, ".pt")
         if os.path.exists(new_path):
@@ -87,6 +109,12 @@ class PyhaDF_Dataset(Dataset):
 
         try:
             audio, sample_rate = torchaudio.load(path)
+        
+        
+        # IO is messy, I want any file that could be problematic
+        # removed from training so it isn't stopped after hours of time
+        # Hence broad exception
+        # pylint: disable-next=W0718
         except Exception as e:
             print(path, "is bad", e)
             return pd.Series({
@@ -112,6 +140,11 @@ class PyhaDF_Dataset(Dataset):
 
 
     def serialize_data(self):
+        """
+        For each file, check to see if the file is already a presaved tensor
+        If the files is not a presaved tensor and is an audio file, convert to tensor to make
+        Future training faster
+        """
         print("old size:", self.samples.shape)
         self.verify_audio()
         files = pd.DataFrame(
@@ -160,15 +193,15 @@ class PyhaDF_Dataset(Dataset):
         
         try:
             audio = torch.load(path)
-            #TODO CHECK CASES OF LESS THAN 5 SECOND FILES, I BELIEVE SPLICE BREAKS IT
-            #if (audio.shape[0] > num_frames):
-            #print(audio.shape)
-            audio = audio[frame_offset:frame_offset+num_frames]
-            #print(audio.shape)
+            
+            if audio.shape[0] > num_frames:
+                audio = audio[frame_offset:frame_offset+num_frames]
+            else:
+                print("SHOULD BE SMALL DELETE LATER:", audio.shape)
         except Exception as e:
             print(e)
             print(path, index)
-            raise Exception("Bad Audio")
+            raise RuntimeError("Bad Audio") from e
 
 
         #print(path, "test.wav", annotation[self.config.duration_col], annotation[self.config.duration_col])
@@ -272,8 +305,8 @@ class PyhaDF_Dataset(Dataset):
 def get_datasets(path="data_train-Trueformatted.csv", CONFIG=None):
     """ Returns train and validation datasets
     """
-    #TODO create config for this
-    train_p = 0.8
+
+    train_p = CONFIG.train_test_split
     data = pd.read_csv(path, index_col=0)
 
     #for each species, get a random sample of files for train/valid split
@@ -295,7 +328,10 @@ def get_datasets(path="data_train-Trueformatted.csv", CONFIG=None):
     # print(data[CONFIG.manual_id_col].value_counts())
     # print(train[CONFIG.manual_id_col].value_counts())
     # print(valid[CONFIG.manual_id_col].value_counts())
-    return PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG), PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, CONFIG=CONFIG)
+    return (
+        PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG),
+        PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, CONFIG=CONFIG)
+    )
     #data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=CONFIG)
     #no_bird_data = BirdCLEFDataset(root="/share/acoustic_species_id/no_bird_10_000_audio_chunks", CONFIG=CONFIG)
     #data = torch.utils.data.ConcatDataset([data, no_bird_data])
@@ -303,32 +339,36 @@ def get_datasets(path="data_train-Trueformatted.csv", CONFIG=None):
     #return train_data, val_data
 
 def main():
+    """
+    testing function.
+    """
     torch.multiprocessing.set_start_method('spawn')
     CONFIG = parser.parse_args()
     CONFIG.logging = CONFIG.logging == 'True'
     set_seed(CONFIG.seed)
-    train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
-    print(train_dataset.get_classes()[1])
-    print(train_dataset.__getitem__(0))
-    input()
-    #train_dataset = get_datasets(CONFIG=CONFIG)
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset,
-        1,
-        shuffle=True,
-        num_workers=CONFIG.jobs,
-    )
-    val_dataloader = torch.utils.data.DataLoader(
-        val_dataset,
-        CONFIG.valid_batch_size,
-        shuffle=False,
-        num_workers=CONFIG.jobs,
-    )
+    get_datasets(CONFIG=CONFIG)
+    #train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
+    # print(train_dataset.get_classes()[1])
+    # print(train_dataset[0])
+    # input()
+    # #train_dataset = get_datasets(CONFIG=CONFIG)
+    # train_dataloader = torch.utils.data.DataLoader(
+    #     train_dataset,
+    #     1,
+    #     shuffle=True,
+    #     num_workers=CONFIG.jobs,
+    # )
+    # val_dataloader = torch.utils.data.DataLoader(
+    #     val_dataset,
+    #     CONFIG.valid_batch_size,
+    #     shuffle=False,
+    #     num_workers=CONFIG.jobs,
+    # )
 
-    for i in range(train_dataset.__len__()):
-        print("entry", i)
-        train_dataset.__getitem__(i)
-        input()
+    # for i in range(len(train_dataset)):
+    #     print("entry", i)
+    #     train_dataset[i]
+    #     input()
 
 if __name__ == '__main__':
     main()

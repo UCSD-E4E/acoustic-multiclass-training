@@ -1,3 +1,10 @@
+# pylint: disable=R0902
+# pylint: disable=W0621
+# pylint: disable=R0913
+# pylint: disable=E1121
+# R0902, W0621 -> Not redefining these values, they are all the same value,
+# R0913, E1121 -> These functions just have a lot of args that are frequently changed since ML
+
 """
     Contains the training and validation function and logging to Weights and Biases
     Methods:
@@ -8,53 +15,60 @@
         
 
 """
-
-# other files 
-from dataset import PyhaDF_Dataset, get_datasets
-from model import BirdCLEFModel, GeM
-from tqdm import tqdm
-from utils import set_seed, print_verbose
-from default_parser import create_parser
-
-# pytorch training
-import torch
-from torch import nn
-from torch.optim import Adam
-import torch.nn.functional as F
-from torch.optim import Adam
-
-# general
-import numpy as np
 from typing import Dict, Any, Tuple
 import os
+import datetime
+from torchmetrics.classification import MultilabelAveragePrecision
+
+import torch
+import torch.nn.functional as F
+from torch.optim import Adam
+from dataset import PyhaDF_Dataset, get_datasets
+from model import BirdCLEFModel
+from utils import set_seed, print_verbose
+from default_parser import create_parser
+from tqdm import tqdm
+import wandb
+
+
+
+
+
 
 
 
 # other files 
-from model import BirdCLEFModel #, GeM
-from tqdm import tqdm
-tqdm.pandas()
-from torchmetrics.classification import MultilabelAveragePrecision
 
 
 # pytorch training
-import torch
-import torch.nn as nn
+
+
+
+
+# general
+
+
+
+
+# other files 
+
 
 
 #https://www.kaggle.com/code/imvision12/birdclef-2023-efficientnet-training
 
 # logging
-import wandb
-import datetime
+
+
+
+tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') 
 
-from torchmetrics.classification import MultilabelAveragePrecision
+
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(device)
 parser = create_parser()
-
+wandb_run = None
 
 def train(model: BirdCLEFModel,
         data_loader: PyhaDF_Dataset,
@@ -63,7 +77,7 @@ def train(model: BirdCLEFModel,
         device: str,
         step: int,
         best_valid_cmap: float,
-        epoch: int,
+        #epoch: int,
         CONFIG) -> Tuple[float, int, float]:
     """ Trains the model
         Returns: 
@@ -123,16 +137,16 @@ def train(model: BirdCLEFModel,
             correct = 0
             total = 0
         
-        #if step % CONFIG.valid_freq == 0 and step != 0:
-        #    del mels, labels, outputs, preds # clear memory
-        #    valid_loss, valid_map = valid(model, val_dataloader, device, step)
-        #    print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
-        #    if valid_map > best_valid_cmap:
-        #        print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
-        #        best_valid_cmap = valid_map
-        #        torch.save(model.state_dict(), wandb_run.name + '.pt')
-        #        print(wandb_run.name + '.pt')
-        #    model.train()
+        # if step % CONFIG.valid_freq == 0 and step != 0:
+        #     del mels, labels, outputs # clear memory
+        #     valid_loss, valid_map = valid(model, val_dataloader, device, step, CONFIG)
+        #     print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
+        #     if valid_map > best_valid_cmap:
+        #         print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
+        #         best_valid_cmap = valid_map
+        #         torch.save(model.state_dict(), wandb_run.name + '.pt')
+        #         print(wandb_run.name + '.pt')
+        #     model.train()
             
         
         step += 1
@@ -217,10 +231,10 @@ def valid(model: BirdCLEFModel,
 
 
 def test_loop(model: BirdCLEFModel,
-          data_loaders: PyhaDF_Dataset,
-          device: str,
-          step: int,
-          CONFIG):
+          data_loaders: PyhaDF_Dataset):
+    """
+    Checks to make sure shapes are correct before training
+    """
 
     model.eval()
     for dl in data_loaders:
@@ -229,7 +243,7 @@ def test_loop(model: BirdCLEFModel,
         print(mels.shape)
         out = model(mels)
 
-        if (out.shape != labels.shape):
+        if out.shape != labels.shape:
             print(out.shape)
             print(labels.shape)
             raise RuntimeError("Shape diff between output of models and labels, see above and debug")
@@ -252,7 +266,11 @@ def init_wandb(CONFIG: Dict[str, Any]):
         f"-{CONFIG.n_fft}-{CONFIG.seed}-" +
         run.name.split('-')[-1]
     )
-    run.name = f"EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}-{CONFIG.sample_rate}-{CONFIG.hop_length}-{CONFIG.max_time}-{CONFIG.n_mels}-{CONFIG.n_fft}-{CONFIG.seed}-" + run.name.split('-')[-1]
+    run.name = f"EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-"
+    run.name += f"{CONFIG.valid_batch_size}-{CONFIG.sample_rate}-"
+    run.name += f"{CONFIG.hop_length}-{CONFIG.max_time}-"
+    run.name += f"{CONFIG.n_mels}-{CONFIG.n_fft}-{CONFIG.seed}-"
+    run.name += run.name.split('-')[-1]
     return run
 
 def load_datasets(CONFIG: Dict[str, Any]) \
@@ -277,17 +295,25 @@ def load_datasets(CONFIG: Dict[str, Any]) \
     return train_dataset, val_dataset, train_dataloader, val_dataloader
 
 def main():
+    """
+    Run training
+    """
     torch.multiprocessing.set_start_method('spawn')
     CONFIG = parser.parse_args()
     print(CONFIG)
     CONFIG.logging = CONFIG.logging == 'True'
     CONFIG.verbose = CONFIG.verbose == 'True'
+
+    # Yes this could be better, out of scope of MVP
+    # pylint: disable=W0603
     global wandb_run
     wandb_run = init_wandb(CONFIG)
     set_seed(CONFIG.seed)
     
     # Load in dataset
     print("Loading Dataset")
+    # we might need it in future
+    # pylint: disable-next=W0612
     train_dataset, val_dataset, train_dataloader, val_dataloader = load_datasets(CONFIG)
     
     print("Loading Model...")
@@ -319,6 +345,8 @@ def main():
             epoch,
             CONFIG
         )
+
+        print(f"Train Loss:\t{train_loss} ")
         
         valid_loss, valid_map = valid(model_for_run, val_dataloader, device, step, CONFIG)
         print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
