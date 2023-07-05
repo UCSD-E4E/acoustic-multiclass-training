@@ -32,39 +32,9 @@ import wandb
 
 
 
-
-
-
-
-
-# other files 
-
-
-# pytorch training
-
-
-
-
-# general
-
-
-
-
-# other files 
-
-
-
-#https://www.kaggle.com/code/imvision12/birdclef-2023-efficientnet-training
-
-# logging
-
-
-
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') 
-
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-print(device)
 wandb_run = None
 
 def train(model: BirdCLEFModel,
@@ -170,15 +140,11 @@ def valid(model: BirdCLEFModel,
     metric = MultilabelAveragePrecision(num_labels=CONFIG.num_classes, average="macro")
     valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
     
-    
-    print("Validation mAP:", valid_map)
-    
     # Log to Weights and Biases
     wandb.log({
         "valid/loss": running_loss/len(data_loader),
         "valid/map": valid_map,
         "custom_step": step,
-        
     })
     
     return running_loss/len(data_loader), valid_map
@@ -197,11 +163,11 @@ def test_loop(model: BirdCLEFModel,
         out = model(mels)
 
         if out.shape != labels.shape:
-            print(out.shape)
-            print(labels.shape)
+            print("Out shape:", out.shape)
+            print("Labels shape:", labels.shape)
             raise RuntimeError("Shape diff between output of models and labels, see above and debug")
 
-    print("successful shapes!")
+    print("Test loop ran successfully")
     del mels, out, labels
 
 
@@ -250,6 +216,7 @@ def main():
     """ Main function
     """
     torch.multiprocessing.set_start_method('spawn')
+    print("Device is: ",device)
     CONFIG = get_config()
     # Needed to redefine wandb_run as a global variable
     # pylint: disable=global-statement
