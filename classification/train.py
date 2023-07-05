@@ -73,7 +73,6 @@ def train(model: BirdCLEFModel,
         scheduler,
         device: str,
         step: int,
-        best_valid_cmap: float,
         CONFIG) -> Tuple[float, int, float]:
     """ Trains the model
         Returns: 
@@ -284,6 +283,8 @@ def main():
             train_dataloader,
             optimizer,
             scheduler,
+            device,
+            step,
             CONFIG
         )
         step += 1
