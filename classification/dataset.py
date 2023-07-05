@@ -43,6 +43,7 @@ class PyhaDF_Dataset(Dataset):
     
     # df, csv_file, train, and species decided outside of config, so those cannot be added in there
     # pylint: disable-next=too-many-instance-attributes
+    # pylint: disable-next=too-many-arguments
     def __init__(self, df, csv_file="test.csv", CONFIG=None, train=True, species=None):
         self.config = CONFIG
         self.samples = df[~(df[self.config.file_path_col].isnull())]
