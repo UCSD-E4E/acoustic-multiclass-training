@@ -23,6 +23,7 @@ from torchmetrics.classification import MultilabelAveragePrecision
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
+import numpy as np
 from dataset import PyhaDF_Dataset, get_datasets
 from model import BirdCLEFModel
 from utils import set_seed, print_verbose
@@ -67,6 +68,16 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(device)
 wandb_run = None
 
+def check_shape(outputs, labels):
+    """ 
+    Checks to make sure the output is the same
+    """
+    if outputs.shape != labels.shape:
+        print(outputs.shape)
+        print(labels.shape)
+        raise RuntimeError("Shape diff between output of models and labels, see above and debug")
+
+
 def train(model: BirdCLEFModel,
         data_loader: PyhaDF_Dataset,
         optimizer: torch.optim.Optimizer,
@@ -87,6 +98,8 @@ def train(model: BirdCLEFModel,
     log_loss = 0
     correct = 0
     total = 0
+    mAP = 0
+
 
     for i, (mels, labels) in enumerate(data_loader):
         optimizer.zero_grad()
@@ -94,8 +107,12 @@ def train(model: BirdCLEFModel,
         labels = labels.to(device)
         
         outputs = model(mels)
-        loss = model.loss_fn(outputs, labels)
+
         
+        check_shape(outputs, labels)
+
+        loss = model.loss_fn(outputs, labels)
+
         loss.backward()
         optimizer.step()
         
@@ -103,23 +120,44 @@ def train(model: BirdCLEFModel,
             scheduler.step()
         
         running_loss += loss.item()
-        total += labels.size(0)
+        
 
-        correct += torch.all(torch.round(outputs).eq(labels), dim=-1).sum().item()
+        
+        
+        metric = MultilabelAveragePrecision(num_labels=CONFIG.num_classes, average="macro")
+        batch_mAP = metric(outputs.detach().cpu(), labels.detach().cpu().long()).item()
+        # https://forums.fast.ai/t/nan-values-when-using-precision-in-multi-classification/59767/2
+        # Could be possible when model is untrained so we only have FNs
+        if np.isnan(batch_mAP):
+            batch_mAP = 0
+        mAP += batch_mAP
+
+        out_max_inx = torch.round(outputs)
+        lab_max_inx = torch.round(labels)
+        correct += (out_max_inx == lab_max_inx).sum().item()
+        total += labels.shape[0] * labels.shape[1]
+
         log_loss += loss.item()
         log_n += 1
 
-        if i % (CONFIG.logging_freq) == 0 or i == len(data_loader) - 1:
+
+
+        if (i != 0 and i % (CONFIG.logging_freq) == 0) or i == len(data_loader) - 1:
             #Log to Weights and Biases
             wandb.log({
                 "train/loss": log_loss / log_n,
-                "train/accuracy": correct / total * 100.,
+                "train/mAP": mAP / log_n,
+                "train/accuracy": correct / total,
+                
             })
-            print("Loss:", log_loss / log_n, "Accuracy:", correct / total * 100.)
+            print("Loss:", log_loss / log_n, "Accuracy:", correct / total, "mAP", mAP / log_n)
             log_loss = 0
             log_n = 0
             correct = 0
             total = 0
+            mAP = 0
+
+
         step += 1
     return running_loss/len(data_loader)
 
@@ -150,6 +188,7 @@ def valid(model: BirdCLEFModel,
             
             # argmax
             outputs = model(mels)
+            check_shape(outputs, labels)
             
             loss = model.loss_fn(outputs, labels)
                 
@@ -183,26 +222,6 @@ def valid(model: BirdCLEFModel,
     
     return running_loss/len(data_loader), valid_map
 
-
-def test_loop(model: BirdCLEFModel,
-          data_loaders: PyhaDF_Dataset):
-    """
-    Checks to make sure shapes are correct before training
-    """
-
-    model.eval()
-    for dl in data_loaders:
-        (mels, labels) = next(iter(dl))
-
-        out = model(mels)
-
-        if out.shape != labels.shape:
-            print(out.shape)
-            print(labels.shape)
-            raise RuntimeError("Shape diff between output of models and labels, see above and debug")
-
-    print("successful shapes!")
-    del mels, out, labels
 
 
 def init_wandb(CONFIG: Dict[str, Any]):
@@ -275,7 +294,7 @@ def main():
     step = 0
     best_valid_cmap = 0
 
-    test_loop(model_for_run, [train_dataloader, val_dataloader])
+    #test_loop(model_for_run, [train_dataloader, val_dataloader])
 
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))

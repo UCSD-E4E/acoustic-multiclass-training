@@ -312,20 +312,11 @@ def get_datasets(CONFIG=None):
     #train = train.reset_index().rename(columns={"level_1": "index"}).set_index("index").drop(columns="level_0")
     valid = data[~data.index.isin(train.index)]
 
-    # print(len(data[CONFIG.file_path_col].unique()),
-    #     len(train[CONFIG.file_path_col].unique()), 
-    #     len(valid[CONFIG.file_path_col].unique()), 
-    #     )
+    train_ds = PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG)
+    species = train_ds.get_classes()
 
-    # print(train[CONFIG.file_path_col].isin(valid[CONFIG.file_path_col]).sum())
-
-    # print(data[CONFIG.manual_id_col].value_counts())
-    # print(train[CONFIG.manual_id_col].value_counts())
-    # print(valid[CONFIG.manual_id_col].value_counts())
-    return (
-        PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG),
-        PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, CONFIG=CONFIG)
-    )
+    valid_ds = PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, species=species, CONFIG=CONFIG)
+    return train_ds, valid_ds
     #data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=CONFIG)
     #no_bird_data = BirdCLEFDataset(root="/share/acoustic_species_id/no_bird_10_000_audio_chunks", CONFIG=CONFIG)
     #data = torch.utils.data.ConcatDataset([data, no_bird_data])
