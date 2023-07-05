@@ -310,10 +310,13 @@ def get_datasets(CONFIG=None):
 
     #train = train.reset_index().rename(columns={"level_1": "index"}).set_index("index").drop(columns="level_0")
     valid = data[~data.index.isin(train.index)]
-    return (
-        PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG),
-        PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, CONFIG=CONFIG)
-    )
+    
+    train_ds = PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG)
+    species = train_ds.get_classes()
+
+    valid_ds = PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, species=species, CONFIG=CONFIG)
+    return train_ds, valid_ds
+
 
 def main():
     """
