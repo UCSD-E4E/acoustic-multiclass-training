@@ -201,6 +201,9 @@ def test_loop(model: BirdCLEFModel,
             print(labels.shape)
             raise RuntimeError("Shape diff between output of models and labels, see above and debug")
 
+    print("successful shapes!")
+    del mels, out, labels
+
 
 def init_wandb(CONFIG: Dict[str, Any]):
     """ 
