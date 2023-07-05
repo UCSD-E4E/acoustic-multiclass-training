@@ -21,6 +21,8 @@ def get_config():
     # Env settings
     parser.add_argument('-tbs', '--train_batch_size', default=4, type=int)
     parser.add_argument('-vbs', '--valid_batch_size', default=4, type=int)
+    parser.add_argument('-wbs', '--wandb_session', default="acoustic-species-reu2023", 
+                        type=str, help="wandb project name")
 
     # Functional settings
     parser.add_argument('-j', '--jobs', default=2, type=int)

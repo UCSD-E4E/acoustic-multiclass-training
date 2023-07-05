@@ -53,6 +53,7 @@ class GeM(nn.Module):
 class BirdCLEFModel(nn.Module):
     """ Efficient net neural network
     """
+    # pylint: disable=too-many-arguments
     def __init__(self, 
                  num_classes,
                  model_name="tf_efficientnet_b4", 
