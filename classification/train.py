@@ -63,8 +63,6 @@ import wandb
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') 
 
-
-
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(device)
 wandb_run = None
@@ -81,7 +79,6 @@ def train(model: BirdCLEFModel,
         Returns: 
             loss: the average loss over the epoch
             step: the current step
-            best_valid_cmap: the best validation mAP
     """
     print_verbose('size of data loader:', len(data_loader),verbose=CONFIG.verbose)
     model.train()
@@ -98,25 +95,16 @@ def train(model: BirdCLEFModel,
         labels = labels.to(device)
         
         outputs = model(mels)
-        # sigmoid multilabel predictions
-        # preds = torch.sigmoid(outputs) > 0.5
-
         loss = model.loss_fn(outputs, labels)
         
         loss.backward()
         optimizer.step()
-        
         
         if scheduler is not None:
             scheduler.step()
         
         running_loss += loss.item()
         total += labels.size(0)
-
-        # index of highest predicted class
-        #pred_label = torch.argmax(outputs, dim=1)
-
-        # checking highest against true label
 
         correct += torch.all(torch.round(outputs).eq(labels), dim=-1).sum().item()
         log_loss += loss.item()
@@ -127,33 +115,18 @@ def train(model: BirdCLEFModel,
             wandb.log({
                 "train/loss": log_loss / log_n,
                 "train/accuracy": correct / total * 100.,
-                "custom_step": step,
             })
             print("Loss:", log_loss / log_n, "Accuracy:", correct / total * 100.)
             log_loss = 0
             log_n = 0
             correct = 0
             total = 0
-        
-        # if step % CONFIG.valid_freq == 0 and step != 0:
-        #     del mels, labels, outputs # clear memory
-        #     valid_loss, valid_map = valid(model, val_dataloader, device, step, CONFIG)
-        #     print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
-        #     if valid_map > best_valid_cmap:
-        #         print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
-        #         best_valid_cmap = valid_map
-        #         torch.save(model.state_dict(), wandb_run.name + '.pt')
-        #         print(wandb_run.name + '.pt')
-        #     model.train()
-            
-        
         step += 1
+    return running_loss/len(data_loader)
 
-    return running_loss/len(data_loader), step, best_valid_cmap
 
 def valid(model: BirdCLEFModel,
           data_loader: PyhaDF_Dataset,
-          device: str,
           step: int,
           CONFIG) -> Tuple[float, float]:
     """
@@ -178,7 +151,6 @@ def valid(model: BirdCLEFModel,
             
             # argmax
             outputs = model(mels)
-            #_, preds = torch.max(outputs, 1)
             
             loss = model.loss_fn(outputs, labels)
                 
@@ -186,7 +158,7 @@ def valid(model: BirdCLEFModel,
             
             pred.append(outputs.cpu().detach())
             label.append(labels.cpu().detach())
-            # break
+
         pred = torch.cat(pred)
         label = torch.cat(label)
         if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
@@ -195,24 +167,9 @@ def valid(model: BirdCLEFModel,
 
     # softmax predictions
     pred = F.softmax(pred).to(device)
-    # pred = pred[:, unq_classes]
-
-    # # pad predictions and labels with `pad_n` true positives
 
     metric = MultilabelAveragePrecision(num_labels=CONFIG.num_classes, average="macro")
     valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
-    
-    #valid_map = metric(padded_preds, padded_labels)
-    # calculate average precision
-    # valid_map = average_precision_score(
-    #     label.cpu().long(),
-    #     pred.detach().cpu(),
-    #     average='macro',
-    # )
-    # _, padded_preds = torch.max(padded_preds, 1)
-
-    # acc = (padded_preds == padded_labels).sum().item() / len(padded_preds)
-    # print("Validation Accuracy:", acc)
     
     
     print("Validation mAP:", valid_map)
@@ -264,11 +221,7 @@ def init_wandb(CONFIG: Dict[str, Any]):
         f"-{CONFIG.n_fft}-{CONFIG.seed}-" +
         run.name.split('-')[-1]
     )
-    run.name = f"EFN-{CONFIG.epochs}-{CONFIG.train_batch_size}-"
-    run.name += f"{CONFIG.valid_batch_size}-{CONFIG.sample_rate}-"
-    run.name += f"{CONFIG.hop_length}-{CONFIG.max_time}-"
-    run.name += f"{CONFIG.n_mels}-{CONFIG.n_fft}-{CONFIG.seed}-"
-    run.name += run.name.split('-')[-1]
+
     return run
 
 def load_datasets(CONFIG: Dict[str, Any]) \
@@ -293,25 +246,19 @@ def load_datasets(CONFIG: Dict[str, Any]) \
     return train_dataset, val_dataset, train_dataloader, val_dataloader
 
 def main():
-    """
-    Run training
+    """ Main function
     """
     torch.multiprocessing.set_start_method('spawn')
     CONFIG = get_config()
-    print(CONFIG)
-    CONFIG.logging = CONFIG.logging == 'True'
-    CONFIG.verbose = CONFIG.verbose == 'True'
-
-    # Yes this could be better, out of scope of MVP
-    # pylint: disable=W0603
+    # Needed to redefine wandb_run as a global variable
+    # pylint: disable=global-statement
     global wandb_run
     wandb_run = init_wandb(CONFIG)
     set_seed(CONFIG.seed)
     
     # Load in dataset
     print("Loading Dataset")
-    # we might need it in future
-    # pylint: disable-next=W0612
+    # pylint: disable=unused-variable
     train_dataset, val_dataset, train_dataloader, val_dataloader = load_datasets(CONFIG)
     
     print("Loading Model...")
@@ -332,20 +279,16 @@ def main():
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))
 
-        train_loss, step, best_valid_cmap = train(
+        _ = train(
             model_for_run, 
             train_dataloader,
             optimizer,
             scheduler,
-            device,
-            step,
-            best_valid_cmap,
             CONFIG
         )
-
-        print(f"Train Loss:\t{train_loss} ")
+        step += 1
         
-        valid_loss, valid_map = valid(model_for_run, val_dataloader, device, step, CONFIG)
+        valid_loss, valid_map = valid(model_for_run, val_dataloader, step, CONFIG)
         print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
 
         if valid_map > best_valid_cmap:

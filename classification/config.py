@@ -1,3 +1,4 @@
+
 """ Stores default argument information for the argparser
     Methods:
         get_config: returns an ArgumentParser with the default arguments
@@ -5,7 +6,7 @@
 import argparse
 
 def get_config():
-    """ Returns an ArgumentParser with the default arguments
+    """ Returns a config variable with the command line arguments or defaults
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('-e', '--epochs', default=10, type=int)

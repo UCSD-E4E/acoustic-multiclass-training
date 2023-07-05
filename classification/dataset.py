@@ -21,17 +21,14 @@ from torch.utils.data import Dataset
 import torchaudio
 from torchaudio import transforms as audtr
 
-
-
-
-
+# Math library imports
 import pandas as pd
 import numpy as np
-
 
 from utils import set_seed #print_verbose
 from config import get_config
 from tqdm import tqdm
+
 
 tqdm.pandas()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -45,7 +42,7 @@ class PyhaDF_Dataset(Dataset):
     """
     
     # df, csv_file, train, and species decided outside of config, so those cannot be added in there
-    # pylint: disable-next=R0913
+    # pylint: disable-next=too-many-instance-attributes
     def __init__(self, df, csv_file="test.csv", CONFIG=None, train=True, species=None):
         self.config = CONFIG
         self.samples = df[~(df[self.config.file_path_col].isnull())]
@@ -203,8 +200,6 @@ class PyhaDF_Dataset(Dataset):
             raise RuntimeError("Bad Audio") from e
 
 
-        #print(path, "test.wav", annotation[self.config.duration_col], annotation[self.config.duration_col])
-
         #Assume audio is all mono and at target sample rate
         #assert audio.shape[0] == 1
         #assert sample_rate == self.target_sample_rate
@@ -268,8 +263,6 @@ class PyhaDF_Dataset(Dataset):
             #try again with a diff annotation to avoid training breaking
             image, target = self[self.samples.sample(1).index[0]]
             
-        #print(image)
-        #print(target)
         return image, target
             
     def pad_audio(self, audio: torch.Tensor) -> torch.Tensor:
