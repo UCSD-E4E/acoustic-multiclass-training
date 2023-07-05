@@ -14,7 +14,7 @@ from dataset import PyhaDF_Dataset, get_datasets
 from model import BirdCLEFModel, GeM
 from tqdm import tqdm
 from utils import set_seed, print_verbose
-from default_parser import create_parser
+from config import get_config
 
 # pytorch training
 import torch
@@ -53,7 +53,6 @@ from torchmetrics.classification import MultilabelAveragePrecision
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(device)
-parser = create_parser()
 
 
 def train(model: BirdCLEFModel,
@@ -260,10 +259,8 @@ def load_datasets(CONFIG: Dict[str, Any]) \
 
 def main():
     torch.multiprocessing.set_start_method('spawn')
-    CONFIG = parser.parse_args()
+    CONFIG = get_config()
     print(CONFIG)
-    CONFIG.logging = CONFIG.logging == 'True'
-    CONFIG.verbose = CONFIG.verbose == 'True'
     global wandb_run
     wandb_run = init_wandb(CONFIG)
     set_seed(CONFIG.seed)

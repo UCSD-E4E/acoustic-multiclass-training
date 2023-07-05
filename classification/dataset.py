@@ -21,10 +21,8 @@ import pandas as pd
 import numpy as np
 
 from utils import print_verbose, set_seed
-from default_parser import create_parser
+from config import get_config
 from tqdm import tqdm
-
-parser = create_parser()
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -269,7 +267,7 @@ class PyhaDF_Dataset(Dataset):
         return self.num_classes   
     
 
-def get_datasets(path="data_train-Trueformatted.csv", CONFIG=None):
+def get_datasets(path="/share/acoustic_species_id/132PeruXC_Chunks_Stripped.csv", CONFIG=None):
     """ Returns train and validation datasets
     """
     #TODO create config for this
@@ -304,8 +302,7 @@ def get_datasets(path="data_train-Trueformatted.csv", CONFIG=None):
 
 def main():
     torch.multiprocessing.set_start_method('spawn')
-    CONFIG = parser.parse_args()
-    CONFIG.logging = CONFIG.logging == 'True'
+    CONFIG = get_config()
     set_seed(CONFIG.seed)
     train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
     print(train_dataset.get_classes()[1])

@@ -1,10 +1,10 @@
 """ Stores default argument information for the argparser
     Methods:
-        create_parser: returns an ArgumentParser with the default arguments
+        get_config: returns an ArgumentParser with the default arguments
 """
 import argparse
 
-def create_parser():
+def get_config():
     """ Returns an ArgumentParser with the default arguments
     """
     parser = argparse.ArgumentParser()
@@ -42,6 +42,13 @@ def create_parser():
 
     parser.add_argument('-st', '--offset_col', default='OFFSET', type=str)
     parser.add_argument('-et', '--duration_col', default='DURATION', type=str)
-    parser.add_argument('-fp', '--file_path_col', default='file_location', type=str)
+    parser.add_argument('-fp', '--file_path_col', default='IN FILE', type=str)
     parser.add_argument('-mi', '--manual_id_col', default='Species eBird Code', type=str)
-    return parser
+
+    CONFIG = parser.parse_args()
+    
+    # Convert string arguments to boolean
+    CONFIG.logging = CONFIG.logging == 'True'
+    CONFIG.verbose = CONFIG.verbose == 'True'
+    
+    return CONFIG
