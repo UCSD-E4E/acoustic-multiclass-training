@@ -1,3 +1,8 @@
+# pylint: disable=E1123:
+# Litteraly I don't know why this code contains a pos_weight for CEL
+# This code comes from the BIRDCLEF2023 code, a review is despertely needed to understand why
+# This is being done to the loss function. 
+
 """ Contains the model class and the Generalized Mean Pooling layer
 
     GeM: generalized mean pooling layer
@@ -5,8 +10,7 @@
 
 """
 import torch
-import torch.nn as nn
-from torch.optim import Adam
+from torch import nn
 import torch.nn.functional as F
 
 # timm is a library of premade models
@@ -19,14 +23,19 @@ class GeM(nn.Module):
             p: power for generalized mean pooling
             eps: epsilon (avoid zero division)
         
-        Layer applies the function ((x_1^p + x_2^p + ... + x_n^p)/n)^(1/p) as compared to max pooling 2d which does something like max(x_1, x_2, ..., x_n)
+        Layer applies the function ((x_1^p + x_2^p + ... + x_n^p)/n)^(1/p)
+        as compared to max pooling 2d which does something like max(x_1, x_2, ..., x_n)
     """
     def __init__(self, p=3, eps=1e-6):
+        """ Initializes the layer
+        """
         super().__init__()
         self.p = nn.Parameter(torch.ones(1)*p)
         self.eps = eps
 
     def forward(self, x):
+        """ Forward pass of the layer
+        """
         return self.gem(x, p=self.p, eps=self.eps)
         
     def gem(self, x, p=3, eps=1e-6):
@@ -38,15 +47,19 @@ class GeM(nn.Module):
         """ Returns a string representation of the object
         """
         return self.__class__.__name__ + \
-                '(' + 'p=' + '{:.4f}'.format(self.p.data.tolist()[0]) + \
+                '(' + f'p={self.p.data.tolist()[0]:.4f}'+ \
                 ', ' + 'eps=' + str(self.eps) + ')'
 
 class BirdCLEFModel(nn.Module):
+    """ Efficient net neural network
+    """
     def __init__(self, 
                  model_name="tf_efficientnet_b4", 
                  embedding_size=768, 
                  pretrained=True,
                  CONFIG=None):
+        """ Initializes the model
+        """
         super().__init__()
         self.config = CONFIG
         # Load in the efficientnet_b4 model preset
@@ -57,10 +70,25 @@ class BirdCLEFModel(nn.Module):
         self.pooling = GeM()
         self.embedding = nn.Linear(in_features, embedding_size)
         self.fc = nn.Linear(embedding_size, CONFIG.num_classes)
+        self.loss_fn = None
     
     def forward(self, images):
+        """ Forward pass of the model
+        """
         features = self.model(images)
         pooled_features = self.pooling(features).flatten(1)
         embedding = self.embedding(pooled_features)
         output = self.fc(embedding)
         return output
+    
+    def create_loss_fn(self,train_dataset):
+        """ Returns the loss function and sets self.loss_fn
+        """
+        if not self.config.imb: # normal loss
+            self.loss_fn = nn.CrossEntropyLoss()
+        else: # weighted loss
+            self.loss_fn = nn.CrossEntropyLoss(
+                weight=torch.tensor(
+                    [1 / p for p in train_dataset.class_id_to_num_samples.values()]
+                ).to(self.device))
+        return self.loss_fn
