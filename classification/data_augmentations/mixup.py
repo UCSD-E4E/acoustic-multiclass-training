@@ -12,7 +12,7 @@ class Mixup(torch.nn.Module):
     """
     Attributes: 
         dataset: Dataset from which to mixup with other clips
-        alpha: Proportion of original clip to be kept
+        alpha: Strength (proportion) of original audio in augmented clip
     """
     def __init__(self, dataset, alpha: float):
         super().__init__()
