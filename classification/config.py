@@ -1,11 +1,11 @@
-""" Stores default argument information for the argparser
+""" Stores default argument information for CONFIG variable
     Methods:
-        create_parser: returns an ArgumentParser with the default arguments
+        get_config: returns config data that's parsed from the command line
 """
 import argparse
 
-def create_parser():
-    """ Returns an ArgumentParser with the default arguments
+def get_config():
+    """ Returns a config variable with the command line arguments or defaults
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('-e', '--epochs', default=10, type=int)
@@ -44,4 +44,11 @@ def create_parser():
     parser.add_argument('-et', '--duration_col', default='DURATION', type=str)
     parser.add_argument('-fp', '--file_path_col', default='IN FILE', type=str)
     parser.add_argument('-mi', '--manual_id_col', default='SCIENTIFIC', type=str)
-    return parser
+
+    CONFIG = parser.parse_args()
+    
+    # Convert string arguments to boolean
+    CONFIG.logging = CONFIG.logging == 'True'
+    CONFIG.verbose = CONFIG.verbose == 'True'
+    
+    return CONFIG
