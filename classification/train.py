@@ -94,7 +94,7 @@ def train(model: BirdCLEFModel,
 
         
         
-        metric = MultilabelAveragePrecision(num_labels=CONFIG.num_classes, average="macro")
+        metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
         batch_mAP = metric(outputs.detach().cpu(), labels.detach().cpu().long()).item()
         # https://forums.fast.ai/t/nan-values-when-using-precision-in-multi-classification/59767/2
         # Could be possible when model is untrained so we only have FNs
