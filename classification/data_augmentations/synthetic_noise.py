@@ -3,85 +3,88 @@ Contains class for applying white/pink/brown/blue/violet noise augmentation.
 The class acts as a regular torch module and can be used in a torch.nn.Sequential 
 object.
 """
+from typing import Callable
 import torch
 import numpy as np
-from typing import Callable
 
-def gen_noise(num_samples: int, psd_shape_func:Callable)-> np.ndarray:
+def gen_noise(num_samples: int, psd_shape_func:Callable)-> torch.Tensor:
+    """
+    Args:
+        num_samples: length of noise Tensor to generate
+        psd_shape_func: function that gives the shape of the noise's 
+        power spectrum distribution
+
+    Returns: noise Tensor of length num_samples
+    """
     #Reverse fourier transfrom of random array to get white noise
-    white_noise = np.fft.rfft(np.random.randn(num_samples));
+    white_signal = np.fft.rfft(np.random.randn(num_samples))
     # Adjust frequency amplitudes according to 
     # function determining the psd shape
     shape_signal = psd_shape_func(np.fft.rfftfreq(num_samples))
     # Normalize signal 
     shape_signal = shape_signal / np.sqrt(np.mean(shape_signal**2))
     # Adjust frequency amplitudes according to noise type
-    noise = white_noise * shape_signal;
-    return np.fft.irfft(noise);
+    noise = white_signal * shape_signal
+    return torch.Tensor(np.fft.irfft(noise))
 
 def gen_noise_func(f):
+    """
+    Given PSD shape function, returns a new function that takes in parameter N
+    and generates noise Tensor of length N
+    """
     return lambda N: gen_noise(N, f)
 
 @gen_noise_func
-def white_noise(f):
-    return 1;
+def white_noise(_):
+    """White noise PSD shape"""
+    return 1
 
 @gen_noise_func
 def blue_noise(f):
-    return np.sqrt(f);
+    """Blue noise PSD shape"""
+    return np.sqrt(f)
 
 @gen_noise_func
 def violet_noise(f):
-    return f;
+    """Violet noise PSD shape"""
+    return f
 
 @gen_noise_func
 def brown_noise(f):
+    """Brown noise PSD shape"""
     return 1/np.where(f == 0, float('inf'), f)
 
 @gen_noise_func
 def pink_noise(f):
+    """Pink noise PSD shape"""
     return 1/np.where(f == 0, float('inf'), np.sqrt(f))
-
-#Norms signal to be in range [0,1]
-def norm(s):
-    return s/max(s)
-
-def mix_audio(signal, noise, snr):
-    if len(signal) != len(noise):
-        raise ValueError('Signal and noise must have same length')
-    # To avoid overflow when squaring
-    noise = noise.astype(np.float32)
-    signal = signal.astype(np.float32)
-    
-    # get the initial energy for reference
-    signal_energy = np.mean(signal**2)
-    noise_energy = np.mean(noise**2)
-    # calculates the gain to be applied to the noise 
-    # to achieve the given SNR
-    gain = np.sqrt(10.0 ** (-snr/10) * signal_energy / noise_energy)
-    
-    # Assumes signal and noise to be decorrelated
-    # and calculate (a, b) such that energy of 
-    # a*signal + b*noise matches the energy of the input signal
-    a = np.sqrt(1 / (1 + gain**2))
-    b = np.sqrt(gain**2 / (1 + gain**2))
-    # mix the signals
-    return a * signal + b * noise
 
 # For some reason this class can't be printed in the repl, 
 # but works fine in scripts?
 class SyntheticNoise(torch.nn.Module):
+    """
+    Attributes: 
+        noise_type: type of noise to add to clips
+        snr: signal to noise ratio
+    """
     noise_names = {'pink': pink_noise,
                    'brown': brown_noise,
                    'violet': violet_noise,
                    'blue': blue_noise,
                    'white': white_noise}
-    def __init__(self, noise_type: str, snr: float):
+    def __init__(self, noise_type: str, alpha: float):
+        super().__init__()
         self.noise_type = noise_type
-        self.snr = snr
-        self.noise_function = self.noise_names[self.noise_type]
+        self.alpha = alpha
     def forward(self, clip: torch.Tensor)->torch.Tensor:
-        noise = self.noise_function(len(clip))
-        augmented = mix_audio(clip, noise, self.snr)
-        # Compress noise to be between 0 and 1
-        return torch.tensor(augmented)/max(augmented)
+        """
+        Args:
+            clip: Tensor of audio data
+
+        Returns: Clip mixed with noise according to noise_type and alpha
+        """
+        noise_function = self.noise_names[self.noise_type]
+        noise = torch.Tensor(noise_function(len(clip)))
+        augmented = self.alpha * clip + (1-self.alpha)* noise
+        # Normalize noise to be between 0 and 1
+        return augmented/torch.max(augmented)
