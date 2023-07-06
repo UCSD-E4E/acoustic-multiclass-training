@@ -175,9 +175,12 @@ class PyhaDF_Dataset(Dataset):
         """
         annotation = self.samples.iloc[index]
         path = annotation[self.config.file_path_col]
-        sample_per_sec = self.target_sample_rate
-        frame_offset = int(annotation[self.config.offset_col] * sample_per_sec)
-        num_frames = int(annotation[self.config.duration_col] * sample_per_sec)
+        # Generate cache path
+        cache_path = os.path.dirname(path)
+        cache_path = os.path.join(cache_path, "_cache")
+        if not os.path.exists(cache_path):
+            os.mkdir(cache_path)
+        cache_path = os.path.join(cache_path, ".".join(os.path.basename(path).split(".")[:-1]) + str(annotation[self.config.offset_col]) + ".pt")
 
         # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
         class_name = annotation[self.config.manual_id_col]
@@ -190,24 +193,43 @@ class PyhaDF_Dataset(Dataset):
                 torch.tensor(self.class_to_idx[class_name]),
                 self.num_classes)[0]
         target = target.float()
-        
+
+        save_cache = False
+
         try:
-            audio = torch.load(path)
-            
-            if audio.shape[0] > num_frames:
-                audio = audio[frame_offset:frame_offset+num_frames]
+            if not os.path.exists(cache_path):
+                audio = self.getclip_and_cache(index, cache_path)
             else:
-                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=self.config.verbose)
+                audio = torch.load(cache_path)
         except Exception as e:
             print(e)
             print(path, index)
             raise RuntimeError("Bad Audio") from e
 
-
         #Assume audio is all mono and at target sample rate
         #assert audio.shape[0] == 1
         #assert sample_rate == self.target_sample_rate
         #audio = self.to_mono(audio) #basically reshapes to col vect
+
+        audio = audio.to(device)
+        target = target.to(device)
+        return audio, target
+    
+    def getclip_and_cache(self, index: int, cache_path: str) -> torch.Tensor:
+        # Get necessary variables from annotation
+        annotation = self.samples.iloc[index]
+        path = annotation[self.config.file_path_col]
+        sample_per_sec = self.target_sample_rate
+        frame_offset = int(annotation[self.config.offset_col] * sample_per_sec)
+        num_frames = int(annotation[self.config.duration_col] * sample_per_sec)
+
+        # Load audio
+        audio = torch.load(path)
+    
+        if audio.shape[0] > num_frames:
+            audio = audio[frame_offset:frame_offset+num_frames]
+        else:
+            print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=self.config.verbose)
 
         # Crop if too long
         if audio.shape[0] > self.num_samples:
@@ -215,11 +237,9 @@ class PyhaDF_Dataset(Dataset):
         # Pad if too short
         if audio.shape[0] < self.num_samples:
             audio = self.pad_audio(audio)
-
-        audio = audio.to(device)
-        target = target.to(device)
-        return audio, target
-
+        # Save cache
+        torch.save(audio, cache_path)
+        return audio
 
     def __len__(self):
         return self.samples.shape[0]
