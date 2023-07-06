@@ -80,7 +80,7 @@ class PyhaDF_Dataset(Dataset):
         """
         Checks to make sure files exist that are refrenced in input df
         """
-        test_df = self.samples[self.config.file_path_col].apply(lambda path: os.path.exists(path))
+        test_df = self.samples[self.config.file_path_col].apply(os.path.exists)
         missing_files = test_df[~test_df].unique()
         print("ignoring", missing_files.shape[0], "missing files")
         self.samples = self.samples[
@@ -151,7 +151,7 @@ class PyhaDF_Dataset(Dataset):
         print(files.shape, flush=True)
 
         num_files = files.shape[0]
-        if (num_files == 0):
+        if num_files == 0:
             raise FileNotFoundError("There were no valid filepaths found, check csv")
 
         files = files[files["files"] != "bad"]
