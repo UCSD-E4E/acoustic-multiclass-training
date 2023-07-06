@@ -65,6 +65,7 @@ class PyhaDF_Dataset(Dataset):
         #Confirm directory to _cache exists
         if not os.path.exists(self.config.cache_path):
             os.mkdir(self.config.cache_path)
+        self.samples = self.samples.assign(has_cache=False)
         
         #Log bad files
         self.bad_files = []
@@ -198,10 +199,11 @@ class PyhaDF_Dataset(Dataset):
         target = target.float()
 
         try:
-            if not os.path.exists(cache_path):
-                audio = self.extract_clip_and_cache(index, cache_path)
-            else:
+            if annotation.has_cache or os.path.exists(cache_path):
                 audio = torch.load(cache_path)
+            else:
+                audio = self.extract_clip_and_cache(index, cache_path)
+                annotation.has_cache = True
         except Exception as e:
             print(e)
             print(path, index)
