@@ -54,6 +54,7 @@ def train(model: BirdCLEFModel,
         scheduler,
         device: str,
         step: int,
+        epoch: int,
         CONFIG) -> Tuple[float, int, float]:
     """ Trains the model
         Returns: 
@@ -77,7 +78,6 @@ def train(model: BirdCLEFModel,
         labels = labels.to(device)
         
         outputs = model(mels)
-
         
         check_shape(outputs, labels)
 
@@ -90,9 +90,6 @@ def train(model: BirdCLEFModel,
             scheduler.step()
         
         running_loss += loss.item()
-        
-
-        
         
         metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
         batch_mAP = metric(outputs.detach().cpu(), labels.detach().cpu().long()).item()
@@ -110,17 +107,17 @@ def train(model: BirdCLEFModel,
         log_loss += loss.item()
         log_n += 1
 
-
-
         if (i != 0 and i % (CONFIG.logging_freq) == 0) or i == len(data_loader) - 1:
             #Log to Weights and Biases
             wandb.log({
                 "train/loss": log_loss / log_n,
                 "train/mAP": mAP / log_n,
                 "train/accuracy": correct / total,
-                
+                "i": i,
+                "epoch": epoch,
             })
-            print("Loss:", log_loss / log_n, "Accuracy:", correct / total, "mAP", mAP / log_n)
+            print("i:", i, "epoch:", epoch, "Loss:", log_loss / log_n, 
+                  "Accuracy:", correct / total, "mAP", mAP / log_n)
             log_loss = 0
             log_n = 0
             correct = 0
@@ -270,6 +267,7 @@ def main():
             scheduler,
             device,
             step,
+            epoch,
             CONFIG
         )
         step += 1
