@@ -5,7 +5,6 @@ object.
 """
 from typing import Callable
 import torch
-import numpy as np
 
 def gen_noise(num_samples: int, psd_shape_func:Callable)-> torch.Tensor:
     """
@@ -17,15 +16,15 @@ def gen_noise(num_samples: int, psd_shape_func:Callable)-> torch.Tensor:
     Returns: noise Tensor of length num_samples
     """
     #Reverse fourier transfrom of random array to get white noise
-    white_signal = np.fft.rfft(np.random.randn(num_samples))
+    white_signal = torch.fft.rfft(torch.rand(num_samples))
     # Adjust frequency amplitudes according to 
     # function determining the psd shape
-    shape_signal = psd_shape_func(np.fft.rfftfreq(num_samples))
+    shape_signal = psd_shape_func(torch.fft.rfftfreq(num_samples))
     # Normalize signal 
-    shape_signal = shape_signal / np.sqrt(np.mean(shape_signal**2))
+    shape_signal = shape_signal / torch.sqrt(torch.mean(shape_signal**2))
     # Adjust frequency amplitudes according to noise type
     noise = white_signal * shape_signal
-    return torch.Tensor(np.fft.irfft(noise))
+    return torch.fft.irfft(noise)
 
 def gen_noise_func(f):
     """
@@ -42,7 +41,7 @@ def white_noise(_):
 @gen_noise_func
 def blue_noise(f):
     """Blue noise PSD shape"""
-    return np.sqrt(f)
+    return torch.sqrt(f)
 
 @gen_noise_func
 def violet_noise(f):
@@ -52,12 +51,12 @@ def violet_noise(f):
 @gen_noise_func
 def brown_noise(f):
     """Brown noise PSD shape"""
-    return 1/np.where(f == 0, float('inf'), f)
+    return 1/torch.where(f == 0, float('inf'), f)
 
 @gen_noise_func
 def pink_noise(f):
     """Pink noise PSD shape"""
-    return 1/np.where(f == 0, float('inf'), np.sqrt(f))
+    return 1/torch.where(f == 0, float('inf'), torch.sqrt(f))
 
 # For some reason this class can't be printed in the repl, 
 # but works fine in scripts?
@@ -84,7 +83,7 @@ class SyntheticNoise(torch.nn.Module):
         Returns: Clip mixed with noise according to noise_type and alpha
         """
         noise_function = self.noise_names[self.noise_type]
-        noise = torch.Tensor(noise_function(len(clip)))
+        noise = noise_function(len(clip))
         augmented = self.alpha * clip + (1-self.alpha)* noise
         # Normalize noise to be between 0 and 1
         return augmented/torch.max(augmented)
