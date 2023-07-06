@@ -43,6 +43,7 @@ def get_config():
     parser.add_argument('-nfft', '--n_fft', default=1400, type=int)
     parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)
     parser.add_argument('-md', '--map_debug', action='store_true')
+    parser.add_argument('-mxp', '--mixed_precision', action='store_true')
 
     # Transforms settings
     parser.add_argument('-p', '--p', default=0, type=float, help='probability for mixup')
