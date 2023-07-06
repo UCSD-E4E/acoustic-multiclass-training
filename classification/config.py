@@ -17,6 +17,7 @@ def get_config():
     parser.add_argument('-et', '--duration_col', default='DURATION', type=str)
     parser.add_argument('-fp', '--file_path_col', default='IN FILE', type=str)
     parser.add_argument('-mi', '--manual_id_col', default='SCIENTIFIC', type=str)
+    parser.add_argument('-cp', '--cache_path', default='./data/_cache', type=str)
 
     # Env settings
     parser.add_argument('-tbs', '--train_batch_size', default=4, type=int)

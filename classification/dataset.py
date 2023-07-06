@@ -62,6 +62,10 @@ class PyhaDF_Dataset(Dataset):
         self.freq_mask = audtr.FrequencyMasking(freq_mask_param=self.config.freq_mask_param)
         self.time_mask = audtr.TimeMasking(time_mask_param=self.config.time_mask_param)
         
+        #Confirm directory to _cache exists
+        if not os.path.exists(self.config.cache_path):
+            os.mkdir(self.config.cache_path)
+        
         #Log bad files
         self.bad_files = []
 
@@ -175,13 +179,9 @@ class PyhaDF_Dataset(Dataset):
         """
         annotation = self.samples.iloc[index]
         path = annotation[self.config.file_path_col]
-        # Generate cache path
-        cache_path = os.path.dirname(path)
-        cache_path = os.path.join(cache_path, "_cache")
-        if not os.path.exists(cache_path):
-            os.mkdir(cache_path)
+        # Generate cache path (combination of filename and offset)
         cache_path = os.path.join(
-            cache_path, 
+            self.config.cache_path,
             ".".join(os.path.basename(path).split(".")[:-1]) \
             + str(annotation[self.config.offset_col]) + ".pt")
 
