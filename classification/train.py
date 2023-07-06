@@ -23,6 +23,8 @@ from torchmetrics.classification import MultilabelAveragePrecision
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
+from torch.amp import autocast
+from torch.cuda.amp import GradScaler
 import numpy as np
 from dataset import PyhaDF_Dataset, get_datasets
 from model import BirdCLEFModel
@@ -69,22 +71,28 @@ def train(model: BirdCLEFModel,
     correct = 0
     total = 0
     mAP = 0
-
+    
+    scaler = torch.cuda.amp.GradScaler()
 
     for i, (mels, labels) in enumerate(data_loader):
         optimizer.zero_grad()
         mels = mels.to(device)
         labels = labels.to(device)
         
-        outputs = model(mels)
+        with autocast(device_type=device, dtype=torch.float16, enabled=CONFIG.mixed_precision):
+            outputs = model(mels)
+            check_shape(outputs, labels)
+            loss = model.loss_fn(outputs, labels)
+        outputs = outputs.to(dtype=torch.float32)
+        loss = loss.to(dtype=torch.float32)
 
-        
-        check_shape(outputs, labels)
-
-        loss = model.loss_fn(outputs, labels)
-
-        loss.backward()
-        optimizer.step()
+        if CONFIG.mixed_precision:
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss.backward()
+            optimizer.step()
         
         if scheduler is not None:
             scheduler.step()
@@ -120,6 +128,7 @@ def train(model: BirdCLEFModel,
                 "train/accuracy": correct / total,
                 
             })
+
             print("Loss:", log_loss / log_n, "Accuracy:", correct / total, "mAP", mAP / log_n)
             log_loss = 0
             log_n = 0
