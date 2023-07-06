@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 import torch
 import torchaudio
-import numpy as np
 
 class BackgroundNoise(torch.nn.Module):
     """
@@ -54,12 +53,13 @@ class BackgroundNoise(torch.nn.Module):
         audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere")
         files = list(os.listdir(self.noise_path))
         noise_clips = [f for f in files if f.endswith(audio_extensions)]
-        noise_file = self.noise_path/np.random.choice(noise_clips)
+        rand_idx = torch.randint(len(noise_clips), (1,))[0]
+        noise_file = self.noise_path/noise_clips[rand_idx]
         clip_len = self.sample_rate*self.length
         waveform, sr = torchaudio.load(noise_file)
         if sr != self.sample_rate:
             waveform = torchaudio.functional.resample(
                     waveform, orig_freq=sr, new_freq=self.sample_rate)
         waveform = waveform/torch.max(waveform)
-        start_idx = np.random.randint(len(waveform)-clip_len)
+        start_idx = torch.randint(len(waveform)-clip_len, (1,))[0]
         return waveform[start_idx, start_idx+clip_len]
