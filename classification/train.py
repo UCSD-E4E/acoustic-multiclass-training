@@ -49,6 +49,8 @@ def check_shape(outputs, labels):
         raise RuntimeError("Shape diff between output of models and labels, see above and debug")
 
 
+# Splitting this up would be annoying!!!
+# pylint: disable=too-many-statements 
 def train(model: BirdCLEFModel,
         data_loader: PyhaDF_Dataset,
         optimizer: torch.optim.Optimizer,
