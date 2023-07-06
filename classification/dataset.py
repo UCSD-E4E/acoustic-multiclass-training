@@ -113,7 +113,7 @@ class PyhaDF_Dataset(Dataset):
         # Hence broad exception
         # pylint: disable-next=W0718
         except Exception as e:
-            print(path, "is bad", e)
+            print_verbose(path, "is bad", e, verbose=self.config.verbose)
             return pd.Series({
                 "IN FILE": path,    
                 "files": "bad"
