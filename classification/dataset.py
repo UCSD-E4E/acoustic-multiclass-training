@@ -82,9 +82,9 @@ class PyhaDF_Dataset(Dataset):
 
     def verify_audio(self):
         """
-        Checks to make sure files exist that are refrenced in input df
+        Checks to make sure files exist that are referenced in input df
         """
-        test_df = self.samples[self.config.file_path_col].apply(os.path.exists)
+        test_df = pd.Series(self.samples[self.config.file_path_col].unique()).progress_apply(os.path.exists)
         missing_files = test_df[~test_df].unique()
         print("ignoring", missing_files.shape[0], "missing files")
         self.samples = self.samples[
@@ -353,28 +353,6 @@ def main():
     CONFIG = get_config()
     set_seed(CONFIG.seed)
     get_datasets(CONFIG=CONFIG)
-    #train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
-    # print(train_dataset.get_classes()[1])
-    # print(train_dataset[0])
-    # input()
-    # #train_dataset = get_datasets(CONFIG=CONFIG)
-    # train_dataloader = torch.utils.data.DataLoader(
-    #     train_dataset,
-    #     1,
-    #     shuffle=True,
-    #     num_workers=CONFIG.jobs,
-    # )
-    # val_dataloader = torch.utils.data.DataLoader(
-    #     val_dataset,
-    #     CONFIG.valid_batch_size,
-    #     shuffle=False,
-    #     num_workers=CONFIG.jobs,
-    # )
-
-    # for i in range(len(train_dataset)):
-    #     print("entry", i)
-    #     train_dataset[i]
-    #     input()
 
 if __name__ == '__main__':
     main()
