@@ -180,7 +180,10 @@ class PyhaDF_Dataset(Dataset):
         cache_path = os.path.join(cache_path, "_cache")
         if not os.path.exists(cache_path):
             os.mkdir(cache_path)
-        cache_path = os.path.join(cache_path, ".".join(os.path.basename(path).split(".")[:-1]) + str(annotation[self.config.offset_col]) + ".pt")
+        cache_path = os.path.join(
+            cache_path, 
+            ".".join(os.path.basename(path).split(".")[:-1]) \
+            + str(annotation[self.config.offset_col]) + ".pt")
 
         # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
         class_name = annotation[self.config.manual_id_col]
@@ -194,11 +197,9 @@ class PyhaDF_Dataset(Dataset):
                 self.num_classes)[0]
         target = target.float()
 
-        save_cache = False
-
         try:
             if not os.path.exists(cache_path):
-                audio = self.getclip_and_cache(index, cache_path)
+                audio = self.extract_clip_and_cache(index, cache_path)
             else:
                 audio = torch.load(cache_path)
         except Exception as e:
@@ -215,7 +216,9 @@ class PyhaDF_Dataset(Dataset):
         target = target.to(device)
         return audio, target
     
-    def getclip_and_cache(self, index: int, cache_path: str) -> torch.Tensor:
+    def extract_clip_and_cache(self, index: int, cache_path: str) -> torch.Tensor:
+        """ Gets clip from longer file and saves it to cache_path
+        """
         # Get necessary variables from annotation
         annotation = self.samples.iloc[index]
         path = annotation[self.config.file_path_col]
