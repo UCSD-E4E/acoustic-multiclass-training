@@ -71,7 +71,7 @@ def train(model: BirdCLEFModel,
     total = 0
     mAP = 0
 
-
+    start_time = datetime.datetime.now()
     for i, (mels, labels) in enumerate(data_loader):
         optimizer.zero_grad()
         mels = mels.to(device)
@@ -108,6 +108,8 @@ def train(model: BirdCLEFModel,
         log_n += 1
 
         if (i != 0 and i % (CONFIG.logging_freq) == 0) or i == len(data_loader) - 1:
+            duration = datetime.datetime.now() - start_time
+            annotations_per_sec = CONFIG.logging_freq * CONFIG.train_batch_size / duration
             #Log to Weights and Biases
             wandb.log({
                 "train/loss": log_loss / log_n,
@@ -115,8 +117,10 @@ def train(model: BirdCLEFModel,
                 "train/accuracy": correct / total,
                 "i": i,
                 "epoch": epoch,
+                "Ann/s": annotations_per_sec,
             })
-            print("i:", i, "epoch:", epoch, "Loss:", log_loss / log_n, 
+            print("i:", i, "epoch:", epoch, "Ann/s:", annotations_per_sec, 
+                  "Loss:", log_loss / log_n, 
                   "Accuracy:", correct / total, "mAP", mAP / log_n)
             log_loss = 0
             log_n = 0
