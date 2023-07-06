@@ -24,7 +24,6 @@ import torch
 import torch.nn.functional as F
 from torch.optim import Adam
 from torch.amp import autocast
-from torch.cuda.amp import GradScaler
 import numpy as np
 from dataset import PyhaDF_Dataset, get_datasets
 from model import BirdCLEFModel
