@@ -80,10 +80,8 @@ class PyhaDF_Dataset(Dataset):
         """
         Checks to make sure files exist that are refrenced in input df
         """
-        test_df = self.samples[self.config.file_path_col].apply(lambda path: (
-            "SUCCESS" if os.path.exists(path) else path
-        ))
-        missing_files = test_df[test_df != "SUCCESS"].unique()
+        test_df = self.samples[self.config.file_path_col].apply(os.path.exists)
+        missing_files = test_df[~test_df].unique()
         print("ignoring", missing_files.shape[0], "missing files")
         self.samples = self.samples[
             ~self.samples[self.config.file_path_col].isin(missing_files)
@@ -106,8 +104,18 @@ class PyhaDF_Dataset(Dataset):
 
         try:
             audio, sample_rate = torchaudio.load(path)
-        
-        
+
+            if len(audio.shape) > 1:
+                audio = self.to_mono(audio)
+      
+            # Resample
+            if sample_rate != self.target_sample_rate:
+                resample = audtr.Resample(sample_rate, self.target_sample_rate)
+                #resample.cuda(device)
+                audio = resample(audio)
+
+            
+            torch.save(audio, new_path)
         # IO is messy, I want any file that could be problematic
         # removed from training so it isn't stopped after hours of time
         # Hence broad exception
@@ -119,17 +127,7 @@ class PyhaDF_Dataset(Dataset):
                 "files": "bad"
             }).T
         
-        if len(audio.shape) > 1:
-            audio = self.to_mono(audio)
-      
-        # Resample
-        if sample_rate != self.target_sample_rate:
-            resample = audtr.Resample(sample_rate, self.target_sample_rate)
-            #resample.cuda(device)
-            audio = resample(audio)
-
         
-        torch.save(audio, new_path)
         return pd.Series({
                 "IN FILE": path,    
                 "files": new_path
@@ -148,6 +146,12 @@ class PyhaDF_Dataset(Dataset):
             columns=["files"]
         )
         files = files["files"].progress_apply(self.process_audio_file)
+
+        print(files.shape, flush=True)
+
+        num_files = files.shape[0]
+        if num_files == 0:
+            raise FileNotFoundError("There were no valid filepaths found, check csv")
 
         files = files[files["files"] != "bad"]
         self.samples = self.samples.merge(files, how="left", 
