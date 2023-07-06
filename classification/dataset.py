@@ -25,7 +25,7 @@ from torchaudio import transforms as audtr
 import pandas as pd
 import numpy as np
 
-from utils import set_seed #print_verbose
+from utils import set_seed, print_verbose
 from config import get_config
 from tqdm import tqdm
 
@@ -80,10 +80,8 @@ class PyhaDF_Dataset(Dataset):
         """
         Checks to make sure files exist that are refrenced in input df
         """
-        test_df = self.samples[self.config.file_path_col].apply(lambda path: (
-            "SUCCESS" if os.path.exists(path) else path
-        ))
-        missing_files = test_df[test_df != "SUCCESS"].unique()
+        test_df = self.samples[self.config.file_path_col].apply(os.path.exists)
+        missing_files = test_df[~test_df].unique()
         print("ignoring", missing_files.shape[0], "missing files")
         self.samples = self.samples[
             ~self.samples[self.config.file_path_col].isin(missing_files)
@@ -106,30 +104,30 @@ class PyhaDF_Dataset(Dataset):
 
         try:
             audio, sample_rate = torchaudio.load(path)
-        
-        
+
+            if len(audio.shape) > 1:
+                audio = self.to_mono(audio)
+      
+            # Resample
+            if sample_rate != self.target_sample_rate:
+                resample = audtr.Resample(sample_rate, self.target_sample_rate)
+                #resample.cuda(device)
+                audio = resample(audio)
+
+            
+            torch.save(audio, new_path)
         # IO is messy, I want any file that could be problematic
         # removed from training so it isn't stopped after hours of time
         # Hence broad exception
         # pylint: disable-next=W0718
         except Exception as e:
-            print(path, "is bad", e)
+            print_verbose(path, "is bad", e, verbose=self.config.verbose)
             return pd.Series({
                 "IN FILE": path,    
                 "files": "bad"
             }).T
         
-        if len(audio.shape) > 1:
-            audio = self.to_mono(audio)
-      
-        # Resample
-        if sample_rate != self.target_sample_rate:
-            resample = audtr.Resample(sample_rate, self.target_sample_rate)
-            #resample.cuda(device)
-            audio = resample(audio)
-
         
-        torch.save(audio, new_path)
         return pd.Series({
                 "IN FILE": path,    
                 "files": new_path
@@ -142,7 +140,6 @@ class PyhaDF_Dataset(Dataset):
         If the files is not a presaved tensor and is an audio file, convert to tensor to make
         Future training faster
         """
-        print("old size:", self.samples.shape)
         self.verify_audio()
         files = pd.DataFrame(
             self.samples[self.config.file_path_col].unique(),
@@ -150,12 +147,18 @@ class PyhaDF_Dataset(Dataset):
         )
         files = files["files"].progress_apply(self.process_audio_file)
 
+        print(files.shape, flush=True)
+
+        num_files = files.shape[0]
+        if num_files == 0:
+            raise FileNotFoundError("There were no valid filepaths found, check csv")
+
         files = files[files["files"] != "bad"]
         self.samples = self.samples.merge(files, how="left", 
                        left_on=self.config.file_path_col,
                        right_on="IN FILE").dropna()
     
-        print("fixed size:", self.samples.shape)
+        print_verbose("Serialized form, fixed size:", self.samples.shape, verbose=self.config.verbose)
 
         if "files" in self.samples.columns:
             self.samples[self.config.file_path_col] = self.samples["files"].copy()
@@ -194,7 +197,7 @@ class PyhaDF_Dataset(Dataset):
             if audio.shape[0] > num_frames:
                 audio = audio[frame_offset:frame_offset+num_frames]
             else:
-                print("SHOULD BE SMALL DELETE LATER:", audio.shape)
+                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=self.config.verbose)
         except Exception as e:
             print(e)
             print(path, index)
@@ -296,7 +299,7 @@ class PyhaDF_Dataset(Dataset):
     
 
 def get_datasets(CONFIG=None):
-    """ Returns train and validation datasets
+    """ Returns train and validation datasets, does random sampling for train/valid split
     """
 
     train_p = CONFIG.train_test_split
@@ -311,26 +314,13 @@ def get_datasets(CONFIG=None):
 
     #train = train.reset_index().rename(columns={"level_1": "index"}).set_index("index").drop(columns="level_0")
     valid = data[~data.index.isin(train.index)]
+    
+    train_ds = PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG)
+    species = train_ds.get_classes()
 
-    # print(len(data[CONFIG.file_path_col].unique()),
-    #     len(train[CONFIG.file_path_col].unique()), 
-    #     len(valid[CONFIG.file_path_col].unique()), 
-    #     )
+    valid_ds = PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, species=species, CONFIG=CONFIG)
+    return train_ds, valid_ds
 
-    # print(train[CONFIG.file_path_col].isin(valid[CONFIG.file_path_col]).sum())
-
-    # print(data[CONFIG.manual_id_col].value_counts())
-    # print(train[CONFIG.manual_id_col].value_counts())
-    # print(valid[CONFIG.manual_id_col].value_counts())
-    return (
-        PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG),
-        PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, CONFIG=CONFIG)
-    )
-    #data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=CONFIG)
-    #no_bird_data = BirdCLEFDataset(root="/share/acoustic_species_id/no_bird_10_000_audio_chunks", CONFIG=CONFIG)
-    #data = torch.utils.data.ConcatDataset([data, no_bird_data])
-    #train_data, val_data = torch.utils.data.random_split(data, [0.8, 0.2])
-    #return train_data, val_data
 
 def main():
     """
