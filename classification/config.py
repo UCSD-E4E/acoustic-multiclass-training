@@ -4,6 +4,7 @@
         get_config: returns an ArgumentParser with the default arguments
 """
 import argparse
+from operator import itemgetter
 
 def get_config():
     """ Returns a config variable with the command line arguments or defaults
@@ -65,3 +66,8 @@ def get_config():
     CONFIG.logging = CONFIG.logging == 'True'
     
     return CONFIG
+
+def get_args(*args):
+    CONFIG = get_config().__dict__
+    return itemgetter(*args)(CONFIG)
+    
