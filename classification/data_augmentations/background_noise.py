@@ -60,6 +60,6 @@ class BackgroundNoise(torch.nn.Module):
         if sr != self.sample_rate:
             waveform = torchaudio.functional.resample(
                     waveform, orig_freq=sr, new_freq=self.sample_rate)
-        waveform = waveform/torch.max(waveform)
-        start_idx = torch.randint(len(waveform)-clip_len, (1,))[0]
+        waveform = utils.norm(waveform)
+        start_idx = np.random.randint(len(waveform))
         return waveform[start_idx, start_idx+clip_len]

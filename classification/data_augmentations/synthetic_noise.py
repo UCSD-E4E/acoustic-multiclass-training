@@ -86,4 +86,4 @@ class SyntheticNoise(torch.nn.Module):
         noise = noise_function(len(clip))
         augmented = self.alpha * clip + (1-self.alpha)* noise
         # Normalize noise to be between 0 and 1
-        return augmented/torch.max(augmented)
+        return utils.norm(augmented)

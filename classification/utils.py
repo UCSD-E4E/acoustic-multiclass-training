@@ -21,3 +21,9 @@ def set_seed(seed: int):
     """
     np.random.seed(seed)
     torch.manual_seed(seed)
+
+def norm(s):
+    """ 
+    Normalizes the tensor
+    """
+    return s/torch.linalg.vector_norm(s, ord=2)
