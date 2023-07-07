@@ -5,6 +5,7 @@ object.
 """
 from typing import Callable
 import torch
+from .. import utils
 
 def gen_noise(num_samples: int, psd_shape_func:Callable)-> torch.Tensor:
     """

@@ -3,7 +3,9 @@ Contains class for applying background noise augmentation. The class acts as
 a regular torch module and can be used in a torch.nn.Sequential object.
 """
 import os
+from .. import utils, config
 from pathlib import Path
+import numpy as np
 import torch
 import torchaudio
 
@@ -16,7 +18,7 @@ class BackgroundNoise(torch.nn.Module):
         length: Length of audio clip (s)
     """
     def __init__(
-            self, noise_path: Path, alpha: float, sample_rate=44100, length=5
+            self, noise_path: Path, alpha: float, length=5
             ):
         super().__init__()
         if isinstance(noise_path, str):
@@ -26,7 +28,7 @@ class BackgroundNoise(torch.nn.Module):
         else:
             raise TypeError('noise_path must be of type Path or str')
         self.alpha = alpha
-        self.sample_rate = sample_rate
+        self.sample_rate = config.get_args("sample_rate")
         self.length = length
 
     def forward(self, clip: torch.Tensor)->torch.Tensor:
@@ -53,7 +55,7 @@ class BackgroundNoise(torch.nn.Module):
         audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere")
         files = list(os.listdir(self.noise_path))
         noise_clips = [f for f in files if f.endswith(audio_extensions)]
-        rand_idx = torch.randint(len(noise_clips), (1,))[0]
+        rand_idx = np.random.randint(len(noise_clips))
         noise_file = self.noise_path/noise_clips[rand_idx]
         clip_len = self.sample_rate*self.length
         waveform, sr = torchaudio.load(noise_file)

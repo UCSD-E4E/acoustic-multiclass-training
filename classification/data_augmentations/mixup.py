@@ -6,6 +6,7 @@ to the mixup function in a torch.nn.Sequential object.
 """
 from typing import Tuple, Callable
 import torch
+import numpy as np
 
 class Mixup(torch.nn.Module):
     """
@@ -30,7 +31,8 @@ class Mixup(torch.nn.Module):
         chosen clip, Tensor of target mixed with the 
         target of the randomly chosen file
         """
-        other_idx = torch.randint(len(self.dataset), (1,))[0]
+        # Generate random index in dataset
+        other_idx = np.random.randint(len(self.dataset))
         try:
             other_clip, other_target = self.dataset.get_clip(other_idx)
         except RuntimeError:
