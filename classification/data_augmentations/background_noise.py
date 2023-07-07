@@ -3,11 +3,11 @@ Contains class for applying background noise augmentation. The class acts as
 a regular torch module and can be used in a torch.nn.Sequential object.
 """
 import os
-from .. import utils, config
 from pathlib import Path
 import numpy as np
 import torch
 import torchaudio
+from .. import utils, config
 
 class BackgroundNoise(torch.nn.Module):
     """
