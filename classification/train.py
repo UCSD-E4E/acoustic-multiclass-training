@@ -54,6 +54,7 @@ def train(model: BirdCLEFModel,
         scheduler,
         device: str,
         step: int,
+        epoch: int,
         CONFIG) -> Tuple[float, int, float]:
     """ Trains the model
         Returns: 
@@ -70,14 +71,13 @@ def train(model: BirdCLEFModel,
     total = 0
     mAP = 0
 
-
+    start_time = datetime.datetime.now()
     for i, (mels, labels) in enumerate(data_loader):
         optimizer.zero_grad()
         mels = mels.to(device)
         labels = labels.to(device)
         
         outputs = model(mels)
-
         
         check_shape(outputs, labels)
 
@@ -90,9 +90,6 @@ def train(model: BirdCLEFModel,
             scheduler.step()
         
         running_loss += loss.item()
-        
-
-        
         
         metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
         batch_mAP = metric(outputs.detach().cpu(), labels.detach().cpu().long()).item()
@@ -110,17 +107,23 @@ def train(model: BirdCLEFModel,
         log_loss += loss.item()
         log_n += 1
 
-
-
         if (i != 0 and i % (CONFIG.logging_freq) == 0) or i == len(data_loader) - 1:
+            duration = (datetime.datetime.now() - start_time).total_seconds()
+            start_time = datetime.datetime.now()
+            annotations = ((i % CONFIG.logging_freq) or CONFIG.logging_freq) * CONFIG.train_batch_size
+            annotations_per_sec = annotations / duration
             #Log to Weights and Biases
             wandb.log({
                 "train/loss": log_loss / log_n,
                 "train/mAP": mAP / log_n,
                 "train/accuracy": correct / total,
-                
+                "i": i,
+                "epoch": epoch,
+                "clips/sec": annotations_per_sec,
             })
-            print("Loss:", log_loss / log_n, "Accuracy:", correct / total, "mAP", mAP / log_n)
+            print("i:", i, "epoch:", epoch, "clips/s:", annotations_per_sec, 
+                  "Loss:", log_loss / log_n, 
+                  "Accuracy:", correct / total, "mAP", mAP / log_n)
             log_loss = 0
             log_n = 0
             correct = 0
@@ -270,6 +273,7 @@ def main():
             scheduler,
             device,
             step,
+            epoch,
             CONFIG
         )
         step += 1
