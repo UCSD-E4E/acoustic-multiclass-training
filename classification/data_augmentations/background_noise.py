@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torchaudio
+#pylint: disable=E0402
 from .. import utils, config
 
 class BackgroundNoise(torch.nn.Module):

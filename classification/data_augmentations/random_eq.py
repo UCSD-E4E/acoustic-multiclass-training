@@ -6,10 +6,11 @@ To use, simply import the RandomEQ class and use it as you would any other torch
 from typing import Tuple
 import torch
 import torchaudio
+#pylint: disable=E0402
 from .. import config
 
 def rand(low, high):
-    """Wrapper for torch.rand"""
+    """Wrapper for torch.rand""" 
     return (high - low) * torch.rand(1)[0] + low
 
 class RandomEQ(torch.nn.Module):
