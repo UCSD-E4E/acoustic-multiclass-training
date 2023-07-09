@@ -21,6 +21,10 @@ jobs:
         conda install pylint
         conda run pip install pylint
         conda list
+    - name: config env
+      run: |
+        conda init bash 
+        conda activate asid
     - name: test env
       run: |
         conda info --envs 
