@@ -22,12 +22,12 @@ jobs:
     # - name: add conda to bash
     #   run: |
     #     conda init bash 
-    - name: config env to asid
-      run: |
-        conda activate asid
-    - name: check
-      run: |
-        conda info
+    # - name: config env to asid
+    #   run: |
+    #     conda activate asid
+    # - name: check
+    #   run: |
+    #     conda info
     - name: install pylint
       run: |
         conda install pylint
