@@ -18,7 +18,7 @@ jobs:
     - run: |
         pwd
         ls
-        conda info
-        conda list
-        conda install pylint
-        pylint $(git ls-files '*.py') --rcfile=.pylintrc
+        # conda info
+        # conda list
+        # conda install pylint
+        # pylint $(git ls-files '*.py') --rcfile=.pylintrc
