@@ -126,7 +126,7 @@ class PyhaDF_Dataset(Dataset):
 
             
             torch.save(audio, os.path.join(self.config.data_path,new_name))
-            self.data_dir.append(new_name)
+            self.data_dir.add(new_name)
         # IO is messy, I want any file that could be problematic
         # removed from training so it isn't stopped after hours of time
         # Hence broad exception
@@ -247,7 +247,7 @@ class PyhaDF_Dataset(Dataset):
             audio = self.pad_audio(audio)
         # Save cache
         torch.save(audio, cache_path)
-        self.cache_dir.append(cache_path)
+        self.cache_dir.add(cache_path)
         return audio
 
     def __len__(self):
