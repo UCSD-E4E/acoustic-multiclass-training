@@ -12,7 +12,7 @@ jobs:
     - uses: conda-incubator/setup-miniconda@v2
       with:
         activate-environment: asid
-        environment-file: ./environment.yml
+        environment-file: env/environment.yml
         auto-activate-base: false
     - run: |
         conda info
