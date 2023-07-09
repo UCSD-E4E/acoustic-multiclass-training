@@ -19,6 +19,7 @@ jobs:
     - name: install
       run: |
         conda install pylint
+        conda run pip install pylint
         conda list
     - name: test env
       run: |
