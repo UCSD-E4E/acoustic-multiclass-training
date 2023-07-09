@@ -20,4 +20,5 @@ jobs:
         conda info
         conda list
         conda install pylint
-        pylint $(git ls-files '*.py') --rcfile=.pylintrc
+        conda info
+        conda run pylint $(git ls-files '*.py') --rcfile=.pylintrc
