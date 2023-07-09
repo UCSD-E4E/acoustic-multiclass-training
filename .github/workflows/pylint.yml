@@ -23,8 +23,8 @@ jobs:
         conda list
     - name: test env
       run: |
+        conda info --envs 
         conda list
         conda info
-        conda activate asid
     - run: |
         conda run python3 -m pylint $(git ls-files '*.py') --rcfile=.pylintrc
