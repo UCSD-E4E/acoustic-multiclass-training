@@ -19,10 +19,11 @@ jobs:
         # $CONDA is an environment variable pointing to the root of the miniconda directory
         $CONDA/bin/conda env update --file environment.yml
         $CONDA/bin/conda init bash
-        $CONDA/bin/conda activate asid
+        
     - name: install pylint
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
+        $CONDA/bin/conda activate asid
         $CONDA/bin/conda install pylint
     - name: Analysing the code with pylint
       run: |
