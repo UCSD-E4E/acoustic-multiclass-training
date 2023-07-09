@@ -12,8 +12,8 @@ jobs:
     - uses: conda-incubator/setup-miniconda@v2
       with:
         miniconda-version: "latest"
-        activate-environment: asid
-        environment-file: environment.yml
+        #activate-environment: asid
+        #environment-file: environment.yml
         auto-activate-base: false
     - run: |
         pwd
