@@ -19,9 +19,9 @@ jobs:
     - name: check
       run: |
         conda info
-    - name: add conda to bash
-      run: |
-        conda init bash 
+    # - name: add conda to bash
+    #   run: |
+    #     conda init bash 
     - name: config env to asid
       run: |
         conda activate asid
