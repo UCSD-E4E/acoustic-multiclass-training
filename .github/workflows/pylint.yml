@@ -16,19 +16,24 @@ jobs:
         activate-environment: asid
         environment-file: environment.yml
         auto-activate-base: false
-    - name: install
+
+    - run: |
+      conda info
+    - name: add conda to bash
+      run: |
+        conda init bash 
+    - name: config env to asid
+      shell: bash
+      run: |
+        conda activate asid
+    - name: install pylint
       run: |
         conda install pylint
         conda run pip install pylint
         conda list
-    - name: config env
-      run: |
-        conda init bash 
-        conda activate asid
-    - name: test env
+    - name: Check env params
       run: |
         conda info --envs 
-        conda list
         conda info
     - run: |
         conda run python3 -m pylint $(git ls-files '*.py') --rcfile=.pylintrc
