@@ -17,9 +17,7 @@ jobs:
         #auto-activate-base: false
     - run: |
         pwd
-    - run: |
-        ls
-    
+        git ls-files
         # conda info
         # conda list
         # conda install pylint
