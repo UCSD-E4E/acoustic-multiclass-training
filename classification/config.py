@@ -12,12 +12,13 @@ def get_config():
 
     # Dataset settings
     parser.add_argument('-df', '--dataframe', default='CHANGEME.csv', type=str)
+    parser.add_argument('-cp', '--cache_path', default='./data/_cache', type=str)
+    parser.add_argument('-dp', '--data_path', default='./all_10_species', type=str)
 
     parser.add_argument('-st', '--offset_col', default='OFFSET', type=str)
     parser.add_argument('-et', '--duration_col', default='DURATION', type=str)
-    parser.add_argument('-fp', '--file_path_col', default='IN FILE', type=str)
+    parser.add_argument('-fn', '--file_name_col', default='FILE NAME', type=str)
     parser.add_argument('-mi', '--manual_id_col', default='SCIENTIFIC', type=str)
-    parser.add_argument('-cp', '--cache_path', default='./data/_cache', type=str)
 
     # Env settings
     parser.add_argument('-tbs', '--train_batch_size', default=4, type=int)

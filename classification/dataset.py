@@ -28,6 +28,7 @@ import numpy as np
 from utils import set_seed, print_verbose
 from config import get_config
 from tqdm import tqdm
+        
 
 
 tqdm.pandas()
@@ -46,7 +47,7 @@ class PyhaDF_Dataset(Dataset):
     # pylint: disable-next=too-many-arguments
     def __init__(self, df, csv_file="test.csv", CONFIG=None, train=True, species=None):
         self.config = CONFIG
-        self.samples = df[~(df[self.config.file_path_col].isnull())]
+        self.samples = df[~(df[self.config.file_name_col].isnull())]
         self.csv_file = csv_file
         self.formatted_csv_file = "not yet formatted"
         self.target_sample_rate = CONFIG.sample_rate
@@ -62,10 +63,13 @@ class PyhaDF_Dataset(Dataset):
         self.freq_mask = audtr.FrequencyMasking(freq_mask_param=self.config.freq_mask_param)
         self.time_mask = audtr.TimeMasking(time_mask_param=self.config.time_mask_param)
         
-        #Confirm directory to _cache exists
+        # List data directory and cache directory
+        if not os.path.exists(self.config.data_path):
+            raise FileNotFoundError("Data path does not exist")
+        self.data_dir = set(os.listdir(self.config.data_path))
         if not os.path.exists(self.config.cache_path):
             os.mkdir(self.config.cache_path)
-        self.samples = self.samples.assign(has_cache=False)
+        self.cache_dir = set(os.listdir(self.config.cache_path))
         
         #Log bad files
         self.bad_files = []
@@ -85,30 +89,31 @@ class PyhaDF_Dataset(Dataset):
         """
         Checks to make sure files exist that are referenced in input df
         """
-        test_df = pd.Series(self.samples[self.config.file_path_col].unique()).progress_apply(os.path.exists)
-        missing_files = test_df[~test_df].unique()
+        missing_files = pd.Series(self.samples[self.config.file_name_col].unique()) \
+            .progress_apply(lambda file: "good" if file in self.data_dir else file)
+        missing_files = missing_files[missing_files != "good"].unique()
         print("ignoring", missing_files.shape[0], "missing files")
         self.samples = self.samples[
-            ~self.samples[self.config.file_path_col].isin(missing_files)
+            ~self.samples[self.config.file_name_col].isin(missing_files)
         ]
         
-    def process_audio_file(self, path):
+    def process_audio_file(self, file_name):
         """
         Save waveform of audio file as a tensor and save that tensor to .pt
         """
 
-        exts = "." + path.split(".")[-1]
-        new_path = path.replace(exts, ".pt")
-        if os.path.exists(new_path):
+        exts = "." + file_name.split(".")[-1]
+        new_name = file_name.replace(exts, ".pt")
+        if new_name in self.data_dir:
             #ASSUME WE HAVE ALREADY PREPROCESSED THIS CORRECTLY
             return pd.Series({
-                "IN FILE": path,    
-                "files": new_path
+                "FILE NAME": file_name,
+                "files": new_name
             }).T
 
 
         try:
-            audio, sample_rate = torchaudio.load(path)
+            audio, sample_rate = torchaudio.load(os.path.join(self.config.data_path, file_name))
 
             if len(audio.shape) > 1:
                 audio = self.to_mono(audio)
@@ -120,22 +125,23 @@ class PyhaDF_Dataset(Dataset):
                 audio = resample(audio)
 
             
-            torch.save(audio, new_path)
+            torch.save(audio, os.path.join(self.config.data_path,new_name))
+            self.data_dir.append(new_name)
         # IO is messy, I want any file that could be problematic
         # removed from training so it isn't stopped after hours of time
         # Hence broad exception
         # pylint: disable-next=W0718
         except Exception as e:
-            print_verbose(path, "is bad", e, verbose=self.config.verbose)
+            print_verbose(file_name, "is bad", e, verbose=self.config.verbose)
             return pd.Series({
-                "IN FILE": path,    
+                "FILE NAME": file_name,    
                 "files": "bad"
             }).T
         
         
         return pd.Series({
-                "IN FILE": path,    
-                "files": new_path
+                "FILE NAME": file_name,    
+                "files": new_name
             }).T
 
 
@@ -147,7 +153,7 @@ class PyhaDF_Dataset(Dataset):
         """
         self.verify_audio()
         files = pd.DataFrame(
-            self.samples[self.config.file_path_col].unique(),
+            self.samples[self.config.file_name_col].unique(),
             columns=["files"]
         )
         files = files["files"].progress_apply(self.process_audio_file)
@@ -160,17 +166,17 @@ class PyhaDF_Dataset(Dataset):
 
         files = files[files["files"] != "bad"]
         self.samples = self.samples.merge(files, how="left", 
-                       left_on=self.config.file_path_col,
-                       right_on="IN FILE").dropna()
+                       left_on=self.config.file_name_col,
+                       right_on="FILE NAME").dropna()
     
         print_verbose("Serialized form, fixed size:", self.samples.shape, verbose=self.config.verbose)
 
         if "files" in self.samples.columns:
-            self.samples[self.config.file_path_col] = self.samples["files"].copy()
+            self.samples[self.config.file_name_col] = self.samples["files"].copy()
         if "files_y" in self.samples.columns:
-            self.samples[self.config.file_path_col] = self.samples["files_y"].copy()
+            self.samples[self.config.file_name_col] = self.samples["files_y"].copy()
         
-        self.samples["original_file_path"] = self.samples[self.config.file_path_col]
+        self.samples["original_file_path"] = self.samples[self.config.file_name_col]
 
         self.formatted_csv_file = ".".join(self.csv_file.split(".")[:-1]) + "formatted.csv"
         self.samples.to_csv(self.formatted_csv_file)
@@ -179,12 +185,10 @@ class PyhaDF_Dataset(Dataset):
         """ Returns tuple of audio waveform and its one-hot label
         """
         annotation = self.samples.iloc[index]
-        path = annotation[self.config.file_path_col]
+        file_name = annotation[self.config.file_name_col]
         # Generate cache path (combination of filename and offset)
-        cache_path = os.path.join(
-            self.config.cache_path,
-            ".".join(os.path.basename(path).split(".")[:-1]) \
-            + str(annotation[self.config.offset_col]) + ".pt")
+        cache_name = ".".join(file_name.split(".")[:-1]) + \
+            str(annotation[self.config.offset_col]) + ".pt"
 
         # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
         class_name = annotation[self.config.manual_id_col]
@@ -199,14 +203,13 @@ class PyhaDF_Dataset(Dataset):
         target = target.float()
 
         try:
-            if annotation.has_cache or os.path.exists(cache_path):
-                audio = torch.load(cache_path)
+            if cache_name in self.cache_dir:
+                audio = torch.load(os.path.join(self.config.cache_path,cache_name))
             else:
-                audio = self.extract_clip_and_cache(index, cache_path)
-                annotation.has_cache = True
+                audio = self.extract_clip_and_cache(index, os.path.join(self.config.cache_path,cache_name))
         except Exception as e:
             print(e)
-            print(path, index)
+            print(file_name, index)
             raise RuntimeError("Bad Audio") from e
 
         #Assume audio is all mono and at target sample rate
@@ -223,13 +226,13 @@ class PyhaDF_Dataset(Dataset):
         """
         # Get necessary variables from annotation
         annotation = self.samples.iloc[index]
-        path = annotation[self.config.file_path_col]
+        file_name = annotation[self.config.file_name_col]
         sample_per_sec = self.target_sample_rate
         frame_offset = int(annotation[self.config.offset_col] * sample_per_sec)
         num_frames = int(annotation[self.config.duration_col] * sample_per_sec)
 
         # Load audio
-        audio = torch.load(path)
+        audio = torch.load(os.path.join(self.data_dir,file_name))
     
         if audio.shape[0] > num_frames:
             audio = audio[frame_offset:frame_offset+num_frames]
@@ -244,6 +247,7 @@ class PyhaDF_Dataset(Dataset):
             audio = self.pad_audio(audio)
         # Save cache
         torch.save(audio, cache_path)
+        self.cache_dir.append(cache_path)
         return audio
 
     def __len__(self):
@@ -333,11 +337,10 @@ def get_datasets(CONFIG=None):
 
     #for each species, get a random sample of files for train/valid split
     train_files = data.groupby(CONFIG.manual_id_col, as_index=False).apply(
-        lambda x: pd.Series(x[CONFIG.file_path_col].unique()).sample(frac=train_p)
+        lambda x: pd.Series(x[CONFIG.file_name_col].unique()).sample(frac=train_p)
     )
-    train = data[data[CONFIG.file_path_col].isin(train_files)]
+    train = data[data[CONFIG.file_name_col].isin(train_files)]
 
-    #train = train.reset_index().rename(columns={"level_1": "index"}).set_index("index").drop(columns="level_0")
     valid = data[~data.index.isin(train.index)]
     
     train_ds = PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG)
