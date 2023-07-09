@@ -14,11 +14,13 @@ jobs:
       uses: actions/setup-python@v3
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install Conda
+    - name: Install Conda and activate env
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
         $CONDA/bin/conda env update --file environment.yml
-    - name: swap conda env
+        $CONDA/bin/conda init bash
+        $CONDA/bin/conda activate asid
+    - name: install pylint
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
         $CONDA/bin/conda install pylint
