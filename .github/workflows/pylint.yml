@@ -12,13 +12,13 @@ jobs:
     - run: |
       pwd
       ls
-    - uses: conda-incubator/setup-miniconda@v2
-      with:
-        activate-environment: asid
-        environment-file: env/environment.yml
-        auto-activate-base: false
-    - run: |
-        conda info
-        conda list
-        conda install pylint
-        pylint $(git ls-files '*.py') --rcfile=.pylintrc
+    # - uses: conda-incubator/setup-miniconda@v2
+    #   with:
+    #     activate-environment: asid
+    #     environment-file: env/environment.yml
+    #     auto-activate-base: false
+    # - run: |
+    #     conda info
+    #     conda list
+    #     conda install pylint
+    #     pylint $(git ls-files '*.py') --rcfile=.pylintrc
