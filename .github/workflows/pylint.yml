@@ -11,20 +11,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install Conda and activate env
-      run: |
-        # $CONDA is an environment variable pointing to the root of the miniconda directory
-        $CONDA/bin/conda env update --file environment.yml
-        $CONDA/bin/conda init bash
-        
-    - name: install pylint
-      run: |
-        # $CONDA is an environment variable pointing to the root of the miniconda directory
-        $CONDA/bin/conda activate asid
-        $CONDA/bin/conda install pylint
-    - name: Analysing the code with pylint
-      run: |
-        $CONDA/bin/pylint $(git ls-files '*.py') --rcfile=.pylintrc
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          activate-environment: asid
+          environment-file: environment.yml
+          auto-activate-base: false
+      - run: |
+          conda info
+          conda list
+          conda install pylint
+          pylint $(git ls-files '*.py') --rcfile=.pylintrc
