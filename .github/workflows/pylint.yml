@@ -22,10 +22,7 @@ jobs:
     - name: add conda to bash
       run: |
         conda init bash 
-        bash
-        sudo reboot
     - name: config env to asid
-      shell: bash
       run: |
         conda activate asid
     - name: check
