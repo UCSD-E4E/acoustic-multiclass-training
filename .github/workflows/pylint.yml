@@ -19,4 +19,4 @@ jobs:
     - run: |
         conda install pylint
         conda list
-        conda run python -m pylint $(git ls-files '*.py') --rcfile=.pylintrc
+        python3 -m pylint $(git ls-files '*.py') --rcfile=.pylintrc
