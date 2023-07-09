@@ -22,6 +22,7 @@ jobs:
     - name: add conda to bash
       run: |
         conda init bash 
+        bash
     - name: config env to asid
       shell: bash
       run: |
