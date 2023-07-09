@@ -17,8 +17,6 @@ jobs:
         environment-file: environment.yml
         auto-activate-base: false
     - run: |
-        conda info
-        conda list
         conda install pylint
-        conda info
+        conda list
         conda run pylint $(git ls-files '*.py') --rcfile=.pylintrc
