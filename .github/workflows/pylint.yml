@@ -9,6 +9,9 @@ jobs:
       matrix:
         python-version: ["3.8"]
     steps:
+    - run: |
+      pwd
+      ls
     - uses: conda-incubator/setup-miniconda@v2
       with:
         activate-environment: asid
