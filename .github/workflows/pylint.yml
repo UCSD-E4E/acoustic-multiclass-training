@@ -12,12 +12,16 @@ jobs:
     - uses: conda-incubator/setup-miniconda@v2
       with:
         miniconda-version: "latest"
-        #activate-environment: asid
-        #environment-file: ../environment.yml
-        #auto-activate-base: false
+        activate-environment: asid
+        environment-file: environment.yml
+        auto-activate-base: false
     - run: |
         pwd
-        git ls-files
+        cd env
+        pwd
+        ls
+        ls -a
+        ls-files
         # conda info
         # conda list
         # conda install pylint
