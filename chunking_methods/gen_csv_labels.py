@@ -5,8 +5,6 @@ Input:     A folder with audio files
 Output:    A csv with chunked, strongly-labeled annotations
 """
 
-## TODO: rewrite with pathlib
-
 import os
 import sys
 import pandas as pd
