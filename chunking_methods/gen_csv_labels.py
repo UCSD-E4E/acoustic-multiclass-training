@@ -1,7 +1,8 @@
-"""Generates binary annotations using TweetyNet from unlabeled audio.
-This file should be run from inside the PyHa directory.
-Inputs:     A folder with audio files
-Outputs:    A csv with chunked, strongly-labeled annotations
+"""Generates binary annotations using TweetyNet from weakly labeled audio.
+This file should be run from inside the PyHa directory. It also requires
+WTS_chunking.py to be added to the PyHa directory. 
+Input:     A folder with audio files
+Output:    A csv with chunked, strongly-labeled annotations
 """
 
 ## TODO: rewrite with pathlib
@@ -9,6 +10,7 @@ Outputs:    A csv with chunked, strongly-labeled annotations
 import os
 import sys
 import pandas as pd
+from math import ceil
 from pydub import AudioSegment
 from PyHa.IsoAutio import generate_automated_labels
 from WTS_chunking import dynamic_yan_chunking
@@ -19,13 +21,20 @@ ISOLATION_PARAMETERS = {
     "verbose" : True
 }
 
-FILETYPE = ".mp3"
-SLIDING_CHUNKS = True
-GENERATE_WAVS = True
 CHUNK_DURATION = 5
+# produce a wav for each chunk
+GENERATE_WAVS = False
+# incoming filetype
+FILETYPE = ".mp3"
+# use sliding window or raw chunks
+SLIDING_CHUNKS = False
+
+# weak annotations
 METADATA_PATH = "/home/sprestrelski/amabaw1/metadata.csv"
-STRONG_LABELS_CSV = "/home/sprestrelski/amabaw1/test.csv"
-CHUNKED_CSV = "/home/sprestrelski/amabaw1/chunks.csv"
+# output for strong annotations
+STRONG_LABELS_CSV = "/home/sprestrelski/amabaw1/strong_labels.csv"
+# output for chunked annotations
+CHUNKED_CSV = "/home/sprestrelski/amabaw1/raw-chunks.csv"
 
 def convert2wav(path):
     """Convert audio files to .wav files with PyDub
@@ -74,28 +83,27 @@ def generate_labels(path):
     
     if automated_df.empty:
         print("no labels generated")
-    else:
-        automated_df.to_csv(STRONG_LABELS_CSV)
+    
+    return automated_df
 
 def attach_labels():
-    """Add the primary label from original metadata as a strong label > bird
+    """Add the primary label from original metadata as a strong label > bird and reformat
     """
     metadata_df = pd.read_csv(METADATA_PATH)
     binary_df = pd.read_csv(STRONG_LABELS_CSV)
     strong_df = metadata_df.merge(binary_df, left_on="filename", right_on="IN FILE")
     strong_df = strong_df[["Species eBird Code", "Scientific Name", "IN FILE", "FOLDER", "OFFSET", 
-                           "DURATION"]]
+                           "DURATION", "CLIP LENGTH"]]
     strong_df = strong_df.rename(columns={"IN FILE": "FILE NAME",
                                           "Species eBird Code": "SPECIES",
                                           "Scientific Name": "SCIENTIFIC"})
-    strong_df.to_csv(STRONG_LABELS_CSV)
+    return strong_df
 
 def generate_sliding_chunks():
     """Return a dataframe with sliding window chunked annotations
     """
     unchunked_df = pd.read_csv(STRONG_LABELS_CSV)
-    chunked_df = dynamic_yan_chunking(unchunked_df, chunk_duration=CHUNK_DURATION, only_slide=False)
-    chunked_df.to_csv(CHUNKED_CSV)
+    return dynamic_yan_chunking(unchunked_df, chunk_duration=CHUNK_DURATION, only_slide=False)
 
 def generate_wavs_from_labels(path, chunk_duration):
     """Create wav files based on a .csv with annotations
@@ -110,7 +118,6 @@ def generate_wavs_from_labels(path, chunk_duration):
     wav_file = None
     chunk_count = 0
     chunk_duration *= 1000
-    test_count = 0
 
     for _, row in chunked_df.iterrows():
         # make new folder for each species
@@ -119,13 +126,12 @@ def generate_wavs_from_labels(path, chunk_duration):
             folder_path = os.path.join(chunk_path, label)
             if not os.path.exists(folder_path):
                 os.makedirs(folder_path)
-            test_count += 1
         
         # access the original file
         if row['FILE NAME'] != file_name:
             file_name = row['FILE NAME']
-            wave_file_path = os.path.join(path, label, file_name)
-            wav_file = pydub.AudioSegment.from_wav(wave_file_path)
+            wav_file_path = os.path.join(path, file_name)
+            wav_file = AudioSegment.from_file(wav_file_path)
             chunk_count = 1
 
         # splice wav file and save chunk
@@ -141,37 +147,34 @@ def generate_wavs_from_labels(path, chunk_duration):
             print(e)
         chunk_count += 1
 
-def generate_raw_chunks(path):
-    """Create 5 second chunks from a wav file
+def generate_raw_chunks(path, chunk_duration):
+    """Create .csv annotations for specified second chunks
     """  
+    chunked_df = pd.DataFrame(columns=["FILE NAME", "FOLDER", "OFFSET", "DURATION", "CLIP LENGTH"])
+    chunk_length = chunk_duration * 1000
 
-    # find all files 
-    # for each, split into 5 seconds and add a row for the chunk
-    # return dataframe
-    chunked_df = pd.DataFrame(columns=["IN FILE", "FOLDER", "OFFSET", "DURATION", "CLIP LENGTH"])
-    
-    
-    subfolders = [f.path for f in os.scandir(path) if f.is_dir()]
-    for s in subfolders:
-        wavs = [f.path for f in os.scandir(s) if f.path.endswith('.wav')]
-        species = s.split('/')[-1]
-        chunk_dict[species] = []
-        
-        for wav in wavs:
-            wav_file = pydub.AudioSegment.from_wav(wav)
-            wav_file_name = wav.split('/')[-1][:-4]
+    files = [f.path for f in os.scandir(path) if f.path.endswith(FILETYPE)]
+    for f in files:
+        audio = AudioSegment.from_file(f)
+        filename = f.split('/')[-1][:-4]
+        file_length = len(audio) # in ms
+        num_chunks = ceil(file_length / (chunk_length))
 
-            wav_length = len(wav_file) # in ms
-            num_chunks = ceil(wav_length / 5000)
+        for i in range(num_chunks):
+            start = i * chunk_length
+            end = start + chunk_length
 
-            for i in range(num_chunks):
-                start = i * 5000
-                end = start + 5000
-
-                if end > wav_length and pad:
-                    pass
-                else:
-                    chunk_dict[species].append((wav_file_name, wav_file[start : end]))
+            # cut off ending chunks that won't be 5s long
+            if end > file_length:
+                pass
+            else:
+                temp_df = {"FILE NAME" : f"{filename}_{i}{FILETYPE}",
+                           "FOLDER" : path,
+                           "OFFSET" : start / 1000,
+                           "DURATION": chunk_duration,
+                           "CLIP LENGTH" : file_length}
+                chunked_df = chunked_df.append(temp_df, ignore_index=True)  
+    return chunked_df
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -180,13 +183,13 @@ if __name__ == "__main__":
         sys.exit(1)
     
     path = sys.argv[1]
-    # if SLIDING_CHUNKS:
-    #     generate_labels(path)
-    #     attach_labels()
-    #     generate_sliding_chunks()
-    # else:
-    #     convert2wav(path)
-    #     generate_raw_chunks(path)
-    
+    if SLIDING_CHUNKS:
+        convert2wav(path)
+        generate_labels(path).to_csv(STRONG_LABELS_CSV)
+        attach_labels().to_csv(STRONG_LABELS_CSV)
+        generate_sliding_chunks().to_csv(CHUNKED_CSV)
+    else:
+        generate_raw_chunks(path, CHUNK_DURATION).to_csv(CHUNKED_CSV)
+
     if GENERATE_WAVS:
         generate_wavs_from_labels(path, CHUNK_DURATION)
