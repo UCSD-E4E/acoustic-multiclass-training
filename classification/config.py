@@ -34,7 +34,7 @@ def get_config():
     parser.add_argument('-vf', '--valid_freq', default=1000, type=int)
 
     # Model Training settings
-    # Suggested models: eca_nfnet_l0, tf_efficientnet_b4
+    # Suggested models: eca_nfnet_l0, tf_efficientnet_b4, convnext_nano
     parser.add_argument('-m', '--model', default='eca_nfnet_l0', type=str)
     parser.add_argument('-e', '--epochs', default=10, type=int)
     parser.add_argument('-nf', '--num_fold', default=5, type=int)
