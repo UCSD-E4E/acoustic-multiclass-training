@@ -21,6 +21,8 @@ ISOLATION_PARAMETERS = {
 
 FILETYPE = ".mp3"
 SLIDING_CHUNKS = True
+GENERATE_WAVS = True
+CHUNK_DURATION = 5
 METADATA_PATH = "/home/sprestrelski/amabaw1/metadata.csv"
 STRONG_LABELS_CSV = "/home/sprestrelski/amabaw1/test.csv"
 CHUNKED_CSV = "/home/sprestrelski/amabaw1/chunks.csv"
@@ -43,7 +45,7 @@ def convert2wav(path):
             x = AudioSegment.from_file(os.path.join(path, fn))
             x.export(fn.replace(FILETYPE, '.wav'), format='wav')
 
-def gen_labels(path):
+def generate_labels(path):
     """Generate binary automated time-specific labels using PyHa
 
     Args:
@@ -82,8 +84,9 @@ def attach_labels():
     binary_df = pd.read_csv(STRONG_LABELS_CSV)
     strong_df = metadata_df.merge(binary_df, left_on="filename", right_on="IN FILE")
     strong_df = strong_df[["Species eBird Code", "Scientific Name", "IN FILE", "FOLDER", "OFFSET", 
-                           "DURATION", "CLIP LENGTH"]]
-    strong_df = strong_df.rename(columns={"Species eBird Code": "SPECIES",
+                           "DURATION"]]
+    strong_df = strong_df.rename(columns={"IN FILE": "FILE NAME",
+                                          "Species eBird Code": "SPECIES",
                                           "Scientific Name": "SCIENTIFIC"})
     strong_df.to_csv(STRONG_LABELS_CSV)
 
@@ -91,8 +94,52 @@ def generate_sliding_chunks():
     """Return a dataframe with sliding window chunked annotations
     """
     unchunked_df = pd.read_csv(STRONG_LABELS_CSV)
-    chunked_df = dynamic_yan_chunking(unchunked_df, chunk_duration=5, only_slide=False)
+    chunked_df = dynamic_yan_chunking(unchunked_df, chunk_duration=CHUNK_DURATION, only_slide=False)
     chunked_df.to_csv(CHUNKED_CSV)
+
+def generate_wavs_from_labels(path, chunk_duration):
+    """Create wav files based on a .csv with annotations
+    """
+    chunk_path = os.path.join(path, 'chunks')
+    if not os.path.exists(chunk_path):
+        os.makedirs(chunk_path)
+    chunked_df = pd.read_csv(CHUNKED_CSV)
+    file_name = ''
+    label = ''
+    folder_path = ''
+    wav_file = None
+    chunk_count = 0
+    chunk_duration *= 1000
+    test_count = 0
+
+    for _, row in chunked_df.iterrows():
+        # make new folder for each species
+        if row['SPECIES'] != label:
+            label = row['SPECIES']
+            folder_path = os.path.join(chunk_path, label)
+            if not os.path.exists(folder_path):
+                os.makedirs(folder_path)
+            test_count += 1
+        
+        # access the original file
+        if row['FILE NAME'] != file_name:
+            file_name = row['FILE NAME']
+            wave_file_path = os.path.join(path, label, file_name)
+            wav_file = pydub.AudioSegment.from_wav(wave_file_path)
+            chunk_count = 1
+
+        # splice wav file and save chunk
+        offset = float(row['OFFSET']) * 1000 # pydub splices in milliseconds, so multiply by 1000
+        chunk = wav_file[offset : offset + chunk_duration]
+
+        try:
+            # pylint: disable=line-too-long, just an assertion
+            assert len(chunk) == chunk_duration, f"Chunk of length {chunk_duration / 1000}s could not be generated from {file_name}. \
+                \n Got chunk of length {len(chunk) / 1000}s. Check chunking script."
+            chunk.export(os.path.join(folder_path, file_name[:-4] + '_' + str(chunk_count) + '.wav'), format='wav')
+        except AssertionError as e:
+            print(e)
+        chunk_count += 1
 
 def generate_raw_chunks(path):
     """Create 5 second chunks from a wav file
@@ -133,10 +180,13 @@ if __name__ == "__main__":
         sys.exit(1)
     
     path = sys.argv[1]
-    if SLIDING_CHUNKS:
-        gen_labels(path)
-        attach_labels(path)
-        generate_sliding_chunks()
-    else:
-        convert2wav(path)
-        generate_raw_chunks(path)
+    # if SLIDING_CHUNKS:
+    #     generate_labels(path)
+    #     attach_labels()
+    #     generate_sliding_chunks()
+    # else:
+    #     convert2wav(path)
+    #     generate_raw_chunks(path)
+    
+    if GENERATE_WAVS:
+        generate_wavs_from_labels(path, CHUNK_DURATION)
