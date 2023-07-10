@@ -42,6 +42,8 @@ def get_config():
             convnext_tiny (110 MB)
             resnetv2_50 (100 MB)
             resnetv2_101 (170 MB)
+            seresnext50_32x4d (100 MB)
+            seresnext101_32x4d (200 MB)
 
     """
     parser.add_argument('-m', '--model', default='eca_nfnet_l0', type=str)
