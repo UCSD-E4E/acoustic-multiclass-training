@@ -50,7 +50,7 @@ class GeM(nn.Module):
                 '(' + f'p={self.p.data.tolist()[0]:.4f}'+ \
                 ', ' + 'eps=' + str(self.eps) + ')'
 
-class EfficientNetModel(nn.Module):
+class Model(nn.Module):
     """ Efficient net neural network
     """
     # pylint: disable=too-many-arguments
@@ -65,62 +65,39 @@ class EfficientNetModel(nn.Module):
         super().__init__()
         self.config = CONFIG
         self.num_classes = num_classes
-        # Load in the efficientnet_b4 model preset
         self.model = timm.create_model(model_name, pretrained=pretrained)
-        in_features = self.model.classifier.in_features
-        self.model.classifier = nn.Identity()
-        self.model.global_pool = nn.Identity()
-        self.pooling = GeM()
-        self.embedding = nn.Linear(in_features, embedding_size)
-        self.fc = nn.Linear(embedding_size, num_classes)
-        self.loss_fn = None
+        if model_name.startswith("tf_efficientnet_b"):
+            self.model_type = "efficientnet"
+            in_features = self.model.classifier.in_features
+            self.model.classifier = nn.Identity()
+            self.model.global_pool = nn.Identity()
+            self.pooling = GeM()
+            self.embedding = nn.Linear(in_features, embedding_size)
+            self.fc = nn.Linear(embedding_size, num_classes)
+            self.loss_fn = None
+        elif model_name.startswith("eca_nfnet"):
+            self.model_type = "eca_nfnet"
+            self.model.head.fc.out_features = num_classes
+            self.fc = nn.Linear(1000, num_classes)
+        else:
+            raise ValueError("Invalid model name, not implemented yet")
     
     def forward(self, images):
         """ Forward pass of the model
         """
         features = self.model(images)
-        pooled_features = self.pooling(features).flatten(1)
-        embedding = self.embedding(pooled_features)
-        output = self.fc(embedding)
+        # EfficientNet embedding layer and pooling
+        if self.model_type == "efficientnet":
+            pooled_features = self.pooling(features).flatten(1)
+            features = self.embedding(pooled_features)
+        output = self.fc(features)
         return output
-    
+
     def create_loss_fn(self,train_dataset):
         """ Returns the loss function and sets self.loss_fn
         """
-        return cross_entropy_loss_fn
-        
+        return cross_entropy_loss_fn(self, train_dataset)
 
-class EcaNfnetModel(nn.Module):
-    """ ECA Normalization Free neural network
-    """
-    # pylint: disable=too-many-arguments
-    def __init__(self, 
-                 num_classes,
-                 model_name="eca_nfnet_l0",
-                 embedding_size=768,
-                 pretrained=True,
-                 CONFIG=None):
-        """ Initializes the model
-        """
-        super().__init__()
-        self.config = CONFIG
-        self.num_classes = num_classes
-        self.model = timm.create_model(model_name, pretrained=pretrained)
-        self.model.head.fc.out_features = num_classes
-        print(self.model)
-        self.fc = nn.Linear(1000, num_classes)
-        self.loss_fn = None
-    
-    def forward(self, images):
-        """ Forward pass of the model
-        """
-        features = self.model(images)
-        output = self.fc(features)
-        return output
-    
-    def create_loss_fn(self, train_dataset):
-        return cross_entropy_loss_fn
-    
 def cross_entropy_loss_fn(self,train_dataset):
     """ Returns the loss function and sets self.loss_fn
     """

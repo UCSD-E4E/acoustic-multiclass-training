@@ -34,7 +34,8 @@ def get_config():
     parser.add_argument('-vf', '--valid_freq', default=1000, type=int)
 
     # Model Training settings
-    parser.add_argument('-m', '--m', default='tf_efficientnet_b4', type=str)
+    # Suggested models: eca_nfnet_l0, tf_efficientnet_b4
+    parser.add_argument('-m', '--model', default='eca_nfnet_l0', type=str)
     parser.add_argument('-e', '--epochs', default=10, type=int)
     parser.add_argument('-nf', '--num_fold', default=5, type=int)
     parser.add_argument('-tts', '--train_test_split', default=0.8, type=float)
