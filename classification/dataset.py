@@ -334,8 +334,18 @@ def get_datasets(CONFIG=None):
 
     train_p = CONFIG.train_test_split
     path = CONFIG.dataframe
-    data = pd.read_csv(path, index_col=0)
-
+    # Load the dataset
+    data = pd.read_csv(path, usecols = [
+        CONFIG.file_name_col,
+        CONFIG.manual_id_col,
+        CONFIG.offset_col,
+        CONFIG.duration_col
+    ], dtype={
+        CONFIG.file_name_col: str,
+        CONFIG.manual_id_col: str,
+        CONFIG.offset_col: float,
+        CONFIG.duration_col: float})
+    
     #for each species, get a random sample of files for train/valid split
     train_files = data.groupby(CONFIG.manual_id_col, as_index=False).apply(
         lambda x: pd.Series(x[CONFIG.file_name_col].unique()).sample(frac=train_p)
