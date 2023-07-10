@@ -26,7 +26,7 @@ from torch.optim import Adam
 from torch.amp import autocast
 import numpy as np
 from dataset import PyhaDF_Dataset, get_datasets
-from model import BirdCLEFModel
+import model
 from utils import set_seed, print_verbose
 from config import get_config
 from tqdm import tqdm
@@ -49,9 +49,7 @@ def check_shape(outputs, labels):
         raise RuntimeError("Shape diff between output of models and labels, see above and debug")
 
 
-# Splitting this up would be annoying!!!
-# pylint: disable=too-many-statements 
-def train(model: BirdCLEFModel,
+def train(model: Any,
         data_loader: PyhaDF_Dataset,
         optimizer: torch.optim.Optimizer,
         scheduler,
@@ -147,7 +145,7 @@ def train(model: BirdCLEFModel,
     return running_loss/len(data_loader)
 
 
-def valid(model: BirdCLEFModel,
+def valid(model: Any,
           data_loader: PyhaDF_Dataset,
           step: int,
           CONFIG) -> Tuple[float, float]:
@@ -214,11 +212,10 @@ def init_wandb(CONFIG: Dict[str, Any]):
         mode="disabled" if CONFIG.logging is False else "online"
     )
     run.name = (
-        f"EFN-{CONFIG.epochs}"+
-        f"-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}" +
-        f"-{CONFIG.sample_rate}-{CONFIG.hop_length}-" +
-        f"{CONFIG.max_time}-{CONFIG.n_mels}" +
-        f"-{CONFIG.n_fft}-{CONFIG.seed}-" +
+        f"eca_nfnet_l0"+
+        f"-20230709"+
+        f"-22:47"+
+        f"-{CONFIG.epochs}"+
         run.name.split('-')[-1]
     )
 
@@ -263,13 +260,14 @@ def main():
     train_dataset, val_dataset, train_dataloader, val_dataloader = load_datasets(CONFIG)
     
     print("Loading Model...")
-    model_for_run = BirdCLEFModel(train_dataset.num_classes,CONFIG=CONFIG).to(device)
+    model_for_run = model.EcaNfnetModel(num_classes=130, CONFIG=CONFIG).to(device)
+    #model_for_run = EfficientNetModel(train_dataset.num_classes,CONFIG=CONFIG).to(device)
     model_for_run.create_loss_fn(train_dataset)
     if CONFIG.model_checkpoint is not None:
         model_for_run.load_state_dict(torch.load(CONFIG.model_checkpoint))
     optimizer = Adam(model_for_run.parameters(), lr=CONFIG.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
-    print("Model / Optimizer Loading Succesful :P")
+    print("Model / Optimizer Loading Successful :P")
     
     print("Training")
     step = 0
