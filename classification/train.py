@@ -35,7 +35,7 @@ import wandb
 
 
 tqdm.pandas()
-time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') 
+time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 wandb_run = None
 
@@ -131,15 +131,15 @@ def train(model: Any,
                 "epoch": epoch,
                 "clips/sec": annotations_per_sec,
             })
-            print("i:", i, "epoch:", epoch, "clips/s:", annotations_per_sec, 
+            print("i:", i, "epoch:", epoch, 
+                  "clips/s:", annotations_per_sec, 
                   "Loss:", log_loss / log_n, 
-                  "Accuracy:", correct / total, "mAP", mAP / log_n)
+                  "mAP", mAP / log_n)
             log_loss = 0
             log_n = 0
             correct = 0
             total = 0
             mAP = 0
-
 
         step += 1
     return running_loss/len(data_loader)
@@ -212,11 +212,8 @@ def init_wandb(CONFIG: Dict[str, Any]):
         mode="disabled" if CONFIG.logging is False else "online"
     )
     run.name = (
-        f"eca_nfnet_l0"+
-        f"-20230709"+
-        f"-22:47"+
-        f"-{CONFIG.epochs}"+
-        run.name.split('-')[-1]
+        CONFIG.model + 
+        f"-{time_now}"
     )
 
     return run
@@ -250,7 +247,7 @@ def main():
     CONFIG = get_config()
     # Needed to redefine wandb_run as a global variable
     # pylint: disable=global-statement
-    global wandb_run
+    #global wandb_run
     wandb_run = init_wandb(CONFIG)
     set_seed(CONFIG.seed)
     
@@ -271,7 +268,7 @@ def main():
     
     print("Training")
     step = 0
-    best_valid_cmap = 0
+    best_valid_map = 0
 
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))
@@ -291,14 +288,14 @@ def main():
         valid_loss, valid_map = valid(model_for_run, val_dataloader, step, CONFIG)
         print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
 
-        if valid_map > best_valid_cmap:
-            path = os.path.join("models",wandb_run.name + '.pt')
+        if valid_map > best_valid_map:
+            path = os.path.join("models",wandb_run.name, f"-{epoch}", '.pt')
             if not os.path.exists("models"):
                 os.mkdir("models")
             torch.save(model_for_run.state_dict(), path)
-            print("Model saved in:", path)
-            print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
-            best_valid_cmap = valid_map
+            print("Model saved in:", os.path.abspath(path))
+            print(f"Validation mAP Improved - {best_valid_map} ---> {valid_map}")
+            best_valid_map = valid_map
 
 if __name__ == '__main__':
     main()
