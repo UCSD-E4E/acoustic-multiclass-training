@@ -90,6 +90,9 @@ class Model(nn.Module):
         elif model_name.startswith("seresnext"):
             self.model_type = "seresnext"
             self.fc = nn.Linear(1000, num_classes)
+        elif model_name.startswith("rexnet"):
+            self.model_type = "rexnet"
+            self.fc = nn.Linear(1000, num_classes)
         else:
             raise ValueError("Invalid model name, not implemented yet")
     
