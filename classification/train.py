@@ -247,7 +247,7 @@ def main():
     train_dataset, val_dataset, train_dataloader, val_dataloader = load_datasets(CONFIG)
     
     print("Loading Model...")
-    model_for_run = model.EcaNfnetModel(num_classes=130, CONFIG=CONFIG).to(device)
+    model_for_run = model.Model(num_classes=train_dataset.num_classes, model_name=CONFIG.model, CONFIG=CONFIG).to(device)
     #model_for_run = EfficientNetModel(train_dataset.num_classes,CONFIG=CONFIG).to(device)
     model_for_run.create_loss_fn(train_dataset)
     if CONFIG.model_checkpoint is not None:
@@ -279,7 +279,7 @@ def main():
         print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
 
         if valid_map > best_valid_map:
-            path = os.path.join("models",wandb_run.name, f"-{epoch}", '.pt')
+            path = os.path.join("models",wandb_run.name+f"-{epoch}.pt")
             if not os.path.exists("models"):
                 os.mkdir("models")
             torch.save(model_for_run.state_dict(), path)
