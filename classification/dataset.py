@@ -232,7 +232,7 @@ class PyhaDF_Dataset(Dataset):
         num_frames = int(annotation[self.config.duration_col] * sample_per_sec)
 
         # Load audio
-        audio = torch.load(os.path.join(self.data_dir,file_name))
+        audio = torch.load(os.path.join(self.data_path,file_name))
     
         if audio.shape[0] > num_frames:
             audio = audio[frame_offset:frame_offset+num_frames]
