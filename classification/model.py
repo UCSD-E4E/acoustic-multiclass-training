@@ -49,7 +49,7 @@ class GeM(nn.Module):
         return self.__class__.__name__ + \
                 '(' + f'p={self.p.data.tolist()[0]:.4f}'+ \
                 ', ' + 'eps=' + str(self.eps) + ')'
-
+# pylint: disable=too-many-instance-attributes
 class Model(nn.Module):
     """ Efficient net neural network
     """
