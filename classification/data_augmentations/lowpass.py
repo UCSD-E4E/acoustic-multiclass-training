@@ -2,11 +2,15 @@
 Lowpass filter implemented as torch.nn.Module. To use, initialize,
 and use as you would a regular torch.nn.Module
 """
-
+import os
+import sys
 import torch
 import torchaudio
-#pylint: disable=E0402
-from .. import config
+#Temporary hack until config format improved
+#pylint: disable=C0413
+#pylint: disbale=E0401
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+import config
 
 class LowpassFilter(torch.nn.Module):
     """

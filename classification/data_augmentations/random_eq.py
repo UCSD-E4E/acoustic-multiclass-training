@@ -3,11 +3,16 @@ Implementation of part of the data augmentation described in:
     https://arxiv.org/pdf/1604.07160.pdf
 To use, simply import the RandomEQ class and use it as you would any other torch module
 """
+import os
+import sys
 from typing import Tuple
 import torch
 import torchaudio
-#pylint: disable=E0402
-from .. import config
+#Temporary hack until config format improved
+#pylint: disable=C0413
+#pylint: disbale=E0401
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+import config
 
 def rand(low, high):
     """Wrapper for torch.rand""" 

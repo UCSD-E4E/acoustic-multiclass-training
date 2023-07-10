@@ -3,12 +3,17 @@ Contains class for applying background noise augmentation. The class acts as
 a regular torch module and can be used in a torch.nn.Sequential object.
 """
 import os
+import sys
 from pathlib import Path
 import numpy as np
 import torch
 import torchaudio
-#pylint: disable=E0402
-from .. import utils, config
+#Temporary hack until config format improved
+#pylint: disable=C0413
+#pylint: disbale=E0401
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+import config
+import utils
 
 class BackgroundNoise(torch.nn.Module):
     """

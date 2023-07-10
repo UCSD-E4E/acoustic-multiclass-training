@@ -3,10 +3,16 @@ Contains class for applying white/pink/brown/blue/violet noise augmentation.
 The class acts as a regular torch module and can be used in a torch.nn.Sequential 
 object.
 """
+import os
+import sys
 from typing import Callable
 import torch
-#pylint: disable=E0402
-from .. import utils
+#Temporary hack until config format improved
+#pylint: disable=C0413
+#pylint: disbale=E0401
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+import config
+import utils
 
 def gen_noise(num_samples: int, psd_shape_func:Callable)-> torch.Tensor:
     """
