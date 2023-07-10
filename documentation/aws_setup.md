@@ -28,7 +28,9 @@ Store the key file in a secure location and on linux run `sudo chmod 400 {filena
 
 ## Creating IAM roles
 
-You need to save a valid access key on EC2 in order to mount an s3 filesystem. To do that, search for IAM in the AWS console, click on users and create a new IAM user. Give them a username. Click attach policies directly and give them `AmazonS3FullAccess`. Create new user. Next you have to get their access token. Click on the new user -> security credentials -> create access key. Give CLI access. Stay on this page or save the secret access key.
+You need to create an IAM role that gives the server access to the S3 instance. Search for IAM in the AWS console, click on roles and create a new IAM role. Click AWS Service, EC2, then next. Add the policy `AmazonS3FullAccess`. Click next. Call the role `"S3_Access"` for the mounting script to run properly. Create role.
+
+Go to the EC2 instance by searching for EC2, click running instances and find your instance. Click on `Actions -> Security -> Modify IAM Roles`. Give the `S3_Access` role to the compute server. 
 
 
 ## Run setup script
