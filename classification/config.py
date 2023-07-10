@@ -44,6 +44,7 @@ def get_config():
             seresnext50_32x4d (100 MB)
             seresnext101_32x4d (200 MB)
             rexnet_200 (70 MB)
+            mobilenetv3_large_100_miil_in21k (70 MB)
     """
     parser.add_argument('-m', '--model', default='eca_nfnet_l0', type=str)
     parser.add_argument('-e', '--epochs', default=10, type=int)
