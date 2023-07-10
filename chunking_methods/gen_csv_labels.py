@@ -37,8 +37,8 @@ STRONG_LABELS_CSV = "/home/sprestrelski/amabaw1/strong_labels.csv"
 CHUNKED_CSV = "/home/sprestrelski/amabaw1/raw-chunks.csv"
 
 def convert2wav(path):
-    """Convert audio files to .wav files with PyDub
-    
+    """Convert audio files to .wav files with PyDub. Used to ensure
+    that TweetyNet can read the files for predictions.
     Args:
         path (string)
             - folder path containing audio files without subfolders
@@ -46,21 +46,18 @@ def convert2wav(path):
     # conversion not needed for tweetynet processing
     if SLIDING_CHUNKS and FILETYPE in [".wav", ".mp3"]:
         return
-    # conversion needed for generating raw chunks
-    if not SLIDING_CHUNKS and FILETYPE == ".wav":
-        return
     for fn in os.listdir(path):
         if fn.endswith(FILETYPE):
             x = AudioSegment.from_file(os.path.join(path, fn))
             x.export(fn.replace(FILETYPE, '.wav'), format='wav')
 
 def generate_labels(path):
-    """Generate binary automated time-specific labels using PyHa
-
+    """Generate binary time-specific labels using PyHa
     Args:
         path (string)
             - folder path containing audio files with at most one 
             subdirectory level
+    Returns a PyHa-formatted DataFrame
     """
     if not os.path.exists(os.path.join(path)):
         print(f"Directory not found in path {path}", file=sys.stderr)
@@ -87,7 +84,11 @@ def generate_labels(path):
     return automated_df
 
 def attach_labels():
-    """Add the primary label from original metadata as a strong label > bird and reformat
+    """ Attach the primary label from original metadata as a strong label
+    for each chunk and reformat the columns.
+    Args:
+        None
+    Returns a stripped DataFrame with only columns necessary for training 
     """
     metadata_df = pd.read_csv(METADATA_PATH)
     binary_df = pd.read_csv(STRONG_LABELS_CSV)
@@ -100,13 +101,22 @@ def attach_labels():
     return strong_df
 
 def generate_sliding_chunks():
-    """Return a dataframe with sliding window chunked annotations
+    """
+    Args: 
+        None
+    Returns a DataFrame with sliding window chunked annotations
     """
     unchunked_df = pd.read_csv(STRONG_LABELS_CSV)
     return dynamic_yan_chunking(unchunked_df, chunk_duration=CHUNK_DURATION, only_slide=False)
 
 def generate_wavs_from_labels(path, chunk_duration):
     """Create wav files based on a .csv with annotations
+    Args:
+        path (string)
+            - folder path containing audio files with at most one 
+            subdirectory level
+        chunk_duration (int)
+            - length of desired file chunks
     """
     chunk_path = os.path.join(path, 'chunks')
     if not os.path.exists(chunk_path):
@@ -139,16 +149,21 @@ def generate_wavs_from_labels(path, chunk_duration):
         chunk = wav_file[offset : offset + chunk_duration]
 
         try:
-            # pylint: disable=line-too-long, just an assertion
-            assert len(chunk) == chunk_duration, f"Chunk of length {chunk_duration / 1000}s could not be generated from {file_name}. \
-                \n Got chunk of length {len(chunk) / 1000}s. Check chunking script."
-            chunk.export(os.path.join(folder_path, file_name[:-4] + '_' + str(chunk_count) + '.wav'), format='wav')
+            assert len(chunk) == chunk_duration, f"Chunk of length {chunk_duration / 1000}s could not be \
+                generated from {file_name}. Got chunk of length {len(chunk) / 1000}s. Check chunking script."
+            chunk.export(os.path.join(folder_path, file_name[:-4], '_', str(chunk_count), '.wav'), format='wav')
         except AssertionError as e:
             print(e)
         chunk_count += 1
 
 def generate_raw_chunks(path, chunk_duration):
     """Create .csv annotations for specified second chunks
+    Args:
+        path (string)
+            - folder path containing audio files with at most one 
+            subdirectory level
+        chunk_duration (int)
+            - length of desired file chunks
     """  
     chunked_df = pd.DataFrame(columns=["FILE NAME", "FOLDER", "OFFSET", "DURATION", "CLIP LENGTH"])
     chunk_length = chunk_duration * 1000
