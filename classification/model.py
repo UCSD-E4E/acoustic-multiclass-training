@@ -50,14 +50,14 @@ class GeM(nn.Module):
                 '(' + f'p={self.p.data.tolist()[0]:.4f}'+ \
                 ', ' + 'eps=' + str(self.eps) + ')'
 
-class BirdCLEFModel(nn.Module):
+class EfficientNetModel(nn.Module):
     """ Efficient net neural network
     """
     # pylint: disable=too-many-arguments
-    def __init__(self, 
+    def __init__(self,
                  num_classes,
-                 model_name="tf_efficientnet_b4", 
-                 embedding_size=768, 
+                 model_name="tf_efficientnet_b4",
+                 embedding_size=768,
                  pretrained=True,
                  CONFIG=None):
         """ Initializes the model
@@ -82,6 +82,46 @@ class BirdCLEFModel(nn.Module):
         pooled_features = self.pooling(features).flatten(1)
         embedding = self.embedding(pooled_features)
         output = self.fc(embedding)
+        return output
+    
+    def create_loss_fn(self,train_dataset):
+        """ Returns the loss function and sets self.loss_fn
+        """
+        if not self.config.imb: # normal loss
+            self.loss_fn = nn.CrossEntropyLoss()
+        else: # weighted loss
+            self.loss_fn = nn.CrossEntropyLoss(
+                weight=torch.tensor(
+                    [1 / p for p in train_dataset.class_id_to_num_samples.values()]
+                ).to(self.device))
+        return self.loss_fn
+
+class EcaNfnetModel(nn.Module):
+    """ ECA Normalization Free neural network
+    """
+    # pylint: disable=too-many-arguments
+    def __init__(self, 
+                 num_classes,
+                 model_name="eca_nfnet_l0",
+                 embedding_size=768,
+                 pretrained=True,
+                 CONFIG=None):
+        """ Initializes the model
+        """
+        super().__init__()
+        self.config = CONFIG
+        self.num_classes = num_classes
+        self.model = timm.create_model(model_name, pretrained=pretrained)
+        self.model.head.fc.out_features = num_classes
+        print(self.model)
+        self.fc = nn.Linear(1000, num_classes)
+        self.loss_fn = None
+    
+    def forward(self, images):
+        """ Forward pass of the model
+        """
+        features = self.model(images)
+        output = self.fc(features)
         return output
     
     def create_loss_fn(self,train_dataset):
