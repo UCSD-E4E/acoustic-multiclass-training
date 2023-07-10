@@ -87,14 +87,8 @@ class EfficientNetModel(nn.Module):
     def create_loss_fn(self,train_dataset):
         """ Returns the loss function and sets self.loss_fn
         """
-        if not self.config.imb: # normal loss
-            self.loss_fn = nn.CrossEntropyLoss()
-        else: # weighted loss
-            self.loss_fn = nn.CrossEntropyLoss(
-                weight=torch.tensor(
-                    [1 / p for p in train_dataset.class_id_to_num_samples.values()]
-                ).to(self.device))
-        return self.loss_fn
+        return cross_entropy_loss_fn
+        
 
 class EcaNfnetModel(nn.Module):
     """ ECA Normalization Free neural network
@@ -124,14 +118,17 @@ class EcaNfnetModel(nn.Module):
         output = self.fc(features)
         return output
     
-    def create_loss_fn(self,train_dataset):
-        """ Returns the loss function and sets self.loss_fn
-        """
-        if not self.config.imb: # normal loss
-            self.loss_fn = nn.CrossEntropyLoss()
-        else: # weighted loss
-            self.loss_fn = nn.CrossEntropyLoss(
-                weight=torch.tensor(
-                    [1 / p for p in train_dataset.class_id_to_num_samples.values()]
-                ).to(self.device))
-        return self.loss_fn
+    def create_loss_fn(self, train_dataset):
+        return cross_entropy_loss_fn
+    
+def cross_entropy_loss_fn(self,train_dataset):
+    """ Returns the loss function and sets self.loss_fn
+    """
+    if not self.config.imb: # normal loss
+        self.loss_fn = nn.CrossEntropyLoss()
+    else: # weighted loss
+        self.loss_fn = nn.CrossEntropyLoss(
+            weight=torch.tensor(
+                [1 / p for p in train_dataset.class_id_to_num_samples.values()]
+            ).to(self.device))
+    return self.loss_fn
