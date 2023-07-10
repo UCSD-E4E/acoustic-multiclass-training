@@ -113,6 +113,7 @@ class PyhaDF_Dataset(Dataset):
 
 
         try:
+            print(os.path.join(self.config.data_path,file_name))
             audio, sample_rate = torchaudio.load(os.path.join(self.config.data_path, file_name))
 
             if len(audio.shape) > 1:
