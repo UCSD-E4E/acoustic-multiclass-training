@@ -203,7 +203,7 @@ class PyhaDF_Dataset(Dataset):
         target = target.float()
 
         try:
-            if cache_name in self.cache_dir:
+            if self.config.use_cache and cache_name in self.cache_dir:
                 audio = torch.load(os.path.join(self.config.cache_path,cache_name))
             else:
                 audio = self.extract_clip_and_cache(index, os.path.join(self.config.cache_path,cache_name))
@@ -246,8 +246,9 @@ class PyhaDF_Dataset(Dataset):
         if audio.shape[0] < self.num_samples:
             audio = self.pad_audio(audio)
         # Save cache
-        torch.save(audio, cache_path)
-        self.cache_dir.add(cache_path)
+        if self.config.use_cache:
+            torch.save(audio, cache_path)
+            self.cache_dir.add(cache_path)
         return audio
 
     def __len__(self):
