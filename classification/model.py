@@ -83,6 +83,9 @@ class Model(nn.Module):
             self.model_type = "convnext"
             self.model.head.fc.out_features = num_classes
             self.fc = nn.Linear(1000, num_classes)
+        elif model_name.startswith("resnet"):
+            self.model_type = "resnet"
+            self.fc = nn.Linear(1000, num_classes)
         else:
             raise ValueError("Invalid model name, not implemented yet")
     
