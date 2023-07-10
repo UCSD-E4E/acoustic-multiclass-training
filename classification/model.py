@@ -66,6 +66,7 @@ class Model(nn.Module):
         self.config = CONFIG
         self.num_classes = num_classes
         self.model = timm.create_model(model_name, pretrained=pretrained)
+        # See config.py for list of recommended models
         if model_name.startswith("tf_efficientnet_b"):
             self.model_type = "efficientnet"
             in_features = self.model.classifier.in_features
@@ -85,6 +86,9 @@ class Model(nn.Module):
             self.fc = nn.Linear(1000, num_classes)
         elif model_name.startswith("resnet"):
             self.model_type = "resnet"
+            self.fc = nn.Linear(1000, num_classes)
+        elif model_name.startswith("seresnext"):
+            self.model_type = "seresnext"
             self.fc = nn.Linear(1000, num_classes)
         else:
             raise ValueError("Invalid model name, not implemented yet")
