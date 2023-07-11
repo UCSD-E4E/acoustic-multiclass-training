@@ -36,7 +36,7 @@ class Mixup(torch.nn.Module):
         # Generate random index in dataset
         other_idx = utils.randint(0, len(self.dataset))
         try:
-            other_clip, other_target = self.dataset.get_clip(other_idx, apply_transforms=False)
+            other_clip, other_target = self.dataset.get_annotation(other_idx)
         except RuntimeError:
             print('Error loading other clip, mixup not performed')
             return clip, target
@@ -184,9 +184,9 @@ class RandomEQ(torch.nn.Module):
         according to object parameters
         """
         for _ in range(self.num_applications):
-            frequency = rand(*self.f_range)
-            gain = rand(*self.g_range)
-            q = rand(*self.q_range)
+            frequency = utils.rand(*self.f_range)
+            gain = utils.rand(*self.g_range)
+            q = utils.rand(*self.q_range)
             clip = torchaudio.functional.equalizer_biquad(
                 clip, self.sample_rate, frequency, gain, q)
         return clip
