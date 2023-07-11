@@ -250,7 +250,6 @@ def main():
     model_for_run = model.Model(num_classes=train_dataset.num_classes, 
                                 model_name=CONFIG.model, 
                                 CONFIG=CONFIG).to(device)
-    #model_for_run = EfficientNetModel(train_dataset.num_classes,CONFIG=CONFIG).to(device)
     model_for_run.create_loss_fn(train_dataset)
     if CONFIG.model_checkpoint is not None:
         model_for_run.load_state_dict(torch.load(CONFIG.model_checkpoint))
