@@ -23,9 +23,10 @@ from torchmetrics.classification import MultilabelAveragePrecision
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
+from torch.amp import autocast
 import numpy as np
 from dataset import PyhaDF_Dataset, get_datasets
-from model import BirdCLEFModel
+from model import TimmModel
 from utils import set_seed, print_verbose
 from config import get_config
 from augmentations import LowpassFilter, RandomEQ, SyntheticNoise, BackgroundNoise
@@ -35,7 +36,7 @@ import wandb
 
 
 tqdm.pandas()
-time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 wandb_run = None
 
@@ -49,14 +50,19 @@ def check_shape(outputs, labels):
         raise RuntimeError("Shape diff between output of models and labels, see above and debug")
 
 
-def train(model: BirdCLEFModel,
+
+# Splitting this up would be annoying!!!
+# pylint: disable=too-many-statements 
+def train(model: Any,
         data_loader: PyhaDF_Dataset,
+        valid_loader:  PyhaDF_Dataset,
         optimizer: torch.optim.Optimizer,
         scheduler,
         device: str,
         step: int,
         epoch: int,
-        CONFIG) -> Tuple[float, int, float]:
+        best_valid_cmap: float,
+        CONFIG):
     """ Trains the model
         Returns:
             loss: the average loss over the epoch
@@ -71,22 +77,31 @@ def train(model: BirdCLEFModel,
     correct = 0
     total = 0
     mAP = 0
+    
+    scaler = torch.cuda.amp.GradScaler()
+
 
     start_time = datetime.datetime.now()
     for i, (mels, labels) in enumerate(data_loader):
         optimizer.zero_grad()
         mels = mels.to(device)
         labels = labels.to(device)
+        
+        with autocast(device_type=device, dtype=torch.float16, enabled=CONFIG.mixed_precision):
+            outputs = model(mels)
+            check_shape(outputs, labels)
+            loss = model.loss_fn(outputs, labels)
+        outputs = outputs.to(dtype=torch.float32)
+        loss = loss.to(dtype=torch.float32)
 
-        outputs = model(mels)
-
-        check_shape(outputs, labels)
-
-        loss = model.loss_fn(outputs, labels)
-
-        loss.backward()
-        optimizer.step()
-
+        if CONFIG.mixed_precision:
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss.backward()
+            optimizer.step()
+        
         if scheduler is not None:
             scheduler.step()
 
@@ -113,6 +128,7 @@ def train(model: BirdCLEFModel,
             start_time = datetime.datetime.now()
             annotations = ((i % CONFIG.logging_freq) or CONFIG.logging_freq) * CONFIG.train_batch_size
             annotations_per_sec = annotations / duration
+            epoch_progress = epoch + float(i) / len(data_loader)
             #Log to Weights and Biases
             wandb.log({
                 "train/loss": log_loss / log_n,
@@ -121,25 +137,30 @@ def train(model: BirdCLEFModel,
                 "i": i,
                 "epoch": epoch,
                 "clips/sec": annotations_per_sec,
+                "epoch_progress": epoch_progress,
             })
-            print("i:", i, "epoch:", epoch, "clips/s:", annotations_per_sec,
-                  "Loss:", log_loss / log_n,
-                  "Accuracy:", correct / total, "mAP", mAP / log_n)
+            print("i:", i, "epoch:", epoch_progress,
+                  "clips/s:", annotations_per_sec, 
+                  "Loss:", log_loss / log_n, 
+                  "mAP", mAP / log_n)
             log_loss = 0
             log_n = 0
             correct = 0
             total = 0
             mAP = 0
 
+        if (i != 0 and i % (CONFIG.valid_freq) == 0):
+            _, _, best_valid_cmap = valid(model, valid_loader, step, best_valid_cmap, CONFIG)
 
         step += 1
-    return running_loss/len(data_loader)
+    return running_loss/len(data_loader), best_valid_cmap
 
 
-def valid(model: BirdCLEFModel,
+def valid(model: Any,
           data_loader: PyhaDF_Dataset,
           step: int,
-          CONFIG) -> Tuple[float, float]:
+          best_valid_cmap: float,
+          CONFIG):
     """
     Run a validation loop
     """
@@ -188,9 +209,21 @@ def valid(model: BirdCLEFModel,
         "valid/loss": running_loss/len(data_loader),
         "valid/map": valid_map,
         "custom_step": step,
+        "epoch_progress": step,
     })
 
-    return running_loss/len(data_loader), valid_map
+    print(f"Validation Loss:\t{running_loss/len(data_loader)} \n Validation mAP:\t{valid_map}" )
+    if valid_map > best_valid_cmap:
+        path = os.path.join("models",wandb_run.name + '.pt')
+        if not os.path.exists("models"):
+            os.mkdir("models")
+        torch.save(model.state_dict(), path)
+        print("Model saved in:", path)
+        print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
+        best_valid_cmap = valid_map
+
+    
+    return running_loss/len(data_loader), valid_map, best_valid_cmap
 
 
 def init_wandb(CONFIG: Dict[str, Any]):
@@ -203,18 +236,14 @@ def init_wandb(CONFIG: Dict[str, Any]):
         mode="disabled" if CONFIG.logging is False else "online"
     )
     run.name = (
-        f"EFN-{CONFIG.epochs}"+
-        f"-{CONFIG.train_batch_size}-{CONFIG.valid_batch_size}" +
-        f"-{CONFIG.sample_rate}-{CONFIG.hop_length}-" +
-        f"{CONFIG.max_time}-{CONFIG.n_mels}" +
-        f"-{CONFIG.n_fft}-{CONFIG.seed}-" +
-        run.name.split('-')[-1]
+        CONFIG.model + 
+        f"-{time_now}"
     )
 
     return run
 
-def load_datasets(val_dataset, train_dataset, CONFIG: Dict[str, Any]) \
-    -> Tuple[PyhaDF_Dataset, PyhaDF_Dataset, torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+def load_datasets(val_dataset, train_dataset, CONFIG: Dict[str, Any]
+        )-> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
     """
         Loads datasets and dataloaders for train and validation
     """
@@ -253,14 +282,16 @@ def main():
     train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset, CONFIG)
 
     print("Loading Model...")
-    model_for_run = BirdCLEFModel(train_dataset.num_classes,CONFIG=CONFIG).to(device)
+    model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
+                                model_name=CONFIG.model, 
+                                CONFIG=CONFIG).to(device)
     model_for_run.create_loss_fn(train_dataset)
     if CONFIG.model_checkpoint is not None:
         model_for_run.load_state_dict(torch.load(CONFIG.model_checkpoint))
     optimizer = Adam(model_for_run.parameters(), lr=CONFIG.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
-    print("Model / Optimizer Loading Succesful :P")
-
+    print("Model / Optimizer Loading Successful :P")
+    
     print("Training")
     step = 0
     best_valid_cmap = 0
@@ -268,29 +299,22 @@ def main():
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))
 
-        _ = train(
-            model_for_run,
+        _, best_valid_cmap = train(
+            model_for_run, 
             train_dataloader,
+            val_dataloader,
             optimizer,
             scheduler,
             device,
             step,
             epoch,
+            best_valid_cmap,
             CONFIG
         )
         step += 1
-
-        valid_loss, valid_map = valid(model_for_run, val_dataloader, step, CONFIG)
-        print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
-
-        if valid_map > best_valid_cmap:
-            path = os.path.join("models",wandb_run.name + '.pt')
-            if not os.path.exists("models"):
-                os.mkdir("models")
-            torch.save(model_for_run.state_dict(), path)
-            print("Model saved in:", path)
-            print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
-            best_valid_cmap = valid_map
-
+        
+        _, _, best_valid_cmap = valid(model_for_run, val_dataloader, step, best_valid_cmap, CONFIG)
+        print("Best validation cmap:", best_valid_cmap.item())
+        
 if __name__ == '__main__':
     main()
