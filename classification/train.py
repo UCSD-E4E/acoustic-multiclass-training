@@ -23,6 +23,7 @@ from torchmetrics.classification import MultilabelAveragePrecision
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
+from torch.amp import autocast
 import numpy as np
 from dataset import PyhaDF_Dataset, get_datasets
 from model import TimmModel
@@ -48,6 +49,9 @@ def check_shape(outputs, labels):
         raise RuntimeError("Shape diff between output of models and labels, see above and debug")
 
 
+
+# Splitting this up would be annoying!!!
+# pylint: disable=too-many-statements 
 def train(model: Any,
         data_loader: PyhaDF_Dataset,
         valid_loader:  PyhaDF_Dataset,
@@ -72,6 +76,9 @@ def train(model: Any,
     correct = 0
     total = 0
     mAP = 0
+    
+    scaler = torch.cuda.amp.GradScaler()
+
 
     start_time = datetime.datetime.now()
     for i, (mels, labels) in enumerate(data_loader):
@@ -79,14 +86,20 @@ def train(model: Any,
         mels = mels.to(device)
         labels = labels.to(device)
         
-        outputs = model(mels)
-        
-        check_shape(outputs, labels)
+        with autocast(device_type=device, dtype=torch.float16, enabled=CONFIG.mixed_precision):
+            outputs = model(mels)
+            check_shape(outputs, labels)
+            loss = model.loss_fn(outputs, labels)
+        outputs = outputs.to(dtype=torch.float32)
+        loss = loss.to(dtype=torch.float32)
 
-        loss = model.loss_fn(outputs, labels)
-
-        loss.backward()
-        optimizer.step()
+        if CONFIG.mixed_precision:
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss.backward()
+            optimizer.step()
         
         if scheduler is not None:
             scheduler.step()
