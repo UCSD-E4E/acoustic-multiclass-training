@@ -198,12 +198,12 @@ def valid(model: BirdCLEFModel,
         "epoch_progress": step,
     })
 
-    print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
+    print(f"Validation Loss:\t{running_loss/len(data_loader)} \n Validation mAP:\t{valid_map}" )
     if valid_map > best_valid_cmap:
         path = os.path.join("models",wandb_run.name + '.pt')
         if not os.path.exists("models"):
             os.mkdir("models")
-        torch.save(model_for_run.state_dict(), path)
+        torch.save(model.state_dict(), path)
         print("Model saved in:", path)
         print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
         best_valid_cmap = valid_map
