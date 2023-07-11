@@ -12,7 +12,7 @@
         valid: calculates validation loss and accuracy
         set_seed: sets the random seed
         init_wandb: initializes the Weights and Biases logging
-        
+
 
 """
 from typing import Dict, Any, Tuple
@@ -28,18 +28,19 @@ from dataset import PyhaDF_Dataset, get_datasets
 from model import BirdCLEFModel
 from utils import set_seed, print_verbose
 from config import get_config
+from augmentations import LowpassFilter, RandomEQ, SyntheticNoise, BackgroundNoise
 from tqdm import tqdm
 import wandb
 
 
 
 tqdm.pandas()
-time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S') 
+time_now  = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 wandb_run = None
 
 def check_shape(outputs, labels):
-    """ 
+    """
     Checks to make sure the output is the same
     """
     if outputs.shape != labels.shape:
@@ -57,7 +58,7 @@ def train(model: BirdCLEFModel,
         epoch: int,
         CONFIG) -> Tuple[float, int, float]:
     """ Trains the model
-        Returns: 
+        Returns:
             loss: the average loss over the epoch
             step: the current step
     """
@@ -76,21 +77,21 @@ def train(model: BirdCLEFModel,
         optimizer.zero_grad()
         mels = mels.to(device)
         labels = labels.to(device)
-        
+
         outputs = model(mels)
-        
+
         check_shape(outputs, labels)
 
         loss = model.loss_fn(outputs, labels)
 
         loss.backward()
         optimizer.step()
-        
+
         if scheduler is not None:
             scheduler.step()
-        
+
         running_loss += loss.item()
-        
+
         metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
         batch_mAP = metric(outputs.detach().cpu(), labels.detach().cpu().long()).item()
         # https://forums.fast.ai/t/nan-values-when-using-precision-in-multi-classification/59767/2
@@ -121,8 +122,8 @@ def train(model: BirdCLEFModel,
                 "epoch": epoch,
                 "clips/sec": annotations_per_sec,
             })
-            print("i:", i, "epoch:", epoch, "clips/s:", annotations_per_sec, 
-                  "Loss:", log_loss / log_n, 
+            print("i:", i, "epoch:", epoch, "clips/s:", annotations_per_sec,
+                  "Loss:", log_loss / log_n,
                   "Accuracy:", correct / total, "mAP", mAP / log_n)
             log_loss = 0
             log_n = 0
@@ -143,14 +144,14 @@ def valid(model: BirdCLEFModel,
     Run a validation loop
     """
     model.eval()
-    
+
     running_loss = 0
     pred = []
     label = []
-    
+
     # tqdm is a progress bar
     dl = tqdm(data_loader, position=5)
-    
+
     if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
         pred = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
         label = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
@@ -158,15 +159,15 @@ def valid(model: BirdCLEFModel,
         for _, (mels, labels) in enumerate(dl):
             mels = mels.to(device)
             labels = labels.to(device)
-            
+
             # argmax
             outputs = model(mels)
             check_shape(outputs, labels)
-            
+
             loss = model.loss_fn(outputs, labels)
-                
+
             running_loss += loss.item()
-            
+
             pred.append(outputs.cpu().detach())
             label.append(labels.cpu().detach())
 
@@ -181,19 +182,19 @@ def valid(model: BirdCLEFModel,
 
     metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
     valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
-    
+
     # Log to Weights and Biases
     wandb.log({
         "valid/loss": running_loss/len(data_loader),
         "valid/map": valid_map,
         "custom_step": step,
     })
-    
+
     return running_loss/len(data_loader), valid_map
 
 
 def init_wandb(CONFIG: Dict[str, Any]):
-    """ 
+    """
     Initialize the weights and biases logging
     """
     run = wandb.init(
@@ -212,13 +213,12 @@ def init_wandb(CONFIG: Dict[str, Any]):
 
     return run
 
-def load_datasets(CONFIG: Dict[str, Any]) \
+def load_datasets(val_dataset, train_dataset, CONFIG: Dict[str, Any]) \
     -> Tuple[PyhaDF_Dataset, PyhaDF_Dataset, torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
     """
         Loads datasets and dataloaders for train and validation
     """
 
-    train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         CONFIG.train_batch_size,
@@ -231,7 +231,7 @@ def load_datasets(CONFIG: Dict[str, Any]) \
         shuffle=False,
         num_workers=CONFIG.jobs,
     )
-    return train_dataset, val_dataset, train_dataloader, val_dataloader
+    return train_dataloader, val_dataloader
 
 def main():
     """ Main function
@@ -244,12 +244,14 @@ def main():
     global wandb_run
     wandb_run = init_wandb(CONFIG)
     set_seed(CONFIG.seed)
-    
+
     # Load in dataset
     print("Loading Dataset")
     # pylint: disable=unused-variable
-    train_dataset, val_dataset, train_dataloader, val_dataloader = load_datasets(CONFIG)
-    
+    transforms = torch.nn.Sequential(SyntheticNoise("white", 0.05))
+    train_dataset, val_dataset = get_datasets(transforms=transforms, CONFIG=CONFIG, alpha=0.3, mixup_idx=0)
+    train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset, CONFIG)
+
     print("Loading Model...")
     model_for_run = BirdCLEFModel(train_dataset.num_classes,CONFIG=CONFIG).to(device)
     model_for_run.create_loss_fn(train_dataset)
@@ -258,7 +260,7 @@ def main():
     optimizer = Adam(model_for_run.parameters(), lr=CONFIG.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
     print("Model / Optimizer Loading Succesful :P")
-    
+
     print("Training")
     step = 0
     best_valid_cmap = 0
@@ -267,7 +269,7 @@ def main():
         print("Epoch " + str(epoch))
 
         _ = train(
-            model_for_run, 
+            model_for_run,
             train_dataloader,
             optimizer,
             scheduler,
@@ -277,7 +279,7 @@ def main():
             CONFIG
         )
         step += 1
-        
+
         valid_loss, valid_map = valid(model_for_run, val_dataloader, step, CONFIG)
         print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
 
