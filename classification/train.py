@@ -25,7 +25,7 @@ import torch.nn.functional as F
 from torch.optim import Adam
 import numpy as np
 from dataset import PyhaDF_Dataset, get_datasets
-import model
+from model import TimmModel
 from utils import set_seed, print_verbose
 from config import get_config
 from tqdm import tqdm
@@ -247,7 +247,7 @@ def main():
     train_dataset, val_dataset, train_dataloader, val_dataloader = load_datasets(CONFIG)
     
     print("Loading Model...")
-    model_for_run = model.Model(num_classes=train_dataset.num_classes, 
+    model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
                                 model_name=CONFIG.model, 
                                 CONFIG=CONFIG).to(device)
     model_for_run.create_loss_fn(train_dataset)

@@ -12,7 +12,7 @@ from torch import nn
 import timm
 
 # pylint: disable=too-many-instance-attributes
-class Model(nn.Module):
+class TimmModel(nn.Module):
     """ Efficient net neural network
     """
     # pylint: disable=too-many-arguments
