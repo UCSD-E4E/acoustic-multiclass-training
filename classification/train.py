@@ -114,6 +114,7 @@ def train(model: BirdCLEFModel,
             start_time = datetime.datetime.now()
             annotations = ((i % CONFIG.logging_freq) or CONFIG.logging_freq) * CONFIG.train_batch_size
             annotations_per_sec = annotations / duration
+            epoch_progress = epoch + float(i) / len(data_loader)
             #Log to Weights and Biases
             wandb.log({
                 "train/loss": log_loss / log_n,
@@ -122,8 +123,10 @@ def train(model: BirdCLEFModel,
                 "i": i,
                 "epoch": epoch,
                 "clips/sec": annotations_per_sec,
+                "epoch_progress": epoch_progress,
             })
-            print("i:", i, "epoch:", epoch, "clips/s:", annotations_per_sec, 
+            print("i:", i, "epoch:", epoch_progress,
+                  "clips/s:", annotations_per_sec, 
                   "Loss:", log_loss / log_n, 
                   "Accuracy:", correct / total, "mAP", mAP / log_n)
             log_loss = 0
@@ -192,6 +195,7 @@ def valid(model: BirdCLEFModel,
         "valid/loss": running_loss/len(data_loader),
         "valid/map": valid_map,
         "custom_step": step,
+        "epoch_progress": step,
     })
 
     print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
