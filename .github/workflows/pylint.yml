@@ -5,19 +5,24 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.8"]
+    defaults:
+      run:
+        shell: bash -el {0}
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
+    - uses: actions/checkout@v2
+    - uses: conda-incubator/setup-miniconda@v2
       with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
+        activate-environment: asid
+        environment-file: environment.yml
+        auto-activate-base: false
+    - name: install pylint
       run: |
-        python -m pip install --upgrade pip
-        pip install pylint
-    - name: Analysing the code with pylint
+        conda install pylint
+        conda run pip install pylint
+        conda list
+    - name: Check env params
       run: |
-        pylint $(git ls-files '*.py')
+        conda info --envs 
+        conda info
+    - run: |
+        conda run python3 -m pylint $(git ls-files '*.py') --rcfile=.pylintrc

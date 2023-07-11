@@ -23,6 +23,8 @@ if ! echo "$miniconda_checksum  $miniconda_file" | sha256sum --check ; then
 fi
 
 bash $miniconda_file
+# Temporarily update PATH, it will be updated qutomatically in .bashrc
+export PATH="$HOME/miniconda3/bin:$PATH"
 conda env create -f environment.yml
 conda activate asid
 
@@ -30,9 +32,5 @@ conda activate asid
 echo "Installing AWS and s3fs"
 sudo apt install awscli
 sudo apt install s3fs
-
-# Configure aws
-echo "Starting aws configure. Please enter your access key and secret key. Leave region and output format default.\n"
-aws configure
 
 echo "System setup done. Please run documentation/aws/mount.sh to mount your s3 bucket."
