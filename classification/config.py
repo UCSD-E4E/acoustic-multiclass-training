@@ -12,8 +12,6 @@ def get_config():
 
     # Dataset settings
     parser.add_argument('-df', '--dataframe', default='CHANGEME.csv', type=str)
-    parser.add_argument('-cp', '--cache_path', default='./data/_cache', type=str)
-    parser.add_argument('-uc', '--use_cache', action='store_true')
     parser.add_argument('-dp', '--data_path', default='./all_10_species', type=str)
 
     parser.add_argument('-st', '--offset_col', default='OFFSET', type=str)
