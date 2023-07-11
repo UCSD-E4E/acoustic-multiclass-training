@@ -58,14 +58,13 @@ def train(model: Any,
         optimizer: torch.optim.Optimizer,
         scheduler,
         device: str,
-        step: int,
         epoch: int,
         best_valid_cmap: float,
         CONFIG) -> Tuple[float, int, float]:
     """ Trains the model
         Returns: 
             loss: the average loss over the epoch
-            step: the current step
+            best_valid_cmap: the best validation mAP
     """
     print_verbose('size of data loader:', len(data_loader),verbose=CONFIG.verbose)
     model.train()
@@ -149,15 +148,16 @@ def train(model: Any,
             mAP = 0
 
         if (i != 0 and i % (CONFIG.valid_freq) == 0):
-            _, _, best_valid_cmap = valid(model, valid_loader, step, best_valid_cmap, CONFIG)
-
-        step += 1
+            valid_start_time = datetime.datetime.now()
+            _, _, best_valid_cmap = valid(model, valid_loader, epoch + i / len(data_loader), best_valid_cmap, CONFIG)
+            # Ignore the time it takes to validate in annotations/sec
+            start_time += datetime.datetime.now() - valid_start_time
     return running_loss/len(data_loader), best_valid_cmap
 
 
 def valid(model: Any,
           data_loader: PyhaDF_Dataset,
-          step: int,
+          epoch: int,
           best_valid_cmap: float,
           CONFIG) -> Tuple[float, float]:
     """
@@ -207,8 +207,7 @@ def valid(model: Any,
     wandb.log({
         "valid/loss": running_loss/len(data_loader),
         "valid/map": valid_map,
-        "custom_step": step,
-        "epoch_progress": step,
+        "epoch_progress": epoch,
     })
 
     print(f"Validation Loss:\t{running_loss/len(data_loader)} \n Validation mAP:\t{valid_map}" )
@@ -291,7 +290,6 @@ def main():
     print("Model / Optimizer Loading Successful :P")
     
     print("Training")
-    step = 0
     best_valid_cmap = 0
 
     for epoch in range(CONFIG.epochs):
@@ -304,14 +302,12 @@ def main():
             optimizer,
             scheduler,
             device,
-            step,
             epoch,
             best_valid_cmap,
             CONFIG
         )
-        step += 1
         
-        _, _, best_valid_cmap = valid(model_for_run, val_dataloader, step, best_valid_cmap, CONFIG)
+        _, _, best_valid_cmap = valid(model_for_run, val_dataloader, epoch + 1, best_valid_cmap, CONFIG)
         print("Best validation cmap:", best_valid_cmap.item())
         
 if __name__ == '__main__':
