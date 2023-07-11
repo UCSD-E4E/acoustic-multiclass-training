@@ -51,11 +51,13 @@ def check_shape(outputs, labels):
 
 def train(model: Any,
         data_loader: PyhaDF_Dataset,
+        valid_loader:  PyhaDF_Dataset,
         optimizer: torch.optim.Optimizer,
         scheduler,
         device: str,
         step: int,
         epoch: int,
+        best_valid_cmap: float,
         CONFIG) -> Tuple[float, int, float]:
     """ Trains the model
         Returns: 
@@ -141,13 +143,17 @@ def train(model: Any,
             total = 0
             mAP = 0
 
+        if (i != 0 and i % (CONFIG.valid_freq) == 0):
+            _, _, best_valid_cmap = valid(model, valid_loader, step,best_valid_cmap, CONFIG)
+
         step += 1
-    return running_loss/len(data_loader)
+    return running_loss/len(data_loader), best_valid_cmap
 
 
 def valid(model: Any,
           data_loader: PyhaDF_Dataset,
           step: int,
+          best_valid_cmap: float,
           CONFIG) -> Tuple[float, float]:
     """
     Run a validation loop
@@ -198,8 +204,19 @@ def valid(model: Any,
         "valid/map": valid_map,
         "custom_step": step,
     })
+
+    print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
+    if valid_map > best_valid_cmap:
+        path = os.path.join("models",wandb_run.name + '.pt')
+        if not os.path.exists("models"):
+            os.mkdir("models")
+        torch.save(model_for_run.state_dict(), path)
+        print("Model saved in:", path)
+        print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
+        best_valid_cmap = valid_map
+
     
-    return running_loss/len(data_loader), valid_map
+    return running_loss/len(data_loader), valid_map, best_valid_cmap
 
 
 def init_wandb(CONFIG: Dict[str, Any]):
@@ -274,29 +291,21 @@ def main():
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))
 
-        _ = train(
+        _, best_valid_cmap = train(
             model_for_run, 
             train_dataloader,
+            val_dataloader,
             optimizer,
             scheduler,
             device,
             step,
             epoch,
+            best_valid_cmap,
             CONFIG
         )
         step += 1
         
-        valid_loss, valid_map = valid(model_for_run, val_dataloader, step, CONFIG)
-        print(f"Validation Loss:\t{valid_loss} \n Validation mAP:\t{valid_map}" )
-
-        if valid_map > best_valid_map:
-            path = os.path.join("models",wandb_run.name+f"-{epoch}.pt")
-            if not os.path.exists("models"):
-                os.mkdir("models")
-            torch.save(model_for_run.state_dict(), path)
-            print("Model saved in:", os.path.abspath(path))
-            print(f"Validation mAP Improved - {best_valid_map} ---> {valid_map}")
-            best_valid_map = valid_map
-
+        _, _, best_valid_cmap = valid(model_for_run, val_dataloader, step, best_valid_cmap, CONFIG)
+        
 if __name__ == '__main__':
     main()
