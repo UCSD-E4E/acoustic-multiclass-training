@@ -136,7 +136,7 @@ def train(model: Any,
             mAP = 0
 
         if (i != 0 and i % (CONFIG.valid_freq) == 0):
-            _, _, best_valid_cmap = valid(model, val_dataloader, step, best_valid_cmap, CONFIG)
+            _, _, best_valid_cmap = valid(model, valid_loader, step, best_valid_cmap, CONFIG)
 
         step += 1
     return running_loss/len(data_loader), best_valid_cmap
@@ -299,6 +299,7 @@ def main():
         step += 1
         
         _, _, best_valid_cmap = valid(model_for_run, val_dataloader, step, best_valid_cmap, CONFIG)
+        print("Best validation cmap:", best_valid_cmap.item())
         
 if __name__ == '__main__':
     main()
