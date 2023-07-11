@@ -197,7 +197,27 @@ class PyhaDF_Dataset(Dataset):
         target = target.float()
 
         try:
-            audio = self.extract_clip(index)
+            # Get necessary variables from annotation
+            annotation = self.samples.iloc[index]
+            file_name = annotation[self.config.file_name_col]
+            sample_per_sec = self.target_sample_rate
+            frame_offset = int(annotation[self.config.offset_col] * sample_per_sec)
+            num_frames = int(annotation[self.config.duration_col] * sample_per_sec)
+
+            # Load audio
+            audio = torch.load(os.path.join(self.config.data_path,file_name))
+        
+            if audio.shape[0] > num_frames:
+                audio = audio[frame_offset:frame_offset+num_frames]
+            else:
+                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=self.config.verbose)
+
+            # Crop if too long
+            if audio.shape[0] > self.num_samples:
+                audio = self.crop_audio(audio)
+            # Pad if too short
+            if audio.shape[0] < self.num_samples:
+                audio = self.pad_audio(audio)
         except Exception as e:
             print(e)
             print(file_name, index)
@@ -211,32 +231,6 @@ class PyhaDF_Dataset(Dataset):
         audio = audio.to(device)
         target = target.to(device)
         return audio, target
-    
-    def extract_clip(self, index: int) -> torch.Tensor:
-        """ Gets clip from longer file
-        """
-        # Get necessary variables from annotation
-        annotation = self.samples.iloc[index]
-        file_name = annotation[self.config.file_name_col]
-        sample_per_sec = self.target_sample_rate
-        frame_offset = int(annotation[self.config.offset_col] * sample_per_sec)
-        num_frames = int(annotation[self.config.duration_col] * sample_per_sec)
-
-        # Load audio
-        audio = torch.load(os.path.join(self.config.data_path,file_name))
-    
-        if audio.shape[0] > num_frames:
-            audio = audio[frame_offset:frame_offset+num_frames]
-        else:
-            print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=self.config.verbose)
-
-        # Crop if too long
-        if audio.shape[0] > self.num_samples:
-            audio = self.crop_audio(audio)
-        # Pad if too short
-        if audio.shape[0] < self.num_samples:
-            audio = self.pad_audio(audio)
-        return audio
 
     def __len__(self):
         return self.samples.shape[0]
