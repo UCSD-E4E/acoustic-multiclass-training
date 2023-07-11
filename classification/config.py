@@ -32,7 +32,7 @@ def get_config():
     parser.add_argument('-l', '--logging', default='True', type=str)
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('-lf', '--logging_freq', default=20, type=int)
-    parser.add_argument('-vf', '--valid_freq', default=30, type=int)
+    parser.add_argument('-vf', '--valid_freq', default=2000, type=int)
 
     # Model Training settings
     # pylint: disable=pointless-string-statement
