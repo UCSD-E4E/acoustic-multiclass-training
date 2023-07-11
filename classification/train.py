@@ -279,7 +279,7 @@ def main():
     
     print("Training")
     step = 0
-    best_valid_map = 0
+    best_valid_cmap = 0
 
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))
