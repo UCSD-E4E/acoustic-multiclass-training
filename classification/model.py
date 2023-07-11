@@ -1,54 +1,16 @@
 # pylint: disable=E1123:
-# Litteraly I don't know why this code contains a pos_weight for CEL
-# This code comes from the BIRDCLEF2023 code, a review is despertely needed to understand why
-# This is being done to the loss function. 
 
-""" Contains the model class and the Generalized Mean Pooling layer
+""" Contains the model class
 
-    GeM: generalized mean pooling layer
-    BirdCLEFModel: model with forward pass method
+    Model: model with forward pass method. Generated automatically from a timm model
 
 """
 import torch
 from torch import nn
-import torch.nn.functional as F
 
 # timm is a library of premade models
 import timm
 
-#https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
-class GeM(nn.Module):
-    """ Layer that applies 2d Generalized Mean Pooling (GeM) on an input tensor
-        Args:
-            p: power for generalized mean pooling
-            eps: epsilon (avoid zero division)
-        
-        Layer applies the function ((x_1^p + x_2^p + ... + x_n^p)/n)^(1/p)
-        as compared to max pooling 2d which does something like max(x_1, x_2, ..., x_n)
-    """
-    def __init__(self, p=3, eps=1e-6):
-        """ Initializes the layer
-        """
-        super().__init__()
-        self.p = nn.Parameter(torch.ones(1)*p)
-        self.eps = eps
-
-    def forward(self, x):
-        """ Forward pass of the layer
-        """
-        return self.gem(x, p=self.p, eps=self.eps)
-        
-    def gem(self, x, p=3, eps=1e-6):
-        """ Applies generalized mean pooling on an input tensor
-        """
-        return F.avg_pool2d(x.clamp(min=eps).pow(p), (x.size(-2), x.size(-1))).pow(1./p)
-        
-    def __repr__(self):
-        """ Returns a string representation of the object
-        """
-        return self.__class__.__name__ + \
-                '(' + f'p={self.p.data.tolist()[0]:.4f}'+ \
-                ', ' + 'eps=' + str(self.eps) + ')'
 # pylint: disable=too-many-instance-attributes
 class Model(nn.Module):
     """ Efficient net neural network
@@ -57,7 +19,6 @@ class Model(nn.Module):
     def __init__(self,
                  num_classes,
                  model_name="tf_efficientnet_b4",
-                 embedding_size=768,
                  pretrained=True,
                  CONFIG=None):
         """ Initializes the model
@@ -65,50 +26,14 @@ class Model(nn.Module):
         super().__init__()
         self.config = CONFIG
         self.num_classes = num_classes
-        self.model = timm.create_model(model_name, pretrained=pretrained)
         # See config.py for list of recommended models
-        if model_name.startswith("tf_efficientnet_b"):
-            self.model_type = "efficientnet"
-            in_features = self.model.classifier.in_features
-            self.model.classifier = nn.Identity()
-            self.model.global_pool = nn.Identity()
-            self.pooling = GeM()
-            self.embedding = nn.Linear(in_features, embedding_size)
-            self.fc = nn.Linear(embedding_size, num_classes)
-            self.loss_fn = None
-        elif model_name.startswith("eca_nfnet"):
-            self.model_type = "eca_nfnet"
-            self.model.head.fc.out_features = num_classes
-            self.fc = nn.Linear(1000, num_classes)
-        elif model_name.startswith("convnext"):
-            self.model_type = "convnext"
-            self.model.head.fc.out_features = num_classes
-            self.fc = nn.Linear(1000, num_classes)
-        elif model_name.startswith("resnet"):
-            self.model_type = "resnet"
-            self.fc = nn.Linear(1000, num_classes)
-        elif model_name.startswith("seresnext"):
-            self.model_type = "seresnext"
-            self.fc = nn.Linear(1000, num_classes)
-        elif model_name.startswith("rexnet"):
-            self.model_type = "rexnet"
-            self.fc = nn.Linear(1000, num_classes)
-        elif model_name.startswith("mobilenetv3"):
-            self.model_type = "mobilenetv3"
-            self.fc = nn.Linear(11221, num_classes)
-        else:
-            raise ValueError("Invalid model name, not implemented yet")
+        self.model = timm.create_model(model_name, pretrained=pretrained, num_classes=num_classes)
+        self.loss_fn = None
     
     def forward(self, images):
         """ Forward pass of the model
         """
-        features = self.model(images)
-        # EfficientNet embedding layer and pooling
-        if self.model_type == "efficientnet":
-            pooled_features = self.pooling(features).flatten(1)
-            features = self.embedding(pooled_features)
-        output = self.fc(features)
-        return output
+        return self.model(images)
 
     def create_loss_fn(self,train_dataset):
         """ Returns the loss function and sets self.loss_fn
