@@ -267,7 +267,7 @@ def main():
     CONFIG = get_config()
     # Needed to redefine wandb_run as a global variable
     # pylint: disable=global-statement
-    #global wandb_run
+    global wandb_run
     wandb_run = init_wandb(CONFIG)
     set_seed(CONFIG.seed)
     
