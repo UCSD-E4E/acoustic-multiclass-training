@@ -148,7 +148,10 @@ def train(model: Any,
             mAP = 0
 
         if (i != 0 and i % (CONFIG.valid_freq) == 0):
+            valid_start_time = datetime.datetime.now()
             _, _, best_valid_cmap = valid(model, valid_loader, epoch + i / len(data_loader), best_valid_cmap, CONFIG)
+            # Ignore the time it takes to validate in annotations/sec
+            start_time += datetime.datetime.now() - valid_start_time
     return running_loss/len(data_loader), best_valid_cmap
 
 
