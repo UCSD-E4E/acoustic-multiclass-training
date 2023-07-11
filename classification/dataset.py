@@ -63,13 +63,10 @@ class PyhaDF_Dataset(Dataset):
         self.freq_mask = audtr.FrequencyMasking(freq_mask_param=self.config.freq_mask_param)
         self.time_mask = audtr.TimeMasking(time_mask_param=self.config.time_mask_param)
         
-        # List data directory and cache directory
+        # List data directory and confirm it exists
         if not os.path.exists(self.config.data_path):
             raise FileNotFoundError("Data path does not exist")
         self.data_dir = set(os.listdir(self.config.data_path))
-        if not os.path.exists(self.config.cache_path):
-            os.mkdir(self.config.cache_path)
-        self.cache_dir = set(os.listdir(self.config.cache_path))
         
         #Log bad files
         self.bad_files = []
@@ -181,14 +178,11 @@ class PyhaDF_Dataset(Dataset):
         self.formatted_csv_file = ".".join(self.csv_file.split(".")[:-1]) + "formatted.csv"
         self.samples.to_csv(self.formatted_csv_file)
 
-    def get_clip(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+    def get_annotation(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Returns tuple of audio waveform and its one-hot label
         """
         annotation = self.samples.iloc[index]
         file_name = annotation[self.config.file_name_col]
-        # Generate cache path (combination of filename and offset)
-        cache_name = ".".join(file_name.split(".")[:-1]) + \
-            str(annotation[self.config.offset_col]) + ".pt"
 
         # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
         class_name = annotation[self.config.manual_id_col]
@@ -203,10 +197,7 @@ class PyhaDF_Dataset(Dataset):
         target = target.float()
 
         try:
-            if self.config.use_cache and cache_name in self.cache_dir:
-                audio = torch.load(os.path.join(self.config.cache_path,cache_name))
-            else:
-                audio = self.extract_clip_and_cache(index, os.path.join(self.config.cache_path,cache_name))
+            audio = self.extract_clip(index)
         except Exception as e:
             print(e)
             print(file_name, index)
@@ -221,8 +212,8 @@ class PyhaDF_Dataset(Dataset):
         target = target.to(device)
         return audio, target
     
-    def extract_clip_and_cache(self, index: int, cache_path: str) -> torch.Tensor:
-        """ Gets clip from longer file and saves it to cache_path
+    def extract_clip(self, index: int) -> torch.Tensor:
+        """ Gets clip from longer file
         """
         # Get necessary variables from annotation
         annotation = self.samples.iloc[index]
@@ -245,10 +236,6 @@ class PyhaDF_Dataset(Dataset):
         # Pad if too short
         if audio.shape[0] < self.num_samples:
             audio = self.pad_audio(audio)
-        # Save cache
-        if self.config.use_cache:
-            torch.save(audio, cache_path)
-            self.cache_dir.add(cache_path)
         return audio
 
     def __len__(self):
@@ -258,7 +245,7 @@ class PyhaDF_Dataset(Dataset):
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
 
-        audio, target = self.get_clip(index)
+        audio, target = self.get_annotation(index)
 
         # Randomly shift audio
         if self.train and torch.rand(1) < self.config.time_shift_p:
@@ -270,7 +257,7 @@ class PyhaDF_Dataset(Dataset):
             audio = audio + noise
         # Mixup
         if self.train and torch.randn(1) < self.config.mix_p:
-            audio_2, target_2 = self.get_clip(np.random.randint(0, self.__len__()))
+            audio_2, target_2 = self.get_annotation(np.random.randint(0, self.__len__()))
             alpha = np.random.rand() * 0.3 + 0.1
             audio = audio * alpha + audio_2 * (1 - alpha)
             target = target * alpha + target_2 * (1 - alpha)
