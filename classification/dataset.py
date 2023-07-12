@@ -240,7 +240,8 @@ class PyhaDF_Dataset(Dataset):
 
         audio, target = self.get_annotation(index)
         if self.transforms:
-            audio, target = transforms(audio, target)
+            print("Transform applied")
+            audio, target = self.transforms(audio, target)
 
         # Randomly shift audio
         if self.train and torch.rand(1) < self.config.time_shift_p:
