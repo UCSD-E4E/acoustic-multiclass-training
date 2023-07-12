@@ -9,7 +9,6 @@
 - [Data Processing](#data-processing)
 - [Classification](#classification)
     - [Logging](#logging)
-- [Inference](#inference)
 
 ## Project Overview
 
@@ -51,7 +50,10 @@ data
 ├── XC324914.wav
 └── ...
 ```
-The CSV files in `data/_metadata` contain all metadata about clips in that dataset, which includes song file location, offset and duration of the clip, species name, and whether it is in training or validation. Using multiple different CSV files allows for different training scenarios such as using a small subset of clips to test a data augmentation technique.
+
+The data folder, cache folder (optional), and the CSV location must all be referenced in `config.py` before running `train.py`. In the CSV file the `"FILE NAME"` column must be the name of the file with no path preceding it. In this example, it would be `XC113914.wav`.
+
+The CSV file referenced in `config.py` contains all metadata about clips in that dataset, which includes song file location, offset and duration of the clip, and species name. Using multiple different CSV files allows for different training scenarios such as using a small subset of clips to test a data augmentation technique.
 
 We ran into issues running PyHa over `.ogg` files, so there is an included function `convert2wav` in `gen_csv_labels.py` to convert `.ogg` to `.wav` files and can be swapped out for your original filetype. This issue only occurs in generating chunks in the data processing pipeline. However, the training pipeline is able to predict on most filetypes.
 
@@ -82,16 +84,9 @@ The main file is `train.py`, which has the main training loop and uses functions
 python train.py –mix_p=0.6
 ```
 
-See the top of `train.py` for more information on the hyperparameters.
+These hyperparameters can also be changed in `config.py`.
 
-In order to make sure the data loads correctly, lines 428-429 in `dataset.py` must be modified to point to the correct folders which house the train and validation splits for the dataset. For example:
-
-```py
-train_data = BirdCLEFDataset(root="./BirdCLEF2023_split_chunks/training", CONFIG=CONFIG)
-val_data = BirdCLEFDataset(root="./BirdCLEF2023_split_chunks/validation", CONFIG=CONFIG)
-```
-
-To select a model, add a `model_name` parameter in `CONFIG` when instantiating `BirdCLEFModel`, or edit the `model.py` file directly. `model.py` loads in models using the [Pytorch Image Models library (timm)](https://timm.fast.ai/) and supports a variety of models including EfficientNets, ResNets, and DenseNets. To directly load local models, you would add another parameter for the checkpoint path:
+To select a model, add a `model_name` parameter in `config.py` when instantiating `BirdCLEFModel`, or edit the `model.py` file directly. `model.py` loads in models using the [Pytorch Image Models library (timm)](https://timm.fast.ai/) and supports a variety of models including EfficientNets, ResNets, and DenseNets. To directly load local models, you would add another parameter for the checkpoint path:
 ```py
 self.model = timm.create_model('tf_efficientnet_b1', checkpoint_path='./models/tf_efficientnet_b1_aa-ea7a6ee0.pth')
 ```
@@ -101,7 +96,7 @@ This project is set up with [WandB](https://wandb.ai), a dashboard to keep track
 
 ![](images/SampleWandBOutputs.PNG)
 
-However, this can be disabled during runtime using the `-l` flag:
+If you do not want to enable WandB logging, it can disabled during runtime using the `-l` flag:
 ```
 python train.py -l False
 ```
