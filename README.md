@@ -58,24 +58,13 @@ The CSV file referenced in `config.py` contains all metadata about clips in that
 We ran into issues running PyHa over `.ogg` files, so there is an included function `convert2wav` in `gen_csv_labels.py` to convert `.ogg` to `.wav` files and can be swapped out for your original filetype. This issue only occurs in generating chunks in the data processing pipeline. However, the training pipeline is able to predict on most filetypes.
 
 ## Data Processing
+The main file is is `gen_csv_labels.py` and uses functions from `config.py` and `WTS_chunking.py`. After downloading and setting up PyHa, copy all scripts in the `chunking_methods/` folder into the PyHa directory and cd into it. Also, activate the PyHa conda environment. 
+If PyHa was correctly set up, this script will generate two csvs: one with strong labels, one with chunked strong labels. For example, to create labels with 5 second, sliding window chunks for `.ogg` files in a folder called `~/amabaw1`, you can run the following:
 
-The main file in our data processing pipeline is `gen_csv_labels.py`. After downloading and setting up PyHa, copy this script and `WTS_chunking.py` into the PyHa directory and cd into it. If PyHa was correctly set up, this script will run TweetyNet on the entire dataset in order to produce binary labels in a file.
-
-For example, if our dataset is located at `./amabaw1/`, the script can be run with the following command: 
-```bash
-python gen_tweety_labels.py ./amabaw1/
 ```
-
-This file
-1. Converts files to `.wav` if necessary
-2. Uses TweetyNet within PyHa to generate a `.csv` file with strong binary labels
-- Produces the file at `STRONG_LABELS_CSV`
-3. Uses the original metadata to attach a class to the strong binary labels, creating multi-class strongly-labeled data.
-- Uses `METADATA_PATH` to produce `STRONG_LABELS_CSV`
-4. Chunks the produced labels using a sliding-window method.
-- Produces the file at `CHUNKED_CSV`
-
-It can also create a `.csv` for simple "raw" 5s chunks if `SLIDING_CHUNKS` is set to `False`.
+python gen_csv_labels.py -cd 5 -sl True -ft .ogg -dp ~/amabaw1/
+```
+If using simple chunks, ie. if `SLIDING_CHUNKS` is set to `False`, it will only create one `.csv`
 
 ## Classification
 The main file is `train.py`, which has the main training loop and uses functions from `dataset.py` and `model.py`. This has a number of hyperparameters related to training, logging, and data augmentation that can be passed in as arguments. For example, to run with a mixup probability of 0.6, with all other arguments kept to the defaults, you would run:

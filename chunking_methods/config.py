@@ -14,9 +14,9 @@ def get_config():
     parser.add_argument('-ft', '--filetype', default=".wav", type=str)
     parser.add_argument('-sl', '--sliding_chunks', default=True, type=bool)
 
-    parser.add_argument('-dp', '--data_path', default='~/amabaw1/', type=str)
+    parser.add_argument('-dp', '--data_path', default='~/path/to/data/', type=str)
     parser.add_argument('-mp', '--metadata', default='~/metadata.csv', type=str)
-    parser.add_argument('-sp', '--strong_labels', default='~/amabaw1_strong_labels.csv', type=str)
-    parser.add_argument('-cp', '--chunk_path', default='~/amabaw1_chunks.csv', type=str)
+    parser.add_argument('-sp', '--strong_labels', default='~/strong_labels.csv', type=str)
+    parser.add_argument('-cp', '--chunk_path', default='~/chunks.csv', type=str)
 
     return parser.parse_args()

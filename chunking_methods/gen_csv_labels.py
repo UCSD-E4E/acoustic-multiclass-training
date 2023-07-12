@@ -138,11 +138,11 @@ def generate_raw_chunks(path, metadata, chunk_duration=5, filetype=".wav"):
             audio = AudioSegment.from_file(f)
         except RuntimeError as e:
             # catch ffmpeg error
-            print("Audio conversion failed for ", filename +filetype)
+            print("Audio conversion failed for ", filename + filetype)
             print(e)
             continue
         
-        basepath, ext = os.path.splitext(os.path.basename(f))
+        basepath = os.path.splitext(os.path.basename(f))[0] # only want basepath
         filename = basepath.split('.')[0]
         file_length = len(audio) # in ms
         num_chunks = ceil(file_length / (chunk_length))
