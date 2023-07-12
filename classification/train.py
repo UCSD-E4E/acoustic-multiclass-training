@@ -152,7 +152,12 @@ def train(model: Any,
 
         if (i != 0 and i % (CONFIG.valid_freq) == 0):
             valid_start_time = datetime.datetime.now()
-            _, _, best_valid_cmap = valid(model, valid_loader, epoch + i / len(data_loader), best_valid_cmap, CONFIG)
+            _, _, best_valid_cmap = valid(model, 
+                                          valid_loader, 
+                                          epoch + i / len(data_loader), 
+                                          best_valid_cmap, 
+                                          CONFIG.valid_dataset_ratio,
+                                          CONFIG)
             # Ignore the time it takes to validate in annotations/sec
             start_time += datetime.datetime.now() - valid_start_time
     return running_loss/len(data_loader), best_valid_cmap
@@ -162,6 +167,7 @@ def valid(model: Any,
           data_loader: PyhaDF_Dataset,
           epoch: int,
           best_valid_cmap: float,
+          dataset_ratio: float,
           CONFIG) -> Tuple[float, float]:
     """
     Run a validation loop
@@ -173,14 +179,17 @@ def valid(model: Any,
     label = []
     
     # tqdm is a progress bar
-    dl = tqdm(data_loader, position=5)
+    dl = tqdm(data_loader, position=5, total=int(len(data_loader)*dataset_ratio))
     
     if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
         pred = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
         label = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
     else:
         with torch.no_grad():
-            for _, (mels, labels) in enumerate(dl):
+            for index, (mels, labels) in enumerate(dl):
+                if index * dataset_ratio > len(dl):
+                    # Stop early if not doing full validation
+                    break
                 mels = mels.to(device)
                 labels = labels.to(device)
                 
@@ -311,7 +320,12 @@ def main():
             CONFIG
         )
         
-        _, _, best_valid_cmap = valid(model_for_run, val_dataloader, epoch + 1, best_valid_cmap, CONFIG)
+        _, _, best_valid_cmap = valid(model_for_run, 
+                                      val_dataloader, 
+                                      epoch + 1, 
+                                      best_valid_cmap, 
+                                      1.0, # Use 100% of validation set
+                                      CONFIG)
         print("Best validation cmap:", best_valid_cmap.item())
         
 if __name__ == '__main__':

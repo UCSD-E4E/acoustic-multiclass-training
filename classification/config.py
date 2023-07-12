@@ -26,6 +26,9 @@ def get_config():
     parser.add_argument('-wbs', '--wandb_session', default="acoustic-species-reu2023", 
                         type=str, help="wandb project name")
 
+    parser.add_argument('-vdr', '--valid_dataset_ratio', default=0.4, type=float,
+                        help="ratio of validation dataset to run during epochs") 
+
     # Functional settings
     parser.add_argument('-j', '--jobs', default=2, type=int)
     parser.add_argument('-s', '--seed', default=0, type=int)
