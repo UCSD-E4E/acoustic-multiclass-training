@@ -4,11 +4,11 @@
 # but for MVP ignore this for now
 
 """ Contains methods for loading the dataset and also creates dataloaders for training and validation
-    
-    BirdCLEFDataset is a generic loader with a given root directory. 
+
+    BirdCLEFDataset is a generic loader with a given root directory.
     It loads the audio files and converts them to mel spectrograms.
     get_datasets returns the train and validation datasets as BirdCLEFDataset objects.
-    
+
     If this module is run directly, it tests that the dataloader works and prints the shape of the first batch.
 
 """
@@ -28,12 +28,12 @@ import numpy as np
 from utils import set_seed, print_verbose
 from config import get_config
 from tqdm import tqdm
+from augmentations import add_mixup, Mixup
         
 
 
 tqdm.pandas()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
 
 #https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
 class PyhaDF_Dataset(Dataset):
@@ -41,7 +41,7 @@ class PyhaDF_Dataset(Dataset):
         Dataset designed to work with pyha output
         Save unchunked data
     """
-    
+
     # df, csv_file, train, and species decided outside of config, so those cannot be added in there
     # pylint: disable-next=too-many-instance-attributes
     # pylint: disable-next=too-many-arguments
@@ -56,13 +56,15 @@ class PyhaDF_Dataset(Dataset):
         self.train = train
 
 
-        self.mel_spectogram = audtr.MelSpectrogram(sample_rate=self.target_sample_rate, 
-                                        n_mels=self.config.n_mels, 
+        self.mel_spectogram = audtr.MelSpectrogram(sample_rate=self.target_sample_rate,
+                                        n_mels=self.config.n_mels,
                                         n_fft=self.config.n_fft)
         self.mel_spectogram.cuda(device)
         self.freq_mask = audtr.FrequencyMasking(freq_mask_param=self.config.freq_mask_param)
         self.time_mask = audtr.TimeMasking(time_mask_param=self.config.time_mask_param)
-        
+        self.transforms = None
+        self.mixup = None
+
         # List data directory and confirm it exists
         if not os.path.exists(self.config.data_path):
             raise FileNotFoundError("Data path does not exist")
@@ -93,7 +95,7 @@ class PyhaDF_Dataset(Dataset):
         self.samples = self.samples[
             ~self.samples[self.config.file_name_col].isin(missing_files)
         ]
-        
+
     def process_audio_file(self, file_name):
         """
         Save waveform of audio file as a tensor and save that tensor to .pt
@@ -114,14 +116,13 @@ class PyhaDF_Dataset(Dataset):
 
             if len(audio.shape) > 1:
                 audio = self.to_mono(audio)
-      
+
             # Resample
             if sample_rate != self.target_sample_rate:
                 resample = audtr.Resample(sample_rate, self.target_sample_rate)
                 #resample.cuda(device)
                 audio = resample(audio)
 
-            
             torch.save(audio, os.path.join(self.config.data_path,new_name))
             self.data_dir.add(new_name)
         # IO is messy, I want any file that could be problematic
@@ -134,8 +135,8 @@ class PyhaDF_Dataset(Dataset):
                 "FILE NAME": file_name,    
                 "files": "bad"
             }).T
-        
-        
+
+
         return pd.Series({
                 "FILE NAME": file_name,    
                 "files": new_name
@@ -149,8 +150,7 @@ class PyhaDF_Dataset(Dataset):
         Future training faster
         """
         self.verify_audio()
-        files = pd.DataFrame(
-            self.samples[self.config.file_name_col].unique(),
+        files = pd.DataFrame( self.samples[self.config.file_name_col].unique(),
             columns=["files"]
         )
         files = files["files"].progress_apply(self.process_audio_file)
@@ -234,38 +234,45 @@ class PyhaDF_Dataset(Dataset):
 
     def __len__(self):
         return self.samples.shape[0]
-    
+
     def __getitem__(self, index): #-> Any:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
 
         audio, target = self.get_annotation(index)
+        if self.transforms is not None:
+            mixup_idx = 0
+            audio, target = add_mixup(audio, 
+                                      target, 
+                                      self.mixup, 
+                                      self.transforms, 
+                                      mixup_idx) 
 
         # Randomly shift audio
         if self.train and torch.rand(1) < self.config.time_shift_p:
             shift = torch.randint(0, self.num_samples, (1,))
             audio = torch.roll(audio, shift, dims=1)
-        # Add noise
-        if self.train and torch.randn(1) < self.config.noise_p:
-            noise = torch.randn_like(audio) * self.config.noise_std
-            audio = audio + noise
-        # Mixup
-        if self.train and torch.randn(1) < self.config.mix_p:
-            audio_2, target_2 = self.get_annotation(np.random.randint(0, self.__len__()))
-            alpha = np.random.rand() * 0.3 + 0.1
-            audio = audio * alpha + audio_2 * (1 - alpha)
-            target = target * alpha + target_2 * (1 - alpha)
+#        # Add noise
+#        if self.train and torch.randn(1) < self.config.noise_p:
+#            noise = torch.randn_like(audio) * self.config.noise_std
+#            audio = audio + noise
+#        # Mixup
+#        if self.train and torch.randn(1) < self.config.mix_p:
+#            audio_2, target_2 = self.get_annotation(np.random.randint(0, self.__len__()))
+#            alpha = np.random.rand() * 0.3 + 0.1
+#            audio = audio * alpha + audio_2 * (1 - alpha)
+#            target = target * alpha + target_2 * (1 - alpha)
 
         # Mel spectrogram
         mel = self.mel_spectogram(audio)
 
         # Convert to Image
         image = torch.stack([mel, mel, mel])
-        
+
         # Normalize Image
         max_val = torch.abs(image).max() + 0.000001
         image = image / max_val
-        
+
         # Frequency masking and time masking
         if self.train and torch.randn(1) < self.config.freq_mask_p:
             image = self.freq_mask(image)
@@ -277,9 +284,18 @@ class PyhaDF_Dataset(Dataset):
             self.bad_files.append(index)
             #try again with a diff annotation to avoid training breaking
             image, target = self[self.samples.sample(1).index[0]]
-            
+
         return image, target
-            
+
+    def set_transforms(self, transforms):
+        """ Sets the transforms for the dataset
+        """
+        self.transforms = transforms
+    def set_mixup(self, mixup):
+        """ Sets the mixup object for the dataset
+        """
+        self.mixup = mixup
+
     def pad_audio(self, audio: torch.Tensor) -> torch.Tensor:
         """Fills the last dimension of the input audio with zeroes until it is num_samples long
         """
@@ -287,31 +303,34 @@ class PyhaDF_Dataset(Dataset):
         last_dim_padding = (0, pad_length)
         audio = F.pad(audio, last_dim_padding)
         return audio
-        
+
     def crop_audio(self, audio: torch.Tensor) -> torch.Tensor:
         """Cuts audio to num_samples long
         """
         return audio[:self.num_samples]
-        
+
     def to_mono(self, audio: torch.Tensor) -> torch.Tensor:
         """ Converts audio to mono by averaging the channels
         """
         return torch.mean(audio, axis=0)
-        
+
     def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
         """ Returns tuple of class list and class to index dictionary
         """
         return self.classes, self.class_to_idx
-    
+
     def get_num_classes(self) -> int:
         """ Returns number of classes
         """
-        return self.num_classes   
-    
+        return self.num_classes
 
-def get_datasets(CONFIG=None):
-    """ Returns train and validation datasets, does random sampling for train/valid split
+
+def get_datasets(
+        transforms = None, CONFIG=None, alpha=0.3
+        ):
+    """ Returns train and validation datasets, does random sampling for train/valid split, adds transforms to dataset
     """
+
 
     train_p = CONFIG.train_test_split
     path = CONFIG.dataframe
@@ -334,9 +353,15 @@ def get_datasets(CONFIG=None):
     train = data[data[CONFIG.file_name_col].isin(train_files)]
 
     valid = data[~data.index.isin(train.index)]
-    
+
     train_ds = PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG)
     species = train_ds.get_classes()
+
+    mixup_ds = PyhaDF_Dataset(train, csv_file="mixup.csv",train=False, CONFIG=CONFIG)
+    mixup = Mixup(mixup_ds, alpha)
+    if transforms is not None:
+        train_ds.set_transforms(transforms)
+        train_ds.set_mixup(mixup)
 
     valid_ds = PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, species=species, CONFIG=CONFIG)
     return train_ds, valid_ds
