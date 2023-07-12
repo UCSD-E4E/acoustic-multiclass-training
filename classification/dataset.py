@@ -239,7 +239,7 @@ class PyhaDF_Dataset(Dataset):
         """
 
         audio, target = self.get_annotation(index)
-        if self.transforms:
+        if self.transforms is not None:
             print("Transform applied")
             audio, target = self.transforms(audio, target)
 
