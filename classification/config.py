@@ -62,6 +62,10 @@ def get_config():
     parser.add_argument('-md', '--map_debug', action='store_true')
     parser.add_argument('-mxp', '--mixed_precision', action='store_true')
 
+    # Early stopping
+    parser.add_argument('-es', '--early_stopping', action='store_true')
+    parser.add_argument('-pa', '--patience', type=int, default=3, help="epochs to wait before stopping")
+    parser.add_argument('-del', '--min_delta', type=float, default=0.01, help='min improvement btwn epochs')
     # Transforms settings
     parser.add_argument('-p', '--p', default=0, type=float, help='probability for mixup')
     parser.add_argument('-i', '--imb', action='store_true', help='imbalance sampler')

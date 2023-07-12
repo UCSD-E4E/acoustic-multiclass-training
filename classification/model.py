@@ -1,7 +1,6 @@
 # pylint: disable=E1123:
 
 """ Contains the model class
-
     Model: model with forward pass method. Generated automatically from a timm model
 
 """
@@ -51,3 +50,24 @@ def cross_entropy_loss_fn(self,train_dataset):
                 [1 / p for p in train_dataset.class_id_to_num_samples.values()]
             ).to(self.device))
     return self.loss_fn
+
+class EarlyStopper:
+    """Stop when the model is no longer improving
+    """
+    def __init__(self, patience=3, min_delta=0):
+        self.patience = patience # epochs to wait before stopping
+        self.min_delta = min_delta # min change that counts as improvement
+        self.counter = 0
+        self.max_valid_map = 0
+
+    def early_stop(self, valid_map):
+        # reset counter if it improved by more than min_delta
+        if valid_map > self.max_valid_map + self.min_delta:
+            self.max_valid_map = valid_map
+            self.counter = 0
+        # increase counter if it has not improved
+        elif valid_map < (self.max_valid_map - self.min_delta):
+            self.counter += 1
+            if self.counter >= self.patience:
+                return True
+        return False
