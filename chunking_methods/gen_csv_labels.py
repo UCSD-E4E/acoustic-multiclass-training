@@ -9,7 +9,7 @@ import os
 import sys
 from math import ceil
 import pandas as pd
-from pydub import AudioSegment
+from pydub import AudioSegment, exceptions
 from config import get_config
 from WTS_chunking import dynamic_yan_chunking
 # pylint: disable=import-error #this file gets put into PyHa
@@ -136,7 +136,7 @@ def generate_raw_chunks(path, metadata, chunk_duration=5, filetype=".wav"):
     for f in files:
         try:
             audio = AudioSegment.from_file(f)
-        except RuntimeError as e:
+        except exceptions.CouldntDecodeError as e:
             # catch ffmpeg error
             print("Audio conversion failed for ", filename + filetype)
             print(e)
