@@ -14,9 +14,9 @@
 
 Passive acoustic monitoring (PAM) plays a crucial role in conservation efforts and the preservation of biodiversity. By capturing and analyzing the sounds produced by avian species in their natural habitats, this non-invasive method provides valuable insights into population dynamics, species richness, and habitat quality, as birds may act as key indicators of larger environmental effects. However, as PAM systems may collect terabytes of noisy audio data, with other species and human encroachment polluting the recordings, extracting useful information from such audio recordings (i.e. where are birds present in the recording, what species of birds are they, etc.) remains an open problem. 
 
-This repo attempts to address this issue as part of the Automated Acoustic Species Identification pipeline in UCSD [Engineers for Exploration](https://e4e.ucsd.edu/). We created a uniform pipeline for preprocessing, training, and testing neural networks that aim to identify a significant number of species in a given enviroment. The full pipeline takes [Xeno-Canto](https://xeno-canto.org/) data as an input, runs our Weak to Strong label pipeline [PyHa](https://github.com/UCSD-E4E/PyHa) over file-level lables to produce time-specific, strongly labeled annotations that can be passed into our training methods. From here, neural network archietures can be trained and tested to determine
+This repo attempts to address this issue as part of the Automated Acoustic Species Identification pipeline in UCSD [Engineers for Exploration](https://e4e.ucsd.edu/). We created a uniform pipeline for preprocessing, training, and testing neural networks that aim to identify a significant number of species in a given enviroment. The full pipeline takes [Xeno-Canto](https://xeno-canto.org/) data as an input, runs our Weak to Strong label pipeline [PyHa](https://github.com/UCSD-E4E/PyHa) over file-level lables to produce time-specific, strongly labeled annotations that can be passed into our training methods. From here, acoustic bird species classifiers can be trained and tested to determine thier ablity to detect species of interests in any given region.
 
-Here, we present our first joint work with the UCSD [Engineers for Exploration](https://e4e.ucsd.edu/), , and the [BirdCLEF2023 Kaggle Competition](https://www.kaggle.com/competitions/birdclef-2023), where we have designed a full pipeline for processing noisy audio recordings to train an acoustic bird species classifier.
+This work was initally started during the [BirdCLEF2023 Kaggle Competition](https://www.kaggle.com/competitions/birdclef-2023). Large credits to CSE 145 and 237d teams who assited with this project and the summer 2023 REU students at E4E. 
 
 ![outline](images/main_diag.png)
 
@@ -88,12 +88,14 @@ The main file is `train.py`, which has the main training loop and uses functions
 python train.py –mix_p=0.6
 ```
 
-These hyperparameters can also be changed in `config.py`.
+These hyperparameters can also be changed in `config.py`. Its currently required to run this script from within the repo directory to save git hash in config namespace. This assits with reproduciblity by saving the hash used to run the model. 
 
-To select a model, add a `model_name` parameter in `config.py` when instantiating `BirdCLEFModel`, or edit the `model.py` file directly. `model.py` loads in models using the [Pytorch Image Models library (timm)](https://timm.fast.ai/) and supports a variety of models including EfficientNets, ResNets, and DenseNets. To directly load local models, you would add another parameter for the checkpoint path:
+To select a model, change the `model_name` parameter in `config.py` when instantiating `timmsModels`, or edit the `model.py` file directly. `model.py` loads in models using the [Pytorch Image Models library (timm)](https://timm.fast.ai/) and supports a variety of models including EfficientNets, ResNets, and DenseNets. To directly load local models, you would add another parameter for the checkpoint path:
 ```py
 self.model = timm.create_model('tf_efficientnet_b1', checkpoint_path='./models/tf_efficientnet_b1_aa-ea7a6ee0.pth')
 ```
+
+Custom models will also be in the pipleline sometime in the future
 
 ### Logging
 This project is set up with [WandB](https://wandb.ai), a dashboard to keep track of hyperparameters and system metrics. You’ll need to make an account and login locally to use it. WandB is extremely helpful for comparing models live and visualizing the training process.
