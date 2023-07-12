@@ -12,7 +12,7 @@
         valid: calculates validation loss and accuracy
         set_seed: sets the random seed
         init_wandb: initializes the Weights and Biases logging
-        
+
 
 """
 from typing import Dict, Any, Tuple
@@ -29,6 +29,7 @@ from dataset import PyhaDF_Dataset, get_datasets
 from model import TimmModel
 from utils import set_seed, print_verbose
 from config import get_config
+from augmentations import SyntheticNoise
 from tqdm import tqdm
 import wandb
 
@@ -40,7 +41,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 wandb_run = None
 
 def check_shape(outputs, labels):
-    """ 
+    """
     Checks to make sure the output is the same
     """
     if outputs.shape != labels.shape:
@@ -60,9 +61,9 @@ def train(model: Any,
         device: str,
         epoch: int,
         best_valid_cmap: float,
-        CONFIG) -> Tuple[float, int, float]:
+        CONFIG):
     """ Trains the model
-        Returns: 
+        Returns:
             loss: the average loss over the epoch
             best_valid_cmap: the best validation mAP
     """
@@ -105,9 +106,9 @@ def train(model: Any,
         
         if scheduler is not None:
             scheduler.step()
-        
+
         running_loss += loss.item()
-        
+
         metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
         batch_mAP = metric(outputs.detach().cpu(), labels.detach().cpu().long()).item()
         # https://forums.fast.ai/t/nan-values-when-using-precision-in-multi-classification/59767/2
@@ -173,14 +174,14 @@ def valid(model: Any,
     Run a validation loop
     """
     model.eval()
-    
+
     running_loss = 0
     pred = []
     label = []
-    
+
     # tqdm is a progress bar
     dl = tqdm(data_loader, position=5, total=int(len(data_loader)*dataset_ratio))
-    
+
     if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
         pred = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
         label = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
@@ -204,6 +205,7 @@ def valid(model: Any,
                 pred.append(outputs.cpu().detach())
                 label.append(labels.cpu().detach())
 
+
             pred = torch.cat(pred)
             label = torch.cat(label)
             if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
@@ -215,7 +217,7 @@ def valid(model: Any,
 
     metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
     valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
-    
+
     # Log to Weights and Biases
     wandb.log({
         "valid/loss": running_loss/len(data_loader),
@@ -238,7 +240,7 @@ def valid(model: Any,
 
 
 def init_wandb(CONFIG: Dict[str, Any]):
-    """ 
+    """
     Initialize the weights and biases logging
     """
     run = wandb.init(
@@ -253,13 +255,12 @@ def init_wandb(CONFIG: Dict[str, Any]):
 
     return run
 
-def load_datasets(CONFIG: Dict[str, Any]) \
-    -> Tuple[PyhaDF_Dataset, PyhaDF_Dataset, torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+def load_datasets(train_dataset, val_dataset, CONFIG: Dict[str, Any]
+        )-> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
     """
         Loads datasets and dataloaders for train and validation
     """
 
-    train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         CONFIG.train_batch_size,
@@ -272,7 +273,7 @@ def load_datasets(CONFIG: Dict[str, Any]) \
         shuffle=False,
         num_workers=CONFIG.jobs,
     )
-    return train_dataset, val_dataset, train_dataloader, val_dataloader
+    return train_dataloader, val_dataloader
 
 def main():
     """ Main function
@@ -285,12 +286,15 @@ def main():
     global wandb_run
     wandb_run = init_wandb(CONFIG)
     set_seed(CONFIG.seed)
-    
+
     # Load in dataset
     print("Loading Dataset")
     # pylint: disable=unused-variable
-    train_dataset, val_dataset, train_dataloader, val_dataloader = load_datasets(CONFIG)
-    
+    # for future can use torchvision.transforms.RandomApply here
+    transforms = torch.nn.Sequential(SyntheticNoise("white", 0.05))
+    train_dataset, val_dataset = get_datasets(transforms=transforms, CONFIG=CONFIG, alpha=0.3)
+    train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset, CONFIG)
+
     print("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
                                 model_name=CONFIG.model, 
