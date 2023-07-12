@@ -5,6 +5,7 @@
 """
 import argparse
 from operator import itemgetter
+import git
 
 def get_config():
     """ Returns a config variable with the command line arguments or defaults
@@ -83,6 +84,10 @@ def get_config():
     # Convert string arguments to boolean
     CONFIG.logging = CONFIG.logging == 'True'
     
+    #Add git hash to config so wand logging can track vrs used for reproduciblity
+    repo = git.Repo(search_parent_directories=True)
+    sha = repo.head.object.hexsha
+    setattr(CONFIG, "git_hash", sha)
     return CONFIG
 
 def get_args(*args):
