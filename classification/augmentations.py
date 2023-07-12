@@ -62,7 +62,7 @@ def add_mixup(mixup: Mixup, sequential: torch.nn.Sequential, idx:int) -> Callabl
         head = sequential[:idx]
         tail = sequential[idx:]
         clip = head(clip)
-        clip, target = mixup.forward(clip, target)
+        clip, target = mixup(clip, target)
         clip = tail(clip)
         return clip, target
 
