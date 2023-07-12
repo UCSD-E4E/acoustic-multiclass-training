@@ -118,9 +118,29 @@ class BirdnetYCNNModel(nn.Module):
         #birdnet_embeddings
 
 
-        return self.cnn_model(images)
+        return x
 
     def create_loss_fn(self,train_dataset):
         """ Returns the loss function and sets self.loss_fn
         """
         return cross_entropy_loss_fn(self, train_dataset)
+
+def test():
+    #Startup
+    torch.multiprocessing.set_start_method('spawn')
+    CONFIG = get_config()
+    set_seed(CONFIG.seed)
+    train_ds, valid_ds = get_datasets(CONFIG=CONFIG)
+
+    #Testing
+    print("Starting Model Test")
+    model = BirdnetYCNNModel()
+    data, target = train_ds[0]
+    out = model(data)
+    print(out.shape)
+
+
+if __name__ == "__main__":
+    #Prevents circular dependecies, this is just for testing :)
+    from dataset import get_datasets
+    test()
