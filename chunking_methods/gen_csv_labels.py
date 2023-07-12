@@ -126,7 +126,7 @@ def generate_raw_chunks(path, metadata, chunk_duration=5, filetype=".wav"):
             - File extension for incoming audio files
     Returns a DataFrame with end-to-end chunked annotations
     """  
-    chunked_df = pd.DataFrame(columns=["FILE NAME", "FOLDER", "OFFSET", "DURATION", "CLIP LENGTH"])
+    chunked_df = []
     chunk_length = chunk_duration * 1000
 
     metadata_df = pd.read_csv(metadata)
@@ -176,7 +176,7 @@ def generate_raw_chunks(path, metadata, chunk_duration=5, filetype=".wav"):
                     file_length
                 ]
                 chunked_df.append(temp)
-    return pd.DataFrame(chunked_df, columns=["SPECIES", "SCIENTIFIC", 
+    return pd.DataFrame(chunked_df, columns=["SPECIES", "SCIENTIFIC",
                                              "FILE NAME", "FOLDER", 
                                              "OFFSET", "DURATION", "CLIP LENGTH"])
 
@@ -201,7 +201,7 @@ if __name__ == "__main__":
     else:
         print("generating raw chunks...")
         generate_raw_chunks(
-            path=CONFIG.data_path, 
-            metadata=CONFIG.metdata,
+            path=CONFIG.data_path,
+            metadata=CONFIG.metadata,
             chunk_duration=CONFIG.chunk_duration,
             filetype=CONFIG.filetype).to_csv(CONFIG.chunk_path)
