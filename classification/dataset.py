@@ -240,7 +240,6 @@ class PyhaDF_Dataset(Dataset):
 
         audio, target = self.get_annotation(index)
         if self.transforms is not None:
-            print("Transform applied")
             audio, target = self.transforms(audio, target)
 
         # Randomly shift audio
@@ -346,7 +345,7 @@ def get_datasets(
     train_ds = PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG)
     species = train_ds.get_classes()
 
-    mixup_ds = PyhaDF_Dataset(valid, csv_file="mixup.csv",train=False, CONFIG=CONFIG)
+    mixup_ds = PyhaDF_Dataset(train, csv_file="mixup.csv",train=False, CONFIG=CONFIG)
     mixup = Mixup(mixup_ds, alpha)
     if transforms is not None:
         transforms = add_mixup(mixup, transforms, mixup_idx)

@@ -5,6 +5,7 @@ to the mixup function in a torch.nn.Sequential object.
 import os
 from pathlib import Path
 from typing import Tuple, Callable
+import numpy as np
 import torch
 import utils
 from config import get_config
@@ -47,8 +48,6 @@ class Mixup(torch.nn.Module):
 
 def add_mixup(mixup: Mixup, sequential: torch.nn.Sequential, idx:int) -> Callable:
     """
-    Wrapper function for mixup augmentation
-    Args:
         sequential: Object containing all other data augmentations to
         be performed
         idx: Index at which to perform mixup
@@ -81,12 +80,12 @@ def gen_noise(num_samples: int, psd_shape_func:Callable)-> torch.Tensor:
     white_signal = torch.fft.rfft(torch.rand(num_samples))
     # Adjust frequency amplitudes according to
     # function determining the psd shape
-    shape_signal = psd_shape_func(torch.fft.rfftfreq(num_samples))
+    shape_signal = torch.from_numpy((np.vectorize(psd_shape_func)(torch.fft.rfftfreq(num_samples))))
     # Normalize signal
-    shape_signal = shape_signal / torch.sqrt(torch.mean(shape_signal**2))
+    shape_signal = shape_signal / torch.sqrt(torch.mean(shape_signal.float()**2))
     # Adjust frequency amplitudes according to noise type
     noise = white_signal * shape_signal
-    return torch.fft.irfft(noise)
+    return torch.fft.irfft(noise).to('cuda')
 
 def gen_noise_func(f):
     """

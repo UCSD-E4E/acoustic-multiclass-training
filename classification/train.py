@@ -242,7 +242,7 @@ def init_wandb(CONFIG: Dict[str, Any]):
 
     return run
 
-def load_datasets(val_dataset, train_dataset, CONFIG: Dict[str, Any]
+def load_datasets(train_dataset, val_dataset, CONFIG: Dict[str, Any]
         )-> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
     """
         Loads datasets and dataloaders for train and validation
