@@ -313,6 +313,7 @@ def main():
         _, valid_map, best_valid_map = valid(model_for_run, val_dataloader, epoch + 1, best_valid_map, CONFIG)
         print("Best validation map:", best_valid_map.item())
         if CONFIG.early_stopping and early_stopper.early_stop(valid_map):
+            print("Early stopping has triggered on epoch", epoch)
             break
         
 if __name__ == '__main__':
