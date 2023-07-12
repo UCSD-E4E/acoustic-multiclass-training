@@ -27,8 +27,8 @@ import numpy as np
 
 from utils import set_seed, print_verbose
 from config import get_config
-from augmentations import add_mixup, Mixup
 from tqdm import tqdm
+from augmentations import add_mixup, Mixup
         
 
 
@@ -282,6 +282,8 @@ class PyhaDF_Dataset(Dataset):
         return image, target
 
     def set_transforms(self, transforms):
+        """ Sets the transforms for the dataset
+        """
         self.transforms = transforms
 
     def pad_audio(self, audio: torch.Tensor) -> torch.Tensor:

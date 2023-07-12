@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import Tuple, Callable
 import numpy as np
 import torch
+import torchaudio
 import utils
-from config import get_config
+import config
 
 
 class Mixup(torch.nn.Module):

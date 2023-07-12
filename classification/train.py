@@ -29,7 +29,7 @@ from dataset import PyhaDF_Dataset, get_datasets
 from model import TimmModel
 from utils import set_seed, print_verbose
 from config import get_config
-from augmentations import LowpassFilter, RandomEQ, SyntheticNoise, BackgroundNoise
+from augmentations import SyntheticNoise
 from tqdm import tqdm
 import wandb
 
