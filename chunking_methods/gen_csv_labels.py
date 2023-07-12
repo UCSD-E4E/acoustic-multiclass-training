@@ -150,7 +150,7 @@ def generate_raw_chunks(path, chunk_duration):
                 temp = [
                     species,
                     scientific,
-                    f"{filename}_{i}{FILETYPE}",
+                    f"{filename}{FILETYPE}",
                     path,
                     start / 1000,
                     chunk_duration,
