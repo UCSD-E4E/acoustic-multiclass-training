@@ -85,7 +85,15 @@ def get_config():
     CONFIG.logging = CONFIG.logging == 'True'
     
     #Add git hash to config so wand logging can track vrs used for reproduciblity
-    repo = git.Repo(search_parent_directories=True)
-    sha = repo.head.object.hexsha
-    setattr(CONFIG, "git_hash", sha)
+    try:
+        repo = git.Repo(search_parent_directories=True)
+        sha = repo.head.object.hexsha
+        setattr(CONFIG, "git_hash", sha)
+        print(sha)
+    except git.exc.InvalidGitRepositoryError as e:
+        print("InvalidGitRepositoryError found, likely reproduciblity issue")
+        print("You are likely calling a python file outside of this repo, please make you python statement be in the repo")
+        raise OSError("TO FIX: CALL PYTHON SCRIPT FROM REPO TO SAVE GIT HASH")
+    
+    input()
     return CONFIG
