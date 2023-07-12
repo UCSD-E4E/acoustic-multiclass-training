@@ -348,7 +348,7 @@ def get_datasets(
 
     mixup_ds = PyhaDF_Dataset(valid, csv_file="mixup.csv",train=False, CONFIG=CONFIG)
     mixup = Mixup(mixup_ds, alpha)
-    if transforms:
+    if transforms is not None:
         transforms = add_mixup(mixup, transforms, mixup_idx)
         train_ds.set_transforms(transforms)
 
