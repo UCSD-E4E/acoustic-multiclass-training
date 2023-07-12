@@ -240,7 +240,12 @@ class PyhaDF_Dataset(Dataset):
 
         audio, target = self.get_annotation(index)
         if self.transforms is not None:
-            audio, target = self.transforms(audio, target)
+            mixup_idx = 0
+            audio, target = add_mixup(audio, 
+                                      target, 
+                                      self.mixup, 
+                                      self.transforms, 
+                                      mixup_idx) 
 
         # Randomly shift audio
         if self.train and torch.rand(1) < self.config.time_shift_p:
@@ -285,6 +290,10 @@ class PyhaDF_Dataset(Dataset):
         """ Sets the transforms for the dataset
         """
         self.transforms = transforms
+    def set_mixup(self, mixup):
+        """ Sets the mixup object for the dataset
+        """
+        self.mixup = mixup
 
     def pad_audio(self, audio: torch.Tensor) -> torch.Tensor:
         """Fills the last dimension of the input audio with zeroes until it is num_samples long
@@ -350,8 +359,8 @@ def get_datasets(
     mixup_ds = PyhaDF_Dataset(train, csv_file="mixup.csv",train=False, CONFIG=CONFIG)
     mixup = Mixup(mixup_ds, alpha)
     if transforms is not None:
-        transforms = add_mixup(mixup, transforms, mixup_idx)
         train_ds.set_transforms(transforms)
+        train_ds.set_mixup(mixup)
 
     valid_ds = PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, species=species, CONFIG=CONFIG)
     return train_ds, valid_ds

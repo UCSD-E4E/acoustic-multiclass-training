@@ -47,24 +47,29 @@ class Mixup(torch.nn.Module):
         return mixed_clip, mixed_target
 
 
-def add_mixup(mixup: Mixup, sequential: torch.nn.Sequential, idx:int) -> Callable:
+def add_mixup(
+        clip: torch.Tensor, 
+        target: torch.Tensor, 
+        mixup: Mixup, 
+        sequential: torch.nn.Sequential, 
+        idx:int
+        ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
+    Args:
+        clip: Tensor of audio data
+        target: Tensor representing label
         sequential: Object containing all other data augmentations to
         be performed
         idx: Index at which to perform mixup
 
-    Returns: Function which applies all other data augmentations
-    as well as mixup, with order specified by idx
+    Returns: clip, target with all transforms and mixup applied
     """
-    def helper(
-        clip: torch.Tensor, target: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        head = sequential[:idx]
-        tail = sequential[idx:]
-        clip = head(clip)
-        clip, target = mixup(clip, target)
-        clip = tail(clip)
-        return clip, target
+    head = sequential[:idx]
+    tail = sequential[idx:]
+    clip = head(clip)
+    clip, target = mixup(clip, target)
+    clip = tail(clip)
+    return clip, target
 
     return helper
 
