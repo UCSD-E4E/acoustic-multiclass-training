@@ -63,6 +63,7 @@ class PyhaDF_Dataset(Dataset):
         self.freq_mask = audtr.FrequencyMasking(freq_mask_param=self.config.freq_mask_param)
         self.time_mask = audtr.TimeMasking(time_mask_param=self.config.time_mask_param)
         self.transforms = None
+        self.mixup = None
 
         # List data directory and confirm it exists
         if not os.path.exists(self.config.data_path):
@@ -325,7 +326,7 @@ class PyhaDF_Dataset(Dataset):
 
 
 def get_datasets(
-        transforms = None, CONFIG=None, mixup_idx=0, alpha=0.3
+        transforms = None, CONFIG=None, alpha=0.3
         ):
     """ Returns train and validation datasets, does random sampling for train/valid split, adds transforms to dataset
     """

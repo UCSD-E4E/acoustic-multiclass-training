@@ -71,8 +71,6 @@ def add_mixup(
     clip = tail(clip)
     return clip, target
 
-    return helper
-
 def gen_noise(num_samples: int, psd_shape_func:Callable)-> torch.Tensor:
     """
     Args:
