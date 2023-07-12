@@ -10,6 +10,7 @@ import sys
 from math import ceil
 import pandas as pd
 from pydub import AudioSegment
+# pylint: disable=import-error #this file gets put into PyHa
 from PyHa.IsoAutio import generate_automated_labels
 from WTS_chunking import dynamic_yan_chunking
 
