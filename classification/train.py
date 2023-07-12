@@ -179,26 +179,27 @@ def valid(model: Any,
         pred = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
         label = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
     else:
-        for _, (mels, labels) in enumerate(dl):
-            mels = mels.to(device)
-            labels = labels.to(device)
-            
-            # argmax
-            outputs = model(mels)
-            check_shape(outputs, labels)
-            
-            loss = model.loss_fn(outputs, labels)
+        with torch.no_grad():
+            for _, (mels, labels) in enumerate(dl):
+                mels = mels.to(device)
+                labels = labels.to(device)
                 
-            running_loss += loss.item()
-            
-            pred.append(outputs.cpu().detach())
-            label.append(labels.cpu().detach())
+                # argmax
+                outputs = model(mels)
+                check_shape(outputs, labels)
+                
+                loss = model.loss_fn(outputs, labels)
+                    
+                running_loss += loss.item()
+                
+                pred.append(outputs.cpu().detach())
+                label.append(labels.cpu().detach())
 
-        pred = torch.cat(pred)
-        label = torch.cat(label)
-        if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
-            torch.save(pred, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
-            torch.save(label, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
+            pred = torch.cat(pred)
+            label = torch.cat(label)
+            if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
+                torch.save(pred, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
+                torch.save(label, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
 
     # softmax predictions
     pred = F.softmax(pred).to(device)
