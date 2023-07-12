@@ -21,3 +21,21 @@ def set_seed(seed: int):
     """
     np.random.seed(seed)
     torch.manual_seed(seed)
+
+def norm(s):
+    """ 
+    Normalizes the tensor
+    """
+    return s/torch.linalg.vector_norm(s, ord=2)
+
+def randint(low, high):
+    """
+    Returns a random integer between [low, high)
+    """
+    return int(torch.randint(low, high, (1,)))
+
+def rand(low, high):
+    """
+    Returns a random float between [low, high)
+    """
+    return (high - low) * float(torch.rand(1)[0]) + low

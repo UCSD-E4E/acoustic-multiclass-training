@@ -172,4 +172,5 @@ dependencies:
       - pydub
       - matplotlib
       - librosa
+      - gitpython
 prefix: /home/znovak/miniconda3/envs/asid
