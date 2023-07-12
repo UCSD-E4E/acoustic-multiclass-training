@@ -3,10 +3,13 @@
     Methods:
         get_config: returns an ArgumentParser with the default arguments
 """
+import sys
 import argparse
 import git
 
 
+# Machine learning has a lot of arugments
+# pylint: disable=too-many-statements
 def get_config():
     """ Returns a config variable with the command line arguments or defaults
     """
@@ -90,11 +93,15 @@ def get_config():
         sha = repo.head.object.hexsha
         setattr(CONFIG, "git_hash", sha)
         print(sha)
-    except git.exc.InvalidGitRepositoryError as e:
-        print("InvalidGitRepositoryError found, likely reproduciblity issue")
-        print("You are likely calling a python file outside of this repo, please make you python statement be in the repo")
-        print("TO FIX: CALL PYTHON SCRIPT FROM REPO TO SAVE GIT HASH")
-        exit(1)
-    
-    input()
+
+    #I want to catch this spefific error, and it doesn't extend from base exception
+    #¯\(ツ)/¯
+    # pylint: disable=no-member
+    except git.exc.InvalidGitRepositoryError:
+        print("InvalidGitRepositoryError found, this means we cannot save git hash :(")
+        print("You are likely calling a python file outside of this repo") 
+        print("if from command line, cd into acoustic-mutliclass-training")
+        print("then you can run the script again")
+        sys.exit(1)
+
     return CONFIG
