@@ -93,7 +93,8 @@ def get_config():
     except git.exc.InvalidGitRepositoryError as e:
         print("InvalidGitRepositoryError found, likely reproduciblity issue")
         print("You are likely calling a python file outside of this repo, please make you python statement be in the repo")
-        raise OSError("TO FIX: CALL PYTHON SCRIPT FROM REPO TO SAVE GIT HASH")
+        print("TO FIX: CALL PYTHON SCRIPT FROM REPO TO SAVE GIT HASH")
+        exit(1)
     
     input()
     return CONFIG
