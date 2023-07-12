@@ -26,7 +26,7 @@ from torch.optim import Adam
 from torch.amp import autocast
 import numpy as np
 from dataset import PyhaDF_Dataset, get_datasets
-from model import TimmModel
+from model import TimmModel, EarlyStopper
 from utils import set_seed, print_verbose
 from config import get_config
 from augmentations import SyntheticNoise
@@ -60,12 +60,12 @@ def train(model: Any,
         scheduler,
         device: str,
         epoch: int,
-        best_valid_cmap: float,
-        CONFIG):
+        best_valid_map: float,
+        CONFIG) -> Tuple[float, int, float]:
     """ Trains the model
         Returns:
             loss: the average loss over the epoch
-            best_valid_cmap: the best validation mAP
+            best_valid_map: the best validation mAP
     """
     print_verbose('size of data loader:', len(data_loader),verbose=CONFIG.verbose)
     model.train()
@@ -153,17 +153,17 @@ def train(model: Any,
 
         if (i != 0 and i % (CONFIG.valid_freq) == 0):
             valid_start_time = datetime.datetime.now()
-            _, _, best_valid_cmap = valid(model, valid_loader, epoch + i / len(data_loader), best_valid_cmap, CONFIG)
+            _, _, best_valid_map = valid(model, valid_loader, epoch + i / len(data_loader), best_valid_map, CONFIG)
             # Ignore the time it takes to validate in annotations/sec
             start_time += datetime.datetime.now() - valid_start_time
-    return running_loss/len(data_loader), best_valid_cmap
+    return running_loss/len(data_loader), best_valid_map
 
 
 def valid(model: Any,
           data_loader: PyhaDF_Dataset,
           epoch: int,
-          best_valid_cmap: float,
-          CONFIG):
+          best_valid_map: float,
+          CONFIG) -> Tuple[float, float]:
     """
     Run a validation loop
     """
@@ -215,17 +215,17 @@ def valid(model: Any,
     })
 
     print(f"Validation Loss:\t{running_loss/len(data_loader)} \n Validation mAP:\t{valid_map}" )
-    if valid_map > best_valid_cmap:
+    if valid_map > best_valid_map:
         path = os.path.join("models",wandb_run.name + '.pt')
         if not os.path.exists("models"):
             os.mkdir("models")
         torch.save(model.state_dict(), path)
         print("Model saved in:", path)
-        print(f"Validation cmAP Improved - {best_valid_cmap} ---> {valid_map}")
-        best_valid_cmap = valid_map
+        print(f"Validation cmAP Improved - {best_valid_map} ---> {valid_map}")
+        best_valid_map = valid_map
 
     
-    return running_loss/len(data_loader), valid_map, best_valid_cmap
+    return running_loss/len(data_loader), valid_map, best_valid_map
 
 
 def init_wandb(CONFIG: Dict[str, Any]):
@@ -296,25 +296,28 @@ def main():
     print("Model / Optimizer Loading Successful :P")
     
     print("Training")
-    best_valid_cmap = 0
-
+    best_valid_map = 0
+    early_stopper = EarlyStopper(patience=CONFIG.patience, min_delta=CONFIG.min_delta)
     for epoch in range(CONFIG.epochs):
         print("Epoch " + str(epoch))
 
-        _, best_valid_cmap = train(
-            model_for_run, 
+        _, best_valid_map = train(
+            model_for_run,
             train_dataloader,
             val_dataloader,
             optimizer,
             scheduler,
             device,
             epoch,
-            best_valid_cmap,
+            best_valid_map,
             CONFIG
         )
         
-        _, _, best_valid_cmap = valid(model_for_run, val_dataloader, epoch + 1, best_valid_cmap, CONFIG)
-        print("Best validation cmap:", best_valid_cmap.item())
+        _, valid_map, best_valid_map = valid(model_for_run, val_dataloader, epoch + 1, best_valid_map, CONFIG)
+        print("Best validation map:", best_valid_map.item())
+        if CONFIG.early_stopping and early_stopper.early_stop(valid_map):
+            print("Early stopping has triggered on epoch", epoch)
+            break
         
 if __name__ == '__main__':
     main()
