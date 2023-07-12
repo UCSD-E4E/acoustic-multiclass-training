@@ -73,18 +73,7 @@ This file
 4. Chunks the produced labels using a sliding-window method.
 - Produces the file at `CHUNKED_CSV`
 
-It can also create a `.csv` for simple 5s chunks if `SLIDING_CHUNKS` is set to `False`.
-
-The training pipeline can currently operates off of the original audio file, rather than 5-second files. Thus, we can pass our final `CHUNKED_CSV` directly into the training pipeline. However, if you wish to use 5-second files, we have scripts for the following:
-
-5. Generate wavs from files
-6. Split files into training and validation sets
-
-Next, we need to split the data into training and validation sets. These splits can either be done manually by putting clips in train/validation folders, or doing a random shuffle split. However, multiple audio chunks from a single file should be kept together in their respective folders to avoid data leakage. To do so automatically, we run the `distribute_chunks.py` script, which first distributes all of the audio files into 4:1 training/validation splits, and then distributes all of the chunks according to the file split. These chunks are stored in a new directory called `BirdCLEF2023_split_chunks`. We do so using the following command:
-
-```bash
-python distribute_chunks.py /share/acoustic_species_id
-```
+It can also create a `.csv` for simple "raw" 5s chunks if `SLIDING_CHUNKS` is set to `False`.
 
 ## Classification
 The main file is `train.py`, which has the main training loop and uses functions from `dataset.py` and `model.py`. This has a number of hyperparameters related to training, logging, and data augmentation that can be passed in as arguments. For example, to run with a mixup probability of 0.6, with all other arguments kept to the defaults, you would run:

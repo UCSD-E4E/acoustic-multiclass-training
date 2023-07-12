@@ -1,4 +1,4 @@
-"""Chunking script form PyHa to convert weak labels to strong labels.
+"""Chunking script from PyHa to convert weak labels to strong labels.
 """
 import math
 import pandas as pd

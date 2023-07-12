@@ -1,7 +1,7 @@
 """Generates binary annotations using TweetyNet from weakly labeled audio.
 This file should be run from inside the PyHa directory. It also requires
 WTS_chunking.py to be added to the PyHa directory. 
-Input:     A folder with audio files
+Input:     A path to a folder with audio files
 Output:    A csv with chunked, strongly-labeled annotations
 """
 
@@ -26,7 +26,7 @@ FILETYPE = ".mp3"
 # use sliding window or raw chunks
 SLIDING_CHUNKS = False
 
-# weak annotations
+# input weak annotations
 METADATA_PATH = "~/metadata.csv"
 # output for strong annotations
 STRONG_LABELS_CSV = "~/132PeruXC_Labels.csv"
