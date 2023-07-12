@@ -1,4 +1,4 @@
-"""Chunking script form PyHa to convert weak labels to strong labels.
+"""Chunking script from PyHa to convert weak labels to strong labels.
 """
 import math
 import pandas as pd
@@ -237,11 +237,11 @@ def convolving_chunk(row, chunk_duration=3, only_slide=False):
 def dynamic_yan_chunking(df, chunk_duration=3, only_slide=False):
     """TODO
     """
-    return_df = pd.DataFrame(columns=df.columns)
+    return_dfs = []
     for _, row in df.iterrows():
         chunk_df = convolving_chunk(row, chunk_duration=chunk_duration, only_slide=only_slide)
-        return_df = pd.concat([return_df, chunk_df],  ignore_index=True)
-    return return_df
+        return_dfs.append(chunk_df)
+    return pd.concat(return_dfs,  ignore_index=True)
 
 def combine_chunked_df(df):
     """
