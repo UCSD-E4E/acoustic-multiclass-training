@@ -184,18 +184,22 @@ if __name__ == "__main__":
     CONFIG = get_config()
 
     if CONFIG.sliding_chunks:
+        print("converting audio...?")
         convert_audio(
             path=CONFIG.data_path,
             filetype=CONFIG.filetype)
         # saved to csv in case attaching labels fails as generating labels takes more time
+        print("generating labels...")
         generate_labels(CONFIG.data_path).to_csv(CONFIG.strong_labels)
         attach_labels(
             metadata=CONFIG.metadata,
             strong_labels=CONFIG.strong_labels).to_csv(CONFIG.strong_labels)
+        print("generating sliding chunks...")
         generate_sliding_chunks(
             strong_labels=CONFIG.strong_labels,
             chunk_duration=CONFIG.chunk_duration).to_csv(CONFIG.chunk_path)
     else:
+        print("generating raw chunks...")
         generate_raw_chunks(
             path=CONFIG.data_path, 
             metadata=CONFIG.metdata,

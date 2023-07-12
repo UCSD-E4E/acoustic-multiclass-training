@@ -12,15 +12,11 @@ def get_config():
 
     parser.add_argument('-cd', '--chunk_duration', default=5, type=int)
     parser.add_argument('-ft', '--filetype', default=".wav", type=str)
-    parser.add_argument('-sl', '--sliding_chunks', default=False, type=bool)
+    parser.add_argument('-sl', '--sliding_chunks', default=True, type=bool)
 
-    parser.add_argument('-dp', '--data_path', 
-                        default='/share/acoustic_species_id/132_peru_xc_BC_2020', type=str)
+    parser.add_argument('-dp', '--data_path', default='~/amabaw1/', type=str)
     parser.add_argument('-mp', '--metadata', default='~/metadata.csv', type=str)
-    parser.add_argument('-sp', '--strong_labels', default='~/132PeruXC_Labels.csv', type=str)
-    parser.add_argument('-cp', '--chunk_path', default='~/132PeruXC_RawChunks.csv', type=str)
+    parser.add_argument('-sp', '--strong_labels', default='~/amabaw1_strong_labels.csv', type=str)
+    parser.add_argument('-cp', '--chunk_path', default='~/amabaw1_chunks.csv', type=str)
 
-
-    CONFIG = parser.parse_args()
-    
-    return CONFIG
+    return parser.parse_args()
