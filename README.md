@@ -14,7 +14,9 @@
 
 Passive acoustic monitoring (PAM) plays a crucial role in conservation efforts and the preservation of biodiversity. By capturing and analyzing the sounds produced by avian species in their natural habitats, this non-invasive method provides valuable insights into population dynamics, species richness, and habitat quality, as birds may act as key indicators of larger environmental effects. However, as PAM systems may collect terabytes of noisy audio data, with other species and human encroachment polluting the recordings, extracting useful information from such audio recordings (i.e. where are birds present in the recording, what species of birds are they, etc.) remains an open problem. 
 
-Here, we present our first joint work with the UCSD [Engineers for Exploration](https://e4e.ucsd.edu/), [PyHa](https://github.com/UCSD-E4E/PyHa), and the [BirdCLEF2023 Kaggle Competition](https://www.kaggle.com/competitions/birdclef-2023), where we have designed a full pipeline for processing noisy audio recordings to train an acoustic bird species classifier.
+This repo attempts to address this issue as part of the Automated Acoustic Species Identification pipeline in UCSD [Engineers for Exploration](https://e4e.ucsd.edu/). In this repo we created a uniform repo for preprocessing, training, and testing nerual networks that can potentially identify a significant number of species in a given enviroment. The full pipline takes xeno Canto data (TODO ADD LINK?), runs our Weakly to Strongly label pipleline [PyHa](https://github.com/UCSD-E4E/PyHa) over the weakly labeled xeno canto data to get strongly labeled annotations that can be passed into the methods developed in this repo. From here, neral network archietures can be trained and tested to determine
+
+Here, we present our first joint work with the UCSD [Engineers for Exploration](https://e4e.ucsd.edu/), , and the [BirdCLEF2023 Kaggle Competition](https://www.kaggle.com/competitions/birdclef-2023), where we have designed a full pipeline for processing noisy audio recordings to train an acoustic bird species classifier.
 
 ![outline](images/main_diag.png)
 
