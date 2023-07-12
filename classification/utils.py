@@ -32,10 +32,10 @@ def randint(low, high):
     """
     Returns a random integer between [low, high)
     """
-    return torch.randint(low, high, (1,))[0]
+    return int(torch.randint(low, high, (1,)))
 
 def rand(low, high):
     """
     Returns a random float between [low, high)
     """
-    return (high - low) * torch.rand(1)[0] + low
+    return (high - low) * float(torch.rand(1)[0]) + low
