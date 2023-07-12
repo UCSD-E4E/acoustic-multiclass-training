@@ -61,6 +61,8 @@ class EarlyStopper:
         self.max_valid_map = 0
 
     def early_stop(self, valid_map):
+        """ Returns True if the model should early stop
+        """
         # reset counter if it improved by more than min_delta
         if valid_map > self.max_valid_map + self.min_delta:
             self.max_valid_map = valid_map
