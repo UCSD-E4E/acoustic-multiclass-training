@@ -42,6 +42,7 @@ def convert2wav(path):
     """
     # conversion not needed for tweetynet processing
     if SLIDING_CHUNKS and FILETYPE in [".wav", ".mp3"]:
+        print(f"Conversion from {FILETYPE} not required for TweetyNet processing")
         return
     for fn in os.listdir(path):
         if fn.endswith(FILETYPE):
