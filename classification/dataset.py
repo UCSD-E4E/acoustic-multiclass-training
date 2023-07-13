@@ -240,6 +240,12 @@ class PyhaDF_Dataset(Dataset):
         """
 
         audio, target = self.get_annotation(index)
+        
+        # Randomly shift audio
+        if self.train and torch.rand(1) < self.config.time_shift_p:
+            shift = torch.randint(0, self.num_samples, (1,))
+            audio = torch.roll(audio, shift, dims=1)
+        
         if self.transforms is not None:
             mixup_idx = 0
             audio, target = add_mixup(audio, 
@@ -248,10 +254,7 @@ class PyhaDF_Dataset(Dataset):
                                       self.transforms, 
                                       mixup_idx) 
 
-        # Randomly shift audio
-        if self.train and torch.rand(1) < self.config.time_shift_p:
-            shift = torch.randint(0, self.num_samples, (1,))
-            audio = torch.roll(audio, shift, dims=1)
+        
 #        # Add noise
 #        if self.train and torch.randn(1) < self.config.noise_p:
 #            noise = torch.randn_like(audio) * self.config.noise_std
