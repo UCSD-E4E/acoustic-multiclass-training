@@ -28,7 +28,7 @@ import numpy as np
 from utils import set_seed, print_verbose
 from config import get_config
 from tqdm import tqdm
-from augmentations import add_mixup, Mixup
+from augmentations import Mixup#, add_mixup
         
 
 
