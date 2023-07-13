@@ -246,25 +246,25 @@ class PyhaDF_Dataset(Dataset):
             shift = torch.randint(0, self.num_samples, (1,))
             audio = torch.roll(audio, shift, dims=1)
         
-        if self.transforms is not None:
-            mixup_idx = 0
-            audio, target = add_mixup(audio, 
-                                      target, 
-                                      self.mixup, 
-                                      self.transforms, 
-                                      mixup_idx) 
+        #if self.transforms is not None:
+        #    mixup_idx = 0
+        #    audio, target = add_mixup(audio, 
+        #                              target, 
+        #                              self.mixup, 
+        #                              self.transforms, 
+        #                              mixup_idx) 
 
         
-#        # Add noise
-#        if self.train and torch.randn(1) < self.config.noise_p:
-#            noise = torch.randn_like(audio) * self.config.noise_std
-#            audio = audio + noise
-#        # Mixup
-#        if self.train and torch.randn(1) < self.config.mix_p:
-#            audio_2, target_2 = self.get_annotation(np.random.randint(0, self.__len__()))
-#            alpha = np.random.rand() * 0.3 + 0.1
-#            audio = audio * alpha + audio_2 * (1 - alpha)
-#            target = target * alpha + target_2 * (1 - alpha)
+        # Add noise
+        if self.train and torch.randn(1) < self.config.noise_p:
+            noise = torch.randn_like(audio) * self.config.noise_std
+            audio = audio + noise
+        # Mixup
+        if self.train and torch.randn(1) < self.config.mix_p:
+            audio_2, target_2 = self.get_annotation(np.random.randint(0, self.__len__()))
+            alpha = np.random.rand() * 0.3 + 0.1
+            audio = audio * alpha + audio_2 * (1 - alpha)
+            target = target * alpha + target_2 * (1 - alpha)
 
         # Mel spectrogram
         mel = self.mel_spectogram(audio)
