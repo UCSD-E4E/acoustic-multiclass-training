@@ -80,11 +80,11 @@ def attach_labels(metadata_df, binary_df):
     """ Attach the primary label from original metadata as a strong label
     for each chunk and reformat the columns for the training pipeline.
     Args:
-        metadata (str)
-            - Path to .csv with original audio clip information. Assumes 
+        metadata (DataFrame)
+            - DataFrame with original audio clip information. Assumes 
             Xeno-canto formatting.
-        strong_labels (str)
-            - Path to .csv with time-specific labels. Assumes PyHa formatting.  
+        strong_labels (DataFrame)
+            - DataFrame with time-specific labels. Assumes PyHa formatting.  
     Returns a DataFrame with minimum required columns
     """
     strong_df = metadata_df.merge(binary_df, left_on="filename", right_on="IN FILE")
@@ -99,7 +99,7 @@ def generate_sliding_chunks(strong_df, chunk_duration=5):
     """Wrapper function. Creates sliding window chunks out of previously made annotations to 
     create more data for training and better capture calls.
     Args: 
-        strong_df (str)
+        strong_df (DataFrame)
             - DataFrame with time-specific labels
         chunk_duration (int)
             - Length of desired file chunks
@@ -114,8 +114,8 @@ def generate_raw_chunks(path, metadata_df, chunk_duration=5, filetype=".wav"):
     Args:
         path (string)
             - Path to folder containing audio files
-        metadata_df (string)
-            - Path to .csv with original audio clip information. Assumes 
+        metadata_df (DataFrame)
+            - DataFrame original audio clip information. Assumes 
             Xeno-canto formatting.
         chunk_duration (int)
             - Length of desired file chunks
