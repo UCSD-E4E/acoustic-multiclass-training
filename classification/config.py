@@ -108,4 +108,3 @@ def get_config():
         sys.exit(1)
 
     return CONFIG
-
