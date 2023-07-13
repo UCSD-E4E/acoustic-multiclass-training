@@ -5,11 +5,13 @@
     Model: model with forward pass method. Generated automatically from a timm model
 
 """
+from torchaudio import transforms as audtr
 import torch
 from torch import nn
 import tensorflow as tf
-
+import os
 import requests
+import numpy as np
 # timm is a library of premade models
 import timm
 import requests
@@ -69,55 +71,75 @@ class BirdnetYCNNModel(nn.Module):
     """
     # pylint: disable=too-many-arguments
     def __init__(self,
-                 num_classes,
+                 num_classes=130,
                  cnn_model_name="tf_efficientnet_b4",
                  pretrained=True,
                  CONFIG=None,
-                 device="cuda"):
+                 device="cuda:0"):
         """ Initializes the model
         """
         super().__init__()
         self.config = CONFIG
+        self.device = device
         self.num_classes = num_classes
-        # See config.py for list of recommended models
-        self.cnn_model = timm.create_model(cnn_model_name, pretrained=pretrained, num_classes=num_classes)
         self.birdnet = self.get_birdnet_model()
         self.input_index = self.birdnet.get_input_details()[0]["index"]
         self.output_index = self.birdnet.get_output_details()[0]["index"] - 1
+        self.embedding_shape = 1024 #From birdnet docs
         self.loss_fn = None
 
+        # See config.py for list of recommended models
+        self.cnn_model = timm.create_model(
+            cnn_model_name, pretrained=pretrained, num_classes=self.embedding_shape
+        ).to(device)
+
+        self.embedding = nn.Linear(self.embedding_shape * 2, self.embedding_shape).to(device)
+        self.fc = nn.Linear(self.embedding_shape, num_classes).to(device)
+               
+
     def get_birdnet_model(self):
+        
         # https://github.com/kahst/BirdNET-Analyzer/blob/main/LICENSE
-        r = requests.get(
-            'https://raw.githubusercontent.com/kahst/BirdNET-Analyzer/b32cdc54c9f2344b028e6378e9eae66e39110d27/checkpoints/V2.4/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite'
-            )
         birdnet_model_path = os.path.join(".", "model", "BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite")
-        print(birdnet_model_path)
         if not os.path.exists(birdnet_model_path):
-            open(birdnet_model_path, 'wb').write(request.content)
+            print("downloading birdnet")
+            r = requests.get(
+                'https://raw.githubusercontent.com/kahst/BirdNET-Analyzer/b32cdc54c9f2344b028e6378e9eae66e39110d27/checkpoints/V2.4/BirdNET_GLOBAL_6K_V2.4_Model_FP16.tflite'
+                )
+            open(birdnet_model_path, 'wb').write(r.content)
             
+            print("download completed")
         return tf.lite.Interpreter(model_path=birdnet_model_path)
     
-    def forward(self, images):
-        """ Forward pass of the model
-        """
+    def birdnet_forward(self, audio):
         # this section will be based on
         # https://github.com/kahst/BirdNET-Analyzer/blob/0d624d910f4f731f8f4ae1689ca67c398f34469f/model.py#L365
-        self.birdnet.resize_tensor_input(self.input_index, images.shape)
+        
+        #TODO This input is only 3 second files, we should ensure in the future
+        # Its 3 second with the bn sample rate of 48_000
+        # that the audio is this shape for training a model 
+        audio = audio[:, :144000]    
+
+        self.birdnet.resize_tensor_input(self.input_index, [len(audio), *audio[0].shape])
         self.birdnet.allocate_tensors()
-
-        self.birdnet.set_tensor(self.input_index, np.array(images, dtype="float32"))
+        self.birdnet.set_tensor(self.input_index, np.array(audio.cpu(), dtype="float32"))
         self.birdnet.invoke()
-        features = self.birdnet.get_tensor(output_index)
 
+        features = self.birdnet.get_tensor(self.output_index)
         birdnet_embeddings = torch.Tensor(features).to(self.device)
-        cnn_embeddings = self.cnn_model(images)
-
-        x = torch.cat((birdnet_embeddings, cnn_embeddings), 0)
-        print(x)
-        #birdnet_embeddings
-
-
+        
+        return birdnet_embeddings
+        
+    def forward(self, images, audio):
+        """ Forward pass of the model
+        """
+        
+        bnt_embeddings = self.birdnet_forward(audio).to(self.device)
+        cnn_embeddings = self.cnn_model(images).to(self.device)
+        
+        x = torch.cat((bnt_embeddings, cnn_embeddings), -1)
+        x = self.embedding(x)
+        x = self.fc(x)
         return x
 
     def create_loss_fn(self,train_dataset):
@@ -134,13 +156,25 @@ def test():
 
     #Testing
     print("Starting Model Test")
-    model = BirdnetYCNNModel()
-    data, target = train_ds[0]
-    out = model(data)
+    model = BirdnetYCNNModel(CONFIG=CONFIG) #, device=device
+
+    #simulate a batch
+    image, target, audio = train_ds[0]
+    audio = audio.reshape(1,-1)
+    print(image.shape)
+    image = image.reshape(1,3, 194, 229)
+    print("input shape for the audio ",audio.shape)
+    print("input shape for the image ",image.shape)
+
+    print("try passing data into model")
+    
+    out = model(image, audio)
     print(out.shape)
 
 
 if __name__ == "__main__":
     #Prevents circular dependecies, this is just for testing :)
     from dataset import get_datasets
+    from config import get_config
+    from utils import set_seed, print_verbose
     test()
