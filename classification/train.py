@@ -244,11 +244,15 @@ def init_wandb(CONFIG: Dict[str, Any]):
 
     return run
 
-def load_datasets(train_dataset, val_dataset, CONFIG: Dict[str, Any]
-        )-> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+def load_datasets(CONFIG: Dict[str, Any]
+        )-> Tuple[PyhaDF_Dataset,
+                  PyhaDF_Dataset,
+                  torch.utils.data.DataLoader, 
+                  torch.utils.data.DataLoader]:
     """
         Loads datasets and dataloaders for train and validation
     """
+    train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
 
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
@@ -262,7 +266,7 @@ def load_datasets(train_dataset, val_dataset, CONFIG: Dict[str, Any]
         shuffle=False,
         num_workers=CONFIG.jobs,
     )
-    return train_dataloader, val_dataloader
+    return train_dataset, val_dataset, train_dataloader, val_dataloader
 
 def main():
     """ Main function
@@ -280,9 +284,8 @@ def main():
     print("Loading Dataset")
     # pylint: disable=unused-variable
     # for future can use torchvision.transforms.RandomApply here
-    transforms = torch.nn.Sequential(SyntheticNoise("white", 0.05))
-    train_dataset, val_dataset = get_datasets(transforms=transforms, CONFIG=CONFIG, alpha=0.3)
-    train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset, CONFIG)
+    (train_dataset, val_dataset,
+     train_dataloader, val_dataloader) = load_datasets(CONFIG=CONFIG)
 
     print("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 

@@ -4,10 +4,12 @@ to the mixup function in a torch.nn.Sequential object.
 """
 import os
 from pathlib import Path
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Any
 import numpy as np
+import pandas as pd
 import torch
 import torchaudio
+import torchaudio.transforms as audtr
 import utils
 import config
 
@@ -18,11 +20,100 @@ class Mixup(torch.nn.Module):
         dataset: Dataset from which to mixup with other clips
         alpha: Strength (proportion) of original audio in augmented clip
     """
-    def __init__(self, dataset, alpha: float):
+    def __init__(self, 
+                 df: pd.DataFrame, 
+                 alpha: float, 
+                 config: Any,
+                 class_to_idx: dict[str, int],
+                 **kwargs):
         super().__init__()
-        self.dataset = dataset
+        self.df = df
         self.alpha = alpha
+        self.config = config
+        self.class_to_idx = class_to_idx
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
+    def load_random_clip(self, target_len) -> Tuple[torch.Tensor, torch.Tensor]:
+        row = self.df.sample()
+        file_name = row[self.config.file_name_col]
+        clip_path = os.path.join(self.config.data_path, file_name)
+
+        # Load clip and resample if necessary
+        target_sr = self.config.sample_rate
+        clip, sr = torchaudio.load(clip_path)
+        if sr != target_sr:
+            clip = audtr.Resample(sr, target_sr)(clip)
+
+        # Crop/pad clip
+        if len(clip) >= target_len:
+            start_idx = utils.randint(0, len(clip) - target_len)
+            clip = clip[start_idx:start_idx + target_len]
+        else:
+            clip = torch.cat((clip, torch.zeros(target_len - len(clip))), dim=0)
+
+
+        # Turns target from integer to one hot tensor vector. 
+        # I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+        class_name = row[self.config.manual_id_col]
+        class_idx = self.class_to_idx[class_name]
+        target = torch.nn.functional.one_hot(
+                torch.tensor(class_idx),
+                self.num_classes)
+        target = target.float()
+
+        return clip, target
+
+    def get_annotation(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """ Returns tuple of audio waveform and its one-hot label
+        """
+        annotation = self.samples.iloc[index]
+        file_name = annotation[self.config.file_name_col]
+
+        # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+        class_name = annotation[self.config.manual_id_col]
+
+
+        target = one_hot(
+                torch.tensor(self.class_to_idx[class_name]),
+                self.num_classes)[0]
+        target = target.float()
+
+        try:
+            # Get necessary variables from annotation
+            annotation = self.samples.iloc[index]
+            file_name = annotation[self.config.file_name_col]
+            sample_per_sec = self.target_sample_rate
+            frame_offset = int(annotation[self.config.offset_col] * sample_per_sec)
+            num_frames = int(annotation[self.config.duration_col] * sample_per_sec)
+
+            # Load audio
+            audio = torch.load(os.path.join(self.config.data_path,file_name))
+        
+            if audio.shape[0] > num_frames:
+                audio = audio[frame_offset:frame_offset+num_frames]
+            else:
+                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=self.config.verbose)
+
+            # Crop if too long
+            if audio.shape[0] > self.num_samples:
+                audio = self.crop_audio(audio)
+            # Pad if too short
+            if audio.shape[0] < self.num_samples:
+                audio = self.pad_audio(audio)
+        except Exception as e:
+            print(e)
+            print(file_name, index)
+            raise RuntimeError("Bad Audio") from e
+
+        #Assume audio is all mono and at target sample rate
+        #assert audio.shape[0] == 1
+        #assert sample_rate == self.target_sample_rate
+        #audio = self.to_mono(audio) #basically reshapes to col vect
+
+        audio = audio.to(device)
+        target = target.to(device)
+        return audio, target
     def forward(
         self, clip: torch.Tensor, target: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -39,37 +130,14 @@ class Mixup(torch.nn.Module):
         other_idx = utils.randint(0, len(self.dataset))
         try:
             other_clip, other_target = self.dataset.get_annotation(other_idx)
+            other_clip.to(clip.device)
+            other_target.to(target.device)
         except RuntimeError:
             print('Error loading other clip, mixup not performed')
             return clip, target
         mixed_clip = self.alpha * clip + (1 - self.alpha) * other_clip
         mixed_target = self.alpha * target + (1 - self.alpha) * other_target
         return mixed_clip, mixed_target
-
-
-def add_mixup(
-        clip: torch.Tensor, 
-        target: torch.Tensor, 
-        mixup: Mixup, 
-        sequential: torch.nn.Sequential, 
-        idx:int
-        ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Args:
-        clip: Tensor of audio data
-        target: Tensor representing label
-        sequential: Object containing all other data augmentations to
-        be performed
-        idx: Index at which to perform mixup
-
-    Returns: clip, target with all transforms and mixup applied
-    """
-    head = sequential[:idx]
-    tail = sequential[idx:]
-    clip = head(clip)
-    clip, target = mixup(clip, target)
-    clip = tail(clip)
-    return clip, target
 
 def gen_noise(num_samples: int, psd_shape_func:Callable)-> torch.Tensor:
     """
@@ -227,6 +295,7 @@ class BackgroundNoise(torch.nn.Module):
         # If loading fails, skip for now
         try:
             noise_clip = self.choose_random_noise()
+            noise_clip.to(clip.device)
         except RuntimeError:
             print('Error loading noise clip, '
                   + 'background noise augmentation not performed')
