@@ -5,7 +5,6 @@
 """
 import sys
 import argparse
-from operator import itemgetter
 import git
 
 # Machine learning has a lot of arugments
