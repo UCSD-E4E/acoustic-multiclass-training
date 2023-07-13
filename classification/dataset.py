@@ -1,247 +1,380 @@
-from typing import Dict, List, Tuple
-import torch
-import torchaudio
-from torchvision import datasets, transforms
-import torch.nn.functional as F
-from torchaudio import transforms as audtr
-import numpy as np
-import argparse
+# pylint: disable=R0902
+# Disables number of instance attributes
+# Could be simplifed in future and more put into config
+# but for MVP ignore this for now
+
+""" Contains methods for loading the dataset and also creates dataloaders for training and validation
+
+    BirdCLEFDataset is a generic loader with a given root directory.
+    It loads the audio files and converts them to mel spectrograms.
+    get_datasets returns the train and validation datasets as BirdCLEFDataset objects.
+
+    If this module is run directly, it tests that the dataloader works and prints the shape of the first batch.
+
+"""
 import os
-from functools import partial
-import librosa
-import shutil
+from typing import Dict, List, Tuple
+
+import torch
+import torch.nn.functional as F
+from torch.utils.data import Dataset
+import torchaudio
+from torchaudio import transforms as audtr
+
+# Math library imports
+import pandas as pd
+import numpy as np
+
+from utils import set_seed, print_verbose
+from config import get_config
 from tqdm import tqdm
-import random
+from augmentations import add_mixup, Mixup
+        
 
+
+tqdm.pandas()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-parser = argparse.ArgumentParser()
-parser.add_argument('-e', '--epochs', default=10, type=int)
-parser.add_argument('-nf', '--num_fold', default=5, type=int)
-parser.add_argument('-nc', '--num_classes', default=264, type=int)
-parser.add_argument('-tbs', '--train_batch_size', default=14, type=int)
-parser.add_argument('-vbs', '--valid_batch_size', default=14, type=int)
-parser.add_argument('-sr', '--sample_rate', default=32_000, type=int)
-parser.add_argument('-hl', '--hop_length', default=512, type=int)
-parser.add_argument('-mt', '--max_time', default=5, type=int)
-parser.add_argument('-nm', '--n_mels', default=224, type=int)
-parser.add_argument('-nfft', '--n_fft', default=1024, type=int)
-parser.add_argument('-s', '--seed', default=0, type=int)
-parser.add_argument('-j', '--jobs', default=4, type=int)
-parser.add_argument('-l', '--logging', default='True', type=str)
-parser.add_argument('-lf', '--logging_freq', default=20, type=int)
-parser.add_argument('-vf', '--valid_freq', default=2000, type=int)
-parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)
-parser.add_argument('-md', '--map_debug', action='store_true')
-parser.add_argument('-p', '--p', default=0, type=float, help='p for mixup')
-
 
 #https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
+class PyhaDF_Dataset(Dataset):
+    """
+        Dataset designed to work with pyha output
+        Save unchunked data
+    """
 
-class BirdCLEFDataset(datasets.DatasetFolder):
-    def __init__(self, root, loader=None, CONFIG=None, max_time=5, unchunked=False):
-        super().__init__(root, loader, extensions=['wav'])
+    # df, csv_file, train, and species decided outside of config, so those cannot be added in there
+    # pylint: disable-next=too-many-instance-attributes
+    # pylint: disable-next=too-many-arguments
+    def __init__(self, df, csv_file="test.csv", CONFIG=None, train=True, species=None):
         self.config = CONFIG
-        target_sample_rate = CONFIG.sample_rate
-        self.target_sample_rate = target_sample_rate
-        num_samples = target_sample_rate * max_time
+        self.samples = df[~(df[self.config.file_name_col].isnull())]
+        self.csv_file = csv_file
+        self.formatted_csv_file = "not yet formatted"
+        self.target_sample_rate = CONFIG.sample_rate
+        num_samples = self.target_sample_rate * CONFIG.max_time
         self.num_samples = num_samples
-        self.max_time = max_time
-        self.unchunked = unchunked
-
-        if (unchunked):
-            self.chunk_samples()
-        #TODO: ADD CASES TO HANDLE THIS
-        #self.chunk_samples()
+        self.train = train
 
 
-    def find_classes(self, directory: str) -> Tuple[List[str], Dict[str, int]]:
-        # modify default find_classes to ignore empty folders
-        classes = sorted(entry.name for entry in os.scandir(directory) if entry.is_dir())
-        # filter
-        classes = [cls_name for cls_name in classes if len(os.listdir(os.path.join(directory, cls_name))) > 0]
-        classes.sort()
-        class_to_idx = {cls_name: i for i, cls_name in enumerate(classes)}
-        self.num_classes = len(classes)
-        self.class_id_to_num_samples = {i: len(os.listdir(os.path.join(directory, cls_name))) for i, cls_name in enumerate(classes)}
-        return classes, class_to_idx
-    
-    
-    def __len__(self):
-        return len(self.samples)
-    
-    def __getitem__(self, index):
-        if (not self.unchunked):
-            path, cl = self.samples[index]
-            audio = self.load_audio(path)
-        else:
-            path, cl, start, end = self.samples[index]
-            audio = self.load_audio(path)
-            audio = audio[start:end]
-
-
-        #path = "../acoustic-species-classification/BirdCLEF2023_split_chunks/validation/babwar/XC137588.wav"
-        
-        
-        if audio.shape[0] > self.num_samples:
-            audio = self.crop_audio(audio)
-            
-        if audio.shape[0] < self.num_samples:
-            audio = self.pad_audio(audio)
-            
-        mel_spectogram = audtr.MelSpectrogram(sample_rate=self.target_sample_rate, 
-                                        n_mels=self.config.n_mels, 
+        self.mel_spectogram = audtr.MelSpectrogram(sample_rate=self.target_sample_rate,
+                                        n_mels=self.config.n_mels,
                                         n_fft=self.config.n_fft)
-        mel = mel_spectogram(audio)
-        # label = torch.tensor(self.labels[index])
+        self.mel_spectogram.cuda(device)
+        self.freq_mask = audtr.FrequencyMasking(freq_mask_param=self.config.freq_mask_param)
+        self.time_mask = audtr.TimeMasking(time_mask_param=self.config.time_mask_param)
+        self.transforms = None
+        self.mixup = None
+
+        # List data directory and confirm it exists
+        if not os.path.exists(self.config.data_path):
+            raise FileNotFoundError("Data path does not exist")
+        self.data_dir = set(os.listdir(self.config.data_path))
         
+        #Log bad files
+        self.bad_files = []
+
+        #Preprocessing start
+        if species is not None:
+            self.classes, self.class_to_idx = species
+        else:
+            self.classes = self.samples[self.config.manual_id_col].unique()
+            class_idx = np.arange(len(self.classes))
+            self.class_to_idx = dict(zip(self.classes, class_idx))
+
+        self.num_classes = len(self.classes)
+        self.serialize_data()
+
+    def verify_audio(self):
+        """
+        Checks to make sure files exist that are referenced in input df
+        """
+        missing_files = pd.Series(self.samples[self.config.file_name_col].unique()) \
+            .progress_apply(lambda file: "good" if file in self.data_dir else file)
+        missing_files = missing_files[missing_files != "good"].unique()
+        print("ignoring", missing_files.shape[0], "missing files")
+        self.samples = self.samples[
+            ~self.samples[self.config.file_name_col].isin(missing_files)
+        ]
+
+    def process_audio_file(self, file_name):
+        """
+        Save waveform of audio file as a tensor and save that tensor to .pt
+        """
+
+        exts = "." + file_name.split(".")[-1]
+        new_name = file_name.replace(exts, ".pt")
+        if new_name in self.data_dir:
+            #ASSUME WE HAVE ALREADY PREPROCESSED THIS CORRECTLY
+            return pd.Series({
+                "FILE NAME": file_name,
+                "files": new_name
+            }).T
+
+
+        try:
+            audio, sample_rate = torchaudio.load(os.path.join(self.config.data_path, file_name))
+
+            if len(audio.shape) > 1:
+                audio = self.to_mono(audio)
+
+            # Resample
+            if sample_rate != self.target_sample_rate:
+                resample = audtr.Resample(sample_rate, self.target_sample_rate)
+                #resample.cuda(device)
+                audio = resample(audio)
+
+            torch.save(audio, os.path.join(self.config.data_path,new_name))
+            self.data_dir.add(new_name)
+        # IO is messy, I want any file that could be problematic
+        # removed from training so it isn't stopped after hours of time
+        # Hence broad exception
+        # pylint: disable-next=W0718
+        except Exception as e:
+            print_verbose(file_name, "is bad", e, verbose=self.config.verbose)
+            return pd.Series({
+                "FILE NAME": file_name,    
+                "files": "bad"
+            }).T
+
+
+        return pd.Series({
+                "FILE NAME": file_name,    
+                "files": new_name
+            }).T
+
+
+    def serialize_data(self):
+        """
+        For each file, check to see if the file is already a presaved tensor
+        If the files is not a presaved tensor and is an audio file, convert to tensor to make
+        Future training faster
+        """
+        self.verify_audio()
+        files = pd.DataFrame( self.samples[self.config.file_name_col].unique(),
+            columns=["files"]
+        )
+        files = files["files"].progress_apply(self.process_audio_file)
+
+        print(files.shape, flush=True)
+
+        num_files = files.shape[0]
+        if num_files == 0:
+            raise FileNotFoundError("There were no valid filepaths found, check csv")
+
+        files = files[files["files"] != "bad"]
+        self.samples = self.samples.merge(files, how="left", 
+                       left_on=self.config.file_name_col,
+                       right_on="FILE NAME").dropna()
+    
+        print_verbose("Serialized form, fixed size:", self.samples.shape, verbose=self.config.verbose)
+
+        if "files" in self.samples.columns:
+            self.samples[self.config.file_name_col] = self.samples["files"].copy()
+        if "files_y" in self.samples.columns:
+            self.samples[self.config.file_name_col] = self.samples["files_y"].copy()
+        
+        self.samples["original_file_path"] = self.samples[self.config.file_name_col]
+
+        self.formatted_csv_file = ".".join(self.csv_file.split(".")[:-1]) + "formatted.csv"
+        self.samples.to_csv(self.formatted_csv_file)
+
+    def get_annotation(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """ Returns tuple of audio waveform and its one-hot label
+        """
+        annotation = self.samples.iloc[index]
+        file_name = annotation[self.config.file_name_col]
+
+        # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+        class_name = annotation[self.config.manual_id_col]
+
+        def one_hot(x, num_classes, on_value=1., off_value=0.):
+            x = x.long().view(-1, 1)
+            return torch.full((x.size()[0], num_classes), off_value, device=x.device).scatter_(1, x, on_value)
+
+        target = one_hot(
+                torch.tensor(self.class_to_idx[class_name]),
+                self.num_classes)[0]
+        target = target.float()
+
+        try:
+            # Get necessary variables from annotation
+            annotation = self.samples.iloc[index]
+            file_name = annotation[self.config.file_name_col]
+            sample_per_sec = self.target_sample_rate
+            frame_offset = int(annotation[self.config.offset_col] * sample_per_sec)
+            num_frames = int(annotation[self.config.duration_col] * sample_per_sec)
+
+            # Load audio
+            audio = torch.load(os.path.join(self.config.data_path,file_name))
+        
+            if audio.shape[0] > num_frames:
+                audio = audio[frame_offset:frame_offset+num_frames]
+            else:
+                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=self.config.verbose)
+
+            # Crop if too long
+            if audio.shape[0] > self.num_samples:
+                audio = self.crop_audio(audio)
+            # Pad if too short
+            if audio.shape[0] < self.num_samples:
+                audio = self.pad_audio(audio)
+        except Exception as e:
+            print(e)
+            print(file_name, index)
+            raise RuntimeError("Bad Audio") from e
+
+        #Assume audio is all mono and at target sample rate
+        #assert audio.shape[0] == 1
+        #assert sample_rate == self.target_sample_rate
+        #audio = self.to_mono(audio) #basically reshapes to col vect
+
+        audio = audio.to(device)
+        target = target.to(device)
+        return audio, target
+
+    def __len__(self):
+        return self.samples.shape[0]
+
+    def __getitem__(self, index): #-> Any:
+        """ Takes an index and returns tuple of spectrogram image with corresponding label
+        """
+
+        audio, target = self.get_annotation(index)
+        if self.transforms is not None:
+            mixup_idx = 0
+            audio, target = add_mixup(audio, 
+                                      target, 
+                                      self.mixup, 
+                                      self.transforms, 
+                                      mixup_idx) 
+
+        # Randomly shift audio
+        if self.train and torch.rand(1) < self.config.time_shift_p:
+            shift = torch.randint(0, self.num_samples, (1,))
+            audio = torch.roll(audio, shift, dims=1)
+#        # Add noise
+#        if self.train and torch.randn(1) < self.config.noise_p:
+#            noise = torch.randn_like(audio) * self.config.noise_std
+#            audio = audio + noise
+#        # Mixup
+#        if self.train and torch.randn(1) < self.config.mix_p:
+#            audio_2, target_2 = self.get_annotation(np.random.randint(0, self.__len__()))
+#            alpha = np.random.rand() * 0.3 + 0.1
+#            audio = audio * alpha + audio_2 * (1 - alpha)
+#            target = target * alpha + target_2 * (1 - alpha)
+
+        # Mel spectrogram
+        mel = self.mel_spectogram(audio)
+
         # Convert to Image
         image = torch.stack([mel, mel, mel])
-        
-        # Normalize Image
-        max_val = torch.abs(image).max()
-        image = image / max_val
-        # one hot target
-        target = torch.zeros(self.num_classes)
-        target[cl] = 1
-        
-        if (torch.any(torch.isnan(image))):
-            print("ERROR NAN", path)
-            image = torch.zeros(image.shape)
 
- 
+        # Normalize Image
+        max_val = torch.abs(image).max() + 0.000001
+        image = image / max_val
+
+        # Frequency masking and time masking
+        if self.train and torch.randn(1) < self.config.freq_mask_p:
+            image = self.freq_mask(image)
+        if self.train and torch.randn(1) < self.config.time_mask_p:
+            image = self.time_mask(image)
+
+        if image.isnan().any():
+            print("ERROR IN ANNOTATION #", index)
+            self.bad_files.append(index)
+            #try again with a diff annotation to avoid training breaking
+            image, target = self[self.samples.sample(1).index[0]]
+
         return image, target
 
+    def set_transforms(self, transforms):
+        """ Sets the transforms for the dataset
+        """
+        self.transforms = transforms
+    def set_mixup(self, mixup):
+        """ Sets the mixup object for the dataset
+        """
+        self.mixup = mixup
 
-    def load_audio(self, path):
-        audio, sample_rate = torchaudio.load(path)
-        audio = self.to_mono(audio)
-        if sample_rate != self.target_sample_rate:
-            resample = audtr.Resample(sample_rate, self.target_sample_rate)
-            try:
-                audio = resample(audio)
-            except Exception as e:
-                print(e)
-                print(path, audio.shape[0])
-                print(type(self.samples))
-                shutil.move(path, "../acoustic-species-classification/bad_files")
-        return audio
-
-    def pad_audio(self, audio):
+    def pad_audio(self, audio: torch.Tensor) -> torch.Tensor:
+        """Fills the last dimension of the input audio with zeroes until it is num_samples long
+        """
         pad_length = self.num_samples - audio.shape[0]
         last_dim_padding = (0, pad_length)
         audio = F.pad(audio, last_dim_padding)
         return audio
-        
-    def crop_audio(self, audio):
-        audio  = self.random_chunk(audio)
-        return audio #audio[:self.num_samples]
-        
-    def to_mono(self, audio):
+
+    def crop_audio(self, audio: torch.Tensor) -> torch.Tensor:
+        """Cuts audio to num_samples long
+        """
+        return audio[:self.num_samples]
+
+    def to_mono(self, audio: torch.Tensor) -> torch.Tensor:
+        """ Converts audio to mono by averaging the channels
+        """
         return torch.mean(audio, axis=0)
+
+    def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
+        """ Returns tuple of class list and class to index dictionary
+        """
+        return self.classes, self.class_to_idx
+
+    def get_num_classes(self) -> int:
+        """ Returns number of classes
+        """
+        return self.num_classes
+
+
+def get_datasets(
+        transforms = None, CONFIG=None, alpha=0.3
+        ):
+    """ Returns train and validation datasets, does random sampling for train/valid split, adds transforms to dataset
+    """
+
+
+    train_p = CONFIG.train_test_split
+    path = CONFIG.dataframe
+    # Load the dataset
+    data = pd.read_csv(path, usecols = [
+        CONFIG.file_name_col,
+        CONFIG.manual_id_col,
+        CONFIG.offset_col,
+        CONFIG.duration_col
+    ], dtype={
+        CONFIG.file_name_col: str,
+        CONFIG.manual_id_col: str,
+        CONFIG.offset_col: float,
+        CONFIG.duration_col: float})
     
-    def chunk_samples(self):
-        new_samples = []
-        print("chunking data")
-        for path, cl in tqdm(self.samples):
-            duration = librosa.get_duration(path=path)
-            chunks = int(duration // self.max_time)
-            
-            if (chunks == 0):
-                new_samples.append((path, cl, 0, self.num_samples))
-            else:
-                for i in range(chunks):
-                    new_samples.append((path, cl, self.num_samples*i, self.num_samples*(i+1)))
-        
-        #randomize to avoid bad fit
+    #for each species, get a random sample of files for train/valid split
+    train_files = data.groupby(CONFIG.manual_id_col, as_index=False).apply(
+        lambda x: pd.Series(x[CONFIG.file_name_col].unique()).sample(frac=train_p)
+    )
+    train = data[data[CONFIG.file_name_col].isin(train_files)]
 
-        random.shuffle(new_samples)
+    valid = data[~data.index.isin(train.index)]
 
-        self.samples = new_samples
-        print("chunking complete! Big data moment")
+    train_ds = PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG)
+    species = train_ds.get_classes()
 
-    #TODO MAKE PANDAS DF FOR EASIER STORAGE
-    def get_samples(self):
-        return self.samples
+    mixup_ds = PyhaDF_Dataset(train, csv_file="mixup.csv",train=False, CONFIG=CONFIG)
+    mixup = Mixup(mixup_ds, alpha)
+    if transforms is not None:
+        train_ds.set_transforms(transforms)
+        train_ds.set_mixup(mixup)
 
-    def random_chunk(self, audio):
-        start = np.random.randint(audio.shape[0] - self.num_samples - 1)
-        audio = audio[start:start + self.num_samples]
-        return audio
-
-        
-    
-    @staticmethod
-    def collate(batch, p=0.3):
-        # with probability p, randomly combine two samples from different classes
-        # with probability 1-p, keep the samples as they are
-        # this is to help the model learn to distinguish between classes
-        # since the dataset is imbalanced
-        new_batch = []
-        for i in range(0, len(batch), 2):
-            if np.random.rand() < p:
-                new_batch.append((batch[i][0] + batch[i+1][0], torch.clamp(batch[i][1] + batch[i+1][1], max=1)))
-            else:
-                new_batch.append((batch[i][0], batch[i][1]))
-                new_batch.append((batch[i+1][0], batch[i+1][1]))
-        return torch.utils.data.default_collate(new_batch)
+    valid_ds = PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, species=species, CONFIG=CONFIG)
+    return train_ds, valid_ds
 
 
-
-
-def get_datasets(path="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=None):
-    train_data = BirdCLEFDataset(root="../acoustic-species-classification/BirdCLEF2023_split_chunks/training", CONFIG=CONFIG, unchunked=True)
-    val_data = BirdCLEFDataset(root="../acoustic-species-classification/BirdCLEF2023_split_chunks/validation", CONFIG=CONFIG, unchunked=True)
-    #data = BirdCLEFDataset(root="/share/acoustic_species_id/BirdCLEF2023_train_audio_chunks", CONFIG=CONFIG)
-    #no_bird_data = BirdCLEFDataset(root="/share/acoustic_species_id/no_bird_10_000_audio_chunks", CONFIG=CONFIG)
-    #data = torch.utils.data.ConcatDataset([data, no_bird_data])
-    #train_data, val_data = torch.utils.data.random_split(data, [0.8, 0.2])
-    return train_data, val_data
+def main():
+    """
+    testing function.
+    """
+    torch.multiprocessing.set_start_method('spawn')
+    CONFIG = get_config()
+    set_seed(CONFIG.seed)
+    get_datasets(CONFIG=CONFIG)
 
 if __name__ == '__main__':
-    CONFIG = parser.parse_args()
-    CONFIG.logging = True if CONFIG.logging == 'True' else False
-    train_data = BirdCLEFDataset(root="../acoustic-species-classification/BirdCLEF2023_split_chunks", CONFIG=CONFIG)
-    print(len(train_data), len(train_data.samples))
-    train_data = BirdCLEFDataset(root="../acoustic-species-classification/BirdCLEF2023_split_chunks", CONFIG=CONFIG, unchunked=True)
-    print(len(train_data), len(train_data.samples))
-    
-    print(train_data.__getitem__(0))
-    
-    #for idx in tqdm(range(len(train_data.samples))):
-    #    train_data.__getitem__(idx)
-    # for path, cl in train_data.samples:
-    #     try:
-    #         audio, sample_rate = torchaudio.load(path)
-    #     except:
-    #         os.remove(path)
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    # torch.manual_seed(CONFIG.seed)
-    # train_dataset, val_dataset = get_datasets(CONFIG=CONFIG)
-    # train_dataloader = torch.utils.data.DataLoader(
-    #     train_dataset,
-    #     CONFIG.train_batch_size,
-    #     shuffle=True,
-    #     num_workers=CONFIG.jobs,
-    #     collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
-    # )
-    # val_dataloader = torch.utils.data.DataLoader(
-    #     val_dataset,
-    #     CONFIG.valid_batch_size,
-    #     shuffle=False,
-    #     num_workers=CONFIG.jobs,
-    #     collate_fn=partial(BirdCLEFDataset.collate, p=CONFIG.p)
-    # )
-    # for batch in train_dataloader:
-    #     print(batch[0].shape)
-    #     print(batch[1].shape)
-    #     break
+    main()

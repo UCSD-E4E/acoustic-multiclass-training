@@ -1,46 +1,33 @@
-import torch
-import torch.nn as nn
-from torch.optim import Adam
-import torch.nn.functional as F
-import torchaudio 
+# pylint: disable=E1123:
 
+""" Contains the model class
+    Model: model with forward pass method. Generated automatically from a timm model
+
+"""
+import torch
+from torch import nn
+
+# timm is a library of premade models
 import timm
 
-#https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
-# generalize mean pooling
-class GeM(nn.Module):
-    def __init__(self, p=3, eps=1e-6):
-        super(GeM, self).__init__()
-        self.p = nn.Parameter(torch.ones(1)*p)
-        self.eps = eps
-
-    def forward(self, x):
-        return self.gem(x, p=self.p, eps=self.eps)
-        
-    def gem(self, x, p=3, eps=1e-6):
-        return F.avg_pool2d(x.clamp(min=eps).pow(p), (x.size(-2), x.size(-1))).pow(1./p)
-        
-    def __repr__(self):
-        return self.__class__.__name__ + \
-                '(' + 'p=' + '{:.4f}'.format(self.p.data.tolist()[0]) + \
-                ', ' + 'eps=' + str(self.eps) + ')'
-
-class BirdCLEFModel(nn.Module):
-    def __init__(self, 
-                 model_name="tf_efficientnet_b1", 
-                 embedding_size=768, 
+# pylint: disable=too-many-instance-attributes
+class TimmModel(nn.Module):
+    """ Efficient net neural network
+    """
+    # pylint: disable=too-many-arguments
+    def __init__(self,
+                 num_classes,
+                 model_name="tf_efficientnet_b4",
                  pretrained=True,
                  CONFIG=None):
-        super(BirdCLEFModel, self).__init__()
+        """ Initializes the model
+        """
+        super().__init__()
         self.config = CONFIG
-        self.model = timm.create_model(model_name, pretrained=pretrained)
-        in_features = self.model.classifier.in_features
-        self.model.classifier = nn.Identity()
-        self.model.global_pool = nn.Identity()
-        self.pooling = GeM()
-        self.embedding = nn.Linear(in_features, embedding_size)
-        self.fc = nn.Linear(embedding_size, CONFIG.num_classes)
-        self.embedding_size = embedding_size
+        self.num_classes = num_classes
+        # See config.py for list of recommended models
+        self.model = timm.create_model(model_name, pretrained=pretrained, num_classes=num_classes)
+        self.loss_fn = None
     
     def load_pretrain_checkpoint(self, pretrain_path, remove_pretrained_fc=True):
         #Load in a pretrained model (that used this class)
@@ -57,8 +44,46 @@ class BirdCLEFModel(nn.Module):
         print("pretrained checkpoint loaded :P")
 
     def forward(self, images):
-        features = self.model(images)
-        pooled_features = self.pooling(features).flatten(1)
-        embedding = self.embedding(pooled_features)
-        output = self.fc(embedding)
-        return output
+        """ Forward pass of the model
+        """
+        return self.model(images)
+
+    def create_loss_fn(self,train_dataset):
+        """ Returns the loss function and sets self.loss_fn
+        """
+        return cross_entropy_loss_fn(self, train_dataset)
+
+def cross_entropy_loss_fn(self,train_dataset):
+    """ Returns the loss function and sets self.loss_fn
+    """
+    if not self.config.imb: # normal loss
+        self.loss_fn = nn.CrossEntropyLoss()
+    else: # weighted loss
+        self.loss_fn = nn.CrossEntropyLoss(
+            weight=torch.tensor(
+                [1 / p for p in train_dataset.class_id_to_num_samples.values()]
+            ).to(self.device))
+    return self.loss_fn
+
+class EarlyStopper:
+    """Stop when the model is no longer improving
+    """
+    def __init__(self, patience=3, min_delta=0):
+        self.patience = patience # epochs to wait before stopping
+        self.min_delta = min_delta # min change that counts as improvement
+        self.counter = 0
+        self.max_valid_map = 0
+
+    def early_stop(self, valid_map):
+        """ Returns True if the model should early stop
+        """
+        # reset counter if it improved by more than min_delta
+        if valid_map > self.max_valid_map + self.min_delta:
+            self.max_valid_map = valid_map
+            self.counter = 0
+        # increase counter if it has not improved
+        elif valid_map < (self.max_valid_map - self.min_delta):
+            self.counter += 1
+            if self.counter >= self.patience:
+                return True
+        return False
