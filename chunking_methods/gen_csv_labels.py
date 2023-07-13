@@ -25,7 +25,7 @@ ISOLATION_PARAMETERS = {
 }
 
 
-def convert_audio(path, filetype=".wav"):
+def convert_audio(path, filetype):
     """Convert audio files to .wav files with PyDub. Used to ensure
     that TweetyNet can read the files for predictions.
     Args:
@@ -43,7 +43,7 @@ def convert_audio(path, filetype=".wav"):
             x = AudioSegment.from_file(os.path.join(path, file))
             x.export(file.replace(filetype, '.wav'), format='wav')
 
-def generate_labels(path):
+def generate_labels(path, filetype):
     """Generate binary automated time-specific labels using TweetyNet as 
     implemented in PyHa.
     Args:
@@ -57,7 +57,6 @@ def generate_labels(path):
         sys.exit(1)
 
     # generate labels at a top level
-    convert_audio(path)
     automated_df = generate_automated_labels(path, ISOLATION_PARAMETERS)
 
     # check one-level deep in case files organized by class
@@ -65,7 +64,7 @@ def generate_labels(path):
     if subfolders:
         subfolders.sort()
         for s in subfolders:
-            convert_audio(path)
+            convert_audio(path, filetype=filetype)
             temp_df = generate_automated_labels(s, ISOLATION_PARAMETERS)
             if temp_df.empty:
                 continue
@@ -187,7 +186,7 @@ if __name__ == "__main__":
 
         # saved to csv in case attaching labels fails as generating labels takes more time
         print("generating labels...")
-        labels = generate_labels(CONFIG.data_path)
+        labels = generate_labels(CONFIG.data_path, filetype=CONFIG.filetype)
         labels.to_csv(CONFIG.strong_labels)
 
         print("attaching strong labels...")
