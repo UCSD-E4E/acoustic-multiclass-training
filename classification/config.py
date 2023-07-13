@@ -5,7 +5,6 @@
 """
 import sys
 import argparse
-from operator import itemgetter
 import git
 
 # Machine learning has a lot of arugments
@@ -109,13 +108,3 @@ def get_config():
         sys.exit(1)
 
     return CONFIG
-
-def get_args(*args):
-    """
-    Args:
-        *args: Series of strings corresponding to the command line arguments
-    Returns: Values of the command line arguments
-    """
-    CONFIG = get_config().__dict__
-    return itemgetter(*args)(CONFIG)
-    
