@@ -3,8 +3,13 @@
     Methods:
         get_config: returns an ArgumentParser with the default arguments
 """
+import sys
 import argparse
+from operator import itemgetter
+import git
 
+# Machine learning has a lot of arugments
+# pylint: disable=too-many-statements
 def get_config():
     """ Returns a config variable with the command line arguments or defaults
     """
@@ -62,6 +67,10 @@ def get_config():
     parser.add_argument('-md', '--map_debug', action='store_true')
     parser.add_argument('-mxp', '--mixed_precision', action='store_true')
 
+    # Early stopping
+    parser.add_argument('-es', '--early_stopping', action='store_true')
+    parser.add_argument('-pa', '--patience', type=int, default=3, help="epochs to wait before stopping")
+    parser.add_argument('-del', '--min_delta', type=float, default=0.01, help='min improvement btwn epochs')
     # Transforms settings
     parser.add_argument('-p', '--p', default=0, type=float, help='probability for mixup')
     parser.add_argument('-i', '--imb', action='store_true', help='imbalance sampler')
@@ -82,4 +91,31 @@ def get_config():
     # Convert string arguments to boolean
     CONFIG.logging = CONFIG.logging == 'True'
     
+    #Add git hash to config so wand logging can track vrs used for reproduciblity
+    try:
+        repo = git.Repo(search_parent_directories=True)
+        sha = repo.head.object.hexsha
+        setattr(CONFIG, "git_hash", sha)
+        print(sha)
+
+    #I want to catch this spefific error, and it doesn't extend from base exception
+    #¯\(ツ)/¯
+    # pylint: disable=no-member
+    except git.exc.InvalidGitRepositoryError:
+        print("InvalidGitRepositoryError found, this means we cannot save git hash :(")
+        print("You are likely calling a python file outside of this repo") 
+        print("if from command line, cd into acoustic-mutliclass-training")
+        print("then you can run the script again")
+        sys.exit(1)
+
     return CONFIG
+
+def get_args(*args):
+    """
+    Args:
+        *args: Series of strings corresponding to the command line arguments
+    Returns: Values of the command line arguments
+    """
+    CONFIG = get_config().__dict__
+    return itemgetter(*args)(CONFIG)
+    

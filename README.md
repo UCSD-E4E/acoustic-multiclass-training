@@ -21,8 +21,10 @@ This work was initially started during the [BirdCLEF2022 Kaggle Competition](htt
 ![outline](images/main_diag.png)
 
 Our main pipeline (shown above) can be described as follows:
-0. For a given set of weakly-labeled noisy audio recordings (i.e. the entire recording may have a label for a bird species, but no information about where in the recording the call is), we use [PyHa](https://github.com/UCSD-E4E/PyHa) to extract 5s segment mel-spectrograms of the original audio, where each 5s segment is estimated to include the bird call matching the given label.
-1. We use this strongly labeled mel-spectra data to train a bird species classifier (as well as an optional bird detector), which at inference time is given an unlabeled 5s audio clip and predicts which species are present in the audio.
+
+1. For a given set of weakly-labeled noisy audio recordings (i.e. the entire recording may have a label for a bird species, but no information about where in the recording the call is), we use [PyHa](https://github.com/UCSD-E4E/PyHa) to extract 5s segment mel-spectrograms of the original audio, where each 5s segment is estimated to include the bird call matching the given label.
+2. We use this strongly labeled mel-spectra data to train a bird species classifier (as well as an optional bird detector), which at inference time is given an unlabeled 5s audio clip and predicts which species are present in the audio.
+
 
 A detailed description of the project and producing it is shown below.
 
@@ -55,7 +57,10 @@ The CSV file referenced in `config.py` contains all metadata about clips in that
 
 We ran into issues running PyHa over `.ogg` files, so there is an included function in `gen_tweety_labels.py` to convert `.ogg` to `.wav` files and can be swapped out for your original file type. This is an issue for the data processing pipeline. However, the training pipeline can accept most file types.
 
+
 ## Data Processing
+The main file is is `gen_csv_labels.py` and uses functions from `config.py` and `WTS_chunking.py`. After downloading and setting up PyHa, copy all scripts in the `chunking_methods/` folder into the PyHa directory and cd into it. Also, activate the PyHa conda environment. 
+If PyHa was correctly set up, this script will generate two csvs: one with strong labels, one with chunked strong labels. For example, to create labels with 5 second, sliding window chunks for `.ogg` files in a folder called `~/amabaw1`, you can run the following:
 
 The first file in our data processing pipeline is `gen_tweety_labels.py`. After downloading and setting up PyHa, copy this script into the PyHa directory and cd into it. If PyHa was correctly set up, this script will run TweetyNet on the entire BirdCLEF2022 dataset to produce binary labels in a file called `BirdCLEF2023_TweetyNet_Labels.csv`. For example, if the BirdCLEF2023 directory called `train_audio` is located at `/share/acoustic_species_id`, the script can be run with the following command:
 
@@ -79,8 +84,9 @@ Next, we need to split the data into training and validation sets. These splits 
 
 ```bash
 python distribute_chunks.py /share/acoustic_species_id
-```
 
+```
+If using simple chunks, ie. if `SLIDING_CHUNKS` is set to `False`, it will only create one `.csv`
 
 ## Classification
 The main file is `train.py`, which has the main training loop and uses functions from `dataset.py` and `model.py`. This has several hyperparameters related to training, logging, and data augmentation that can be passed in as arguments. For example, to run with a mixup probability of -1.6, with all other arguments kept to the defaults, you would run:
@@ -103,4 +109,14 @@ This project is set up with [WandB](https://wandb.ai), a dashboard to keep track
 
 ![](images/SampleWandBOutputs.PNG)
 
-If you do not want to enable WandB logging, run with the argument `-l false`.
+
+If you do not want to enable WandB logging, it can disabled during runtime using the `-l` flag:
+```
+python train.py -l False
+```
+
+## Inference 
+The `inference.ipynb` notebook can be directly uploaded to and run on Kaggle. In the import section, the notebook takes in a local path to a pretrained checkpoint (can be replaced with a `timm` fetched model) with the model architecture and to the final model. Replicate any changes you made to the BirdCLEFModel class, or directly import from `train.py` if running on a local machine.
+
+Under the inference section, modify the `pd.read_csv` line to your training metadata file. This is used to get a list of labels to predict. Also, change the `filepaths` variable to where your test data is stored. The given notebook removes two classes from the predictions, as there was no training data actually used (chunks were not able to generate), but these can be removed. The final output is `submission.csv`, which outputs probabilistic predictions for each class for every 5 second chunk of the training data.
+
