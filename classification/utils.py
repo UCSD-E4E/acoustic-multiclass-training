@@ -39,3 +39,13 @@ def rand(low, high):
     Returns a random float between [low, high)
     """
     return (high - low) * float(torch.rand(1)[0]) + low
+
+def get_args(*args):
+    """
+    Args:
+        *args: Series of strings corresponding to the command line arguments
+    Returns: Values of the command line arguments
+    """
+    CONFIG = get_config().__dict__
+    return itemgetter(*args)(CONFIG)
+    

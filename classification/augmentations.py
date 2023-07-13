@@ -9,7 +9,6 @@ import numpy as np
 import torch
 import torchaudio
 import utils
-import config
 
 
 class Mixup(torch.nn.Module):
@@ -173,7 +172,7 @@ class RandomEQ(torch.nn.Module):
         self.g_range = g_range
         self.q_range = q_range
         self.num_applications = num_applications
-        self.sample_rate = config.get_args("sample_rate")
+        self.sample_rate = utils.get_args("sample_rate")
 
     def forward(self, clip: torch.Tensor) -> torch.Tensor:
         """
@@ -211,7 +210,7 @@ class BackgroundNoise(torch.nn.Module):
         else:
             raise TypeError('noise_path must be of type Path or str')
         self.alpha = alpha
-        self.sample_rate = config.get_args("sample_rate")
+        self.sample_rate = utils.get_args("sample_rate")
         self.length = length
         self.norm = norm
 
@@ -264,7 +263,7 @@ class LowpassFilter(torch.nn.Module):
     """
     def __init__(self, cutoff: int, Q: float):
         super().__init__()
-        self.sample_rate = config.get_args("sample_rate")
+        self.sample_rate = utils.get_args("sample_rate")
         self.cutoff = cutoff
         self.Q = Q
 
