@@ -171,6 +171,13 @@ def test():
     out = model(image, audio)
     print(out.shape)
 
+    print("i have no idea what happens next")
+    print(model.state_dict())
+    
+    #https://discuss.pytorch.org/t/check-if-models-have-same-weights/4351/7
+    old = model.state_dict().__str__()
+    print(old == model.state_dict().__str__() )
+
 
 if __name__ == "__main__":
     #Prevents circular dependecies, this is just for testing :)
