@@ -149,9 +149,7 @@ class SyntheticNoise(torch.nn.Module):
         """
         noise_function = self.noise_names[self.noise_type]
         noise = noise_function(len(clip))
-        augmented = self.alpha * clip + (1-self.alpha)* noise
-        # Normalize noise to be between 0 and 1
-        return utils.norm(augmented)
+        return self.alpha * clip + (1-self.alpha)* noise
 
 
 class RandomEQ(torch.nn.Module):
