@@ -9,7 +9,6 @@ import numpy as np
 import torch
 import torchaudio
 import utils
-import config
 
 
 class Mixup(torch.nn.Module):
@@ -149,9 +148,7 @@ class SyntheticNoise(torch.nn.Module):
         """
         noise_function = self.noise_names[self.noise_type]
         noise = noise_function(len(clip))
-        augmented = self.alpha * clip + (1-self.alpha)* noise
-        # Normalize noise to be between 0 and 1
-        return utils.norm(augmented)
+        return self.alpha * clip + (1-self.alpha)* noise
 
 
 class RandomEQ(torch.nn.Module):
@@ -175,7 +172,7 @@ class RandomEQ(torch.nn.Module):
         self.g_range = g_range
         self.q_range = q_range
         self.num_applications = num_applications
-        self.sample_rate = config.get_args("sample_rate")
+        self.sample_rate = utils.get_args("sample_rate")
 
     def forward(self, clip: torch.Tensor) -> torch.Tensor:
         """
@@ -203,7 +200,7 @@ class BackgroundNoise(torch.nn.Module):
         length: Length of audio clip (s)
     """
     def __init__(
-            self, noise_path: Path, alpha: float, length=5
+            self, noise_path: Path, alpha: float, length=5, norm=True
             ):
         super().__init__()
         if isinstance(noise_path, str):
@@ -213,8 +210,9 @@ class BackgroundNoise(torch.nn.Module):
         else:
             raise TypeError('noise_path must be of type Path or str')
         self.alpha = alpha
-        self.sample_rate = config.get_args("sample_rate")
+        self.sample_rate = utils.get_args("sample_rate")
         self.length = length
+        self.norm = norm
 
     def forward(self, clip: torch.Tensor)->torch.Tensor:
         """
@@ -247,7 +245,8 @@ class BackgroundNoise(torch.nn.Module):
         if sr != self.sample_rate:
             waveform = torchaudio.functional.resample(
                     waveform, orig_freq=sr, new_freq=self.sample_rate)
-        waveform = utils.norm(waveform)
+        if self.norm:
+            waveform = utils.norm(waveform)
         start_idx = utils.randint(0, len(waveform))
         return waveform[start_idx, start_idx+clip_len]
 
@@ -264,7 +263,7 @@ class LowpassFilter(torch.nn.Module):
     """
     def __init__(self, cutoff: int, Q: float):
         super().__init__()
-        self.sample_rate = config.get_args("sample_rate")
+        self.sample_rate = utils.get_args("sample_rate")
         self.cutoff = cutoff
         self.Q = Q
 
