@@ -125,8 +125,8 @@ class PyhaDF_Dataset(Dataset):
         # removed from training so it isn't stopped after hours of time
         # Hence broad exception
         # pylint: disable-next=W0718
-        except Exception as e:
-            print_verbose(file_name, "is bad", e, verbose=self.config.verbose)
+        except Exception as exc:
+            print_verbose(file_name, "is bad", exc, verbose=self.config.verbose)
             return pd.Series({
                 "FILE NAME": file_name,    
                 "files": "bad"
@@ -214,10 +214,10 @@ class PyhaDF_Dataset(Dataset):
             # Pad if too short
             if audio.shape[0] < self.num_samples:
                 audio = self.pad_audio(audio)
-        except Exception as e:
-            print(e)
+        except Exception as exc:
+            print(exc)
             print(file_name, index)
-            raise RuntimeError("Bad Audio") from e
+            raise RuntimeError("Bad Audio") from exc
 
         #Assume audio is all mono and at target sample rate
         #assert audio.shape[0] == 1
