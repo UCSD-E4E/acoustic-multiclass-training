@@ -1,8 +1,3 @@
-# pylint: disable=R0902
-# Disables number of instance attributes
-# Could be simplifed in future and more put into config
-# but for MVP ignore this for now
-
 """ Contains methods for loading the dataset and also creates dataloaders for training and validation
 
     BirdCLEFDataset is a generic loader with a given root directory.
@@ -34,7 +29,7 @@ if torch.cuda.is_available():
 else:
     DEVICE = torch.device("cpu")
 
-#https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
+# pylint: disable=too-many-instance-attributes
 class PyhaDFDataset(Dataset):
     """
         Dataset designed to work with pyha output
@@ -42,7 +37,6 @@ class PyhaDFDataset(Dataset):
     """
 
     # df, csv_file, train, and species decided outside of config, so those cannot be added in there
-    # pylint: disable-next=too-many-instance-attributes
     # pylint: disable-next=too-many-arguments
     def __init__(self, df, csv_file="test.csv", CONFIG=None, train=True, species=None):
         self.config = CONFIG

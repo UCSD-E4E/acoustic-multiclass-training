@@ -1,10 +1,3 @@
-# pylint: disable=R0902
-# pylint: disable=W0621
-# pylint: disable=R0913
-# pylint: disable=E1121
-# R0902, W0621 -> Not redefining these values, they are all the same value,
-# R0913, E1121 -> These functions just have a lot of args that are frequently changed since ML
-
 """
     Contains the training and validation function and logging to Weights and Biases
     Methods:
@@ -55,6 +48,7 @@ def check_shape(outputs, labels):
 # Splitting this up would be annoying!!!
 # pylint: disable=too-many-statements 
 # pylint: disable=too-many-locals
+# pylint: disable=too-many-arguments
 def train(model: Any,
         data_loader: PyhaDFDataset,
         valid_loader:  PyhaDFDataset,
