@@ -157,7 +157,6 @@ def train(model: Any,
                                           valid_loader, 
                                           epoch + i / len(data_loader), 
                                           best_valid_cmap, 
-                                          CONFIG.valid_dataset_ratio,
                                           CONFIG)
             # Ignore the time it takes to validate in annotations/sec
             start_time += datetime.datetime.now() - valid_start_time
@@ -166,9 +165,8 @@ def train(model: Any,
 
 def valid(model: Any,
           data_loader: PyhaDF_Dataset,
-          epoch: int,
+          epoch_progress: float,
           best_valid_cmap: float,
-          dataset_ratio: float,
           CONFIG) -> Tuple[float, float]:
     """
     Run a validation loop
@@ -178,6 +176,9 @@ def valid(model: Any,
     running_loss = 0
     pred = []
     label = []
+    dataset_ratio: float = CONFIG.valid_dataset_ratio
+    if epoch_progress.is_integer():
+        dataset_ratio = 1.0
 
     # tqdm is a progress bar
     dl = tqdm(data_loader, position=5, total=int(len(data_loader)*dataset_ratio))
@@ -222,7 +223,7 @@ def valid(model: Any,
     wandb.log({
         "valid/loss": running_loss/len(data_loader),
         "valid/map": valid_map,
-        "epoch_progress": epoch,
+        "epoch_progress": epoch_progress,
     })
 
     print(f"Validation Loss:\t{running_loss/len(data_loader)} \n Validation mAP:\t{valid_map}" )
@@ -326,9 +327,8 @@ def main():
         
         _, _, best_valid_cmap = valid(model_for_run, 
                                       val_dataloader, 
-                                      epoch + 1, 
+                                      epoch + 1.0, 
                                       best_valid_cmap, 
-                                      1.0, # Use 100% of validation set
                                       CONFIG)
         print("Best validation cmap:", best_valid_cmap.item())
         
