@@ -61,7 +61,7 @@ def generate_labels(path):
     automated_df = generate_automated_labels(path, ISOLATION_PARAMETERS)
 
     # check one-level deep in case files organized by class
-    subfolders = [f.path for f in os.scandir(path) if f.is_dir()]
+    subfolders = [file.path for file in os.scandir(path) if file.is_dir()]
     if subfolders:
         subfolders.sort()
         for s in subfolders:
@@ -131,18 +131,18 @@ def generate_raw_chunks(path, metadata, chunk_duration=5, filetype=".wav"):
 
     metadata_df = pd.read_csv(metadata)
 
-    files = [f.path for f in os.scandir(path) if f.path.endswith(filetype)]
+    files = [file.path for file in os.scandir(path) if file.path.endswith(filetype)]
     files.sort()
-    for f in files:
+    for file in files:
         try:
-            audio = AudioSegment.from_file(f)
-        except exceptions.CouldntDecodeError as e:
+            audio = AudioSegment.from_file(file)
+        except exceptions.CouldntDecodeError as exc:
             # catch ffmpeg error
             print("Audio conversion failed for ", filename + filetype)
-            print(e)
+            print(exc)
             continue
         
-        basepath = os.path.splitext(os.path.basename(f))[0] # only want basepath
+        basepath = os.path.splitext(os.path.basename(file))[0] # only want basepath
         filename = basepath.split('.')[0]
         file_length = len(audio) # in ms
         num_chunks = ceil(file_length / (chunk_length))
@@ -153,9 +153,9 @@ def generate_raw_chunks(path, metadata, chunk_duration=5, filetype=".wav"):
                                          'Scientific Name'].iloc[0]
             species = metadata_df.loc[metadata_df["filename"] == (filename + filetype),
                                       'Species eBird Code'].iloc[0]
-        except IndexError as e:
+        except IndexError as exc:
             print("Scientific name or species lookup failed for ", filename + filetype)
-            print(e)
+            print(exc)
             continue
         
         # create chunks and add to dataframe
