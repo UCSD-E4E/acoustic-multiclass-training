@@ -15,7 +15,9 @@ class Mixup(torch.nn.Module):
     """
     Attributes:
         dataset: Dataset from which to mixup with other clips
-        alpha: Strength (proportion) of new audio in augmented clip
+        alpha_range: Range of alpha parameter, which determines 
+        proportion of new audio in augmented clip
+        p: Probability of mixing
     """
     def __init__(self, dataset, alpha_range: Tuple[float,float]=(0.1, 0.4), p: float=0.4):
         super().__init__()
@@ -133,7 +135,7 @@ class SyntheticNoise(torch.nn.Module):
     """
     Attributes:
         noise_type: type of noise to add to clips
-        alpha: Strength (proportion) of original audio in augmented clip
+        alpha: Strength (proportion) of noise audio in augmented clip
     """
     noise_names = {'pink': pink_noise,
                    'brown': brown_noise,
@@ -153,7 +155,7 @@ class SyntheticNoise(torch.nn.Module):
         """
         noise_function = self.noise_names[self.noise_type]
         noise = noise_function(len(clip))
-        return self.alpha * clip + (1-self.alpha)* noise
+        return (1 - self.alpha) * clip + self.alpha* noise
 
 
 class RandomEQ(torch.nn.Module):
