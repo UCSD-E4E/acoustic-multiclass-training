@@ -21,7 +21,7 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 import torchaudio
-from augmentations import Mixup  # , add_mixup
+from augmentations import Mixup
 from config import get_config
 from torch.utils.data import Dataset
 from torchaudio import transforms as audtr
@@ -29,7 +29,10 @@ from tqdm import tqdm
 from utils import print_verbose, set_seed
 
 tqdm.pandas()
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+if torch.cuda.is_available():
+    DEVICE = torch.device("cuda")
+else:
+    DEVICE = torch.device("cpu")
 
 #https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
 class PyhaDFDataset(Dataset):
@@ -325,7 +328,7 @@ class PyhaDFDataset(Dataset):
 
 
 def get_datasets(
-        transforms = None, CONFIG=None, alpha=0.3
+        CONFIG, transforms = None, alpha=0.3
         ):
     """ Returns train and validation datasets, does random sampling for train/valid split, adds transforms to dataset
     """

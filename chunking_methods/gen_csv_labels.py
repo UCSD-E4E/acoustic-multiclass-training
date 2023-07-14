@@ -149,10 +149,9 @@ def generate_raw_chunks(path, metadata, chunk_duration=5, filetype=".wav"):
 
         # attempt to match file with scientific name and ebird code
         try: 
-            scientific = metadata_df.loc[metadata_df["filename"] == (filename + filetype),
-                                         'Scientific Name'].iloc[0]
-            species = metadata_df.loc[metadata_df["filename"] == (filename + filetype),
-                                      'Species eBird Code'].iloc[0]
+            same_file = metadata_df["filename"] == filename + filetype
+            scientific = metadata_df.loc[same_file, 'Scientific Name'].iloc[0]
+            species = metadata_df.loc[same_file, 'Species eBird Code'].iloc[0]
         except IndexError as exc:
             print("Scientific name or species lookup failed for ", filename + filetype)
             print(exc)

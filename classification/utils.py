@@ -50,6 +50,6 @@ def get_args(*args):
         *args: Series of strings corresponding to the command line arguments
     Returns: Values of the command line arguments
     """
-    CONFIG = get_config().__dict__
+    CONFIG = vars(get_config())
     return itemgetter(*args)(CONFIG)
     
