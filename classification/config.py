@@ -3,9 +3,11 @@
     Methods:
         get_config: returns an ArgumentParser with the default arguments
 """
-import sys
 import argparse
+import sys
+
 import git
+
 
 # Machine learning has a lot of arugments
 # pylint: disable=too-many-statements

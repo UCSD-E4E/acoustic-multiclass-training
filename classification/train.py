@@ -15,25 +15,24 @@
 
 
 """
-from typing import Dict, Any, Tuple
-import os
 import datetime
-from torchmetrics.classification import MultilabelAveragePrecision
+import os
+from typing import Any, Dict, Tuple
 
+import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.optim import Adam
-from torch.amp import autocast
-import numpy as np
-from dataset import PyhaDF_Dataset, get_datasets
-from model import TimmModel, EarlyStopper
-from utils import set_seed, print_verbose
-from config import get_config
 from augmentations import SyntheticNoise
+from config import get_config
+from dataset import PyhaDF_Dataset, get_datasets
+from model import EarlyStopper, TimmModel
+from torch.amp import autocast
+from torch.optim import Adam
+from torchmetrics.classification import MultilabelAveragePrecision
 from tqdm import tqdm
+from utils import print_verbose, set_seed
+
 import wandb
-
-
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 

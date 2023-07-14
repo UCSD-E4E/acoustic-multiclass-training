@@ -8,13 +8,13 @@ Output:    A csv with chunked, strongly-labeled annotations
 import os
 import sys
 from math import ceil
+
 import pandas as pd
-from pydub import AudioSegment, exceptions
 from config import get_config
-from WTS_chunking import dynamic_yan_chunking
+from pydub import AudioSegment, exceptions
 # pylint: disable=import-error #this file gets put into PyHa
 from PyHa.IsoAutio import generate_automated_labels
-
+from WTS_chunking import dynamic_yan_chunking
 
 # This could be changed to use Microfaune or BirdNET, but the parameters are
 # somewhat different and TweetyNet should be the default.

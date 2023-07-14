@@ -6,9 +6,11 @@
 """
 
 from operator import itemgetter
+
 import numpy as np
 import torch
 from config import get_config
+
 
 def print_verbose(*args, **kwargs):
     """ 

@@ -15,22 +15,18 @@
 import os
 from typing import Dict, List, Tuple
 
-import torch
-import torch.nn.functional as F
-from torch.utils.data import Dataset
-import torchaudio
-from torchaudio import transforms as audtr
-
+import numpy as np
 # Math library imports
 import pandas as pd
-import numpy as np
-
-from utils import set_seed, print_verbose
+import torch
+import torch.nn.functional as F
+import torchaudio
+from augmentations import Mixup  # , add_mixup
 from config import get_config
+from torch.utils.data import Dataset
+from torchaudio import transforms as audtr
 from tqdm import tqdm
-from augmentations import Mixup#, add_mixup
-        
-
+from utils import print_verbose, set_seed
 
 tqdm.pandas()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
