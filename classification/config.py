@@ -5,61 +5,75 @@
 """
 import sys
 import argparse
-import git
-import yaml
 import os
 import shutil
 
+import git
+import yaml
+
+
 class Config():
-    def __new__(self):
-        if not hasattr(self, 'instance'):
+    """
+    Saves config from config files
+    Allows for customising runs
+    """
+    def __new__(cls):
+        """
+        Constructor for Config
 
-            self.test_ = "testing!"
-            self.instance = super(Config, self).__new__(self)
+        Takes data from config files and generates a singleton class
+        that can store all system vars
+
+        returns a refrence to the singleton class
+        """
+        
+        # Set up singleton class design template
+        if not hasattr(cls, 'instance'):
+            cls.test_ = "testing!"
+            cls.instance = super(Config, cls).__new__(cls)
         else:
-            print("CONFIG ALREADY EXISTS")
-            return self.instance
+            return cls.instance
 
-        #Set defaults
+        #Set defaults config
         with open('config.yml', 'r') as file:
-            self.config_dict = yaml.safe_load(file)
+            cls.config_dict = yaml.safe_load(file)
 
         default_keys = set()
-        print(self.config_dict)
-        for (key, value) in self.config_dict.items():
-            setattr(self, key, value)
+        print(cls.config_dict)
+        for (key, value) in cls.config_dict.items():
+            setattr(cls, key, value)
             default_keys.add(key)
 
         #Set User Custom Values
-        if (os.path.exists('config_personal.yml')):
+        if os.path.exists('config_personal.yml'):
             with open('config_personal.yml', 'r') as file:
-                self.config_personal_dict = yaml.safe_load(file)
+                cls.config_personal_dict = yaml.safe_load(file)
 
-            for (key, value) in self.config_personal_dict.items():
-                setattr(self, key, value)
+            for (key, value) in cls.config_personal_dict.items():
+                setattr(cls, key, value)
                 
 
-            self.config_dict.update(self.config_personal_dict)
+            cls.config_dict.update(cls.config_personal_dict)
         else:
             shutil.copy("config.yml", "config_personal.yml")
 
 
-        # Update personal dict
-
+        # Update personal dict with new keys
         attrs_to_append = []
 
         for key in default_keys:
-            if key in self.config_personal_dict: continue
+            if key in cls.config_personal_dict: continue
             
+            value = cls.config_dict[key]
             appending_attrs = {
-                key: self.config_dict[key]
+                key: value
             }
 
             #https://media.tenor.com/dxPl_UoR8J0AAAAC/fire-writing.gif
             attrs_to_append.append(appending_attrs) 
 
-        if (len(attrs_to_append) == 0):
-            return self.instance
+        if len(attrs_to_append) == 0:
+            return cls.instance    
         
         with open('config_personal.yml', 'a') as file:
             file.write("\n\n#NEW DEFAULTS\n")
@@ -67,7 +81,7 @@ class Config():
             for new_attrs in attrs_to_append:
                 yaml.dump(new_attrs, file)
 
-        return self.instance
+        return cls.instance
 
 
 # Machine learning has a lot of arugments
@@ -172,16 +186,19 @@ def get_config():
 
     return CONFIG
 
+cfg = Config()
 
 def testing():
     """
     Test functionality of generating and caching configs
     """
     config = Config()
+    config.change = " hah"
     config2 = Config()
     print(config == config2)
     print(config.test_)
     print(config2.test_)
-
+    print(config.change)
+    print(config2.change)
 if __name__ == "__main__":
     testing()

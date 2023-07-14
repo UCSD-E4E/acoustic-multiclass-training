@@ -4,12 +4,16 @@ nest:
   test: "Hello world"
 
 #NEW DEFAULTS
-change: true
+change: "HELLO"
 
 
 #NEW DEFAULTS
-change2: false
-change3: YAY
+change2: "HELLO"
+change3: "HELLO"
 
 
 #NEW DEFAULTS
+
+
+#NEW DEFAULTS
+hello: "HELLO"
