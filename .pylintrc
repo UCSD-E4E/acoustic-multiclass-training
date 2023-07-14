@@ -420,7 +420,6 @@ disable=raw-checker-failed,
         useless-suppression,
         deprecated-pragma,
         use-symbolic-message-instead,
-        C0303,
         trailing-whitespace,
         too-many-locals,
         invalid-name
