@@ -153,7 +153,7 @@ def train(model: Any,
 
         if (i != 0 and i % (CONFIG.valid_freq) == 0):
             valid_start_time = datetime.datetime.now()
-            _, _, best_valid_cmap = valid(model, 
+            _, _, best_valid_map = valid(model, 
                                           valid_loader, 
                                           epoch + i / len(data_loader), 
                                           best_valid_map, 
@@ -168,9 +168,18 @@ def valid(model: Any,
           data_loader: PyhaDF_Dataset,
           epoch_progress: float,
           best_valid_map: float,
-          CONFIG) -> Tuple[float, float]:
-    """
-    Run a validation loop
+          CONFIG) -> Tuple[float, float, float]:
+    """ Run a validation loop
+    Arguments:
+        model: the model to validate
+        data_loader: the validation data loader
+        epoch_progress: the progress of the epoch
+            - Note: If this is an integer, it will run the full
+                    validation set, otherwise runs config.valid_dataset_ratio
+        best_valid_map: the best validation mAP
+        CONFIG
+    Returns:
+        Tuple of (loss, valid_map, best_valid_map)
     """
     model.eval()
 
@@ -234,7 +243,7 @@ def valid(model: Any,
             os.mkdir("models")
         torch.save(model.state_dict(), path)
         print("Model saved in:", path)
-        print(f"Validation cmAP Improved - {best_valid_map} ---> {valid_map}")
+        print(f"Validation mAP Improved - {best_valid_map} ---> {valid_map}")
         best_valid_map = valid_map
 
     
@@ -326,11 +335,11 @@ def main():
             CONFIG
         )
         
-        _, _, best_valid_cmap = valid(model_for_run, 
-                                      val_dataloader, 
-                                      epoch + 1.0, 
-                                      best_valid_map, 
-                                      CONFIG)
+        _, valid_map, best_valid_map = valid(model_for_run, 
+                                             val_dataloader, 
+                                             epoch + 1.0, 
+                                             best_valid_map, 
+                                             CONFIG)
 
         print("Best validation map:", best_valid_map.item())
         if CONFIG.early_stopping and early_stopper.early_stop(valid_map):
