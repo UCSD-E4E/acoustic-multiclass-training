@@ -29,10 +29,10 @@ from tqdm import tqdm
 from utils import print_verbose, set_seed
 
 tqdm.pandas()
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 #https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
-class PyhaDF_Dataset(Dataset):
+class PyhaDFDataset(Dataset):
     """
         Dataset designed to work with pyha output
         Save unchunked data
@@ -55,7 +55,7 @@ class PyhaDF_Dataset(Dataset):
         self.mel_spectogram = audtr.MelSpectrogram(sample_rate=self.target_sample_rate,
                                         n_mels=self.config.n_mels,
                                         n_fft=self.config.n_fft)
-        self.mel_spectogram.cuda(device)
+        self.mel_spectogram.cuda(DEVICE)
         self.freq_mask = audtr.FrequencyMasking(freq_mask_param=self.config.freq_mask_param)
         self.time_mask = audtr.TimeMasking(time_mask_param=self.config.time_mask_param)
         self.transforms = None
@@ -116,7 +116,7 @@ class PyhaDF_Dataset(Dataset):
             # Resample
             if sample_rate != self.target_sample_rate:
                 resample = audtr.Resample(sample_rate, self.target_sample_rate)
-                #resample.cuda(device)
+                #resample.cuda(DEVICE)
                 audio = resample(audio)
 
             torch.save(audio, os.path.join(self.config.data_path,new_name))
@@ -224,8 +224,8 @@ class PyhaDF_Dataset(Dataset):
         #assert sample_rate == self.target_sample_rate
         #audio = self.to_mono(audio) #basically reshapes to col vect
 
-        audio = audio.to(device)
-        target = target.to(device)
+        audio = audio.to(DEVICE)
+        target = target.to(DEVICE)
         return audio, target
 
     def __len__(self):
@@ -353,16 +353,16 @@ def get_datasets(
 
     valid = data[~data.index.isin(train.index)]
 
-    train_ds = PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG)
+    train_ds = PyhaDFDataset(train, csv_file="train.csv", CONFIG=CONFIG)
     species = train_ds.get_classes()
 
-    mixup_ds = PyhaDF_Dataset(train, csv_file="mixup.csv",train=False, CONFIG=CONFIG)
+    mixup_ds = PyhaDFDataset(train, csv_file="mixup.csv",train=False, CONFIG=CONFIG)
     mixup = Mixup(mixup_ds, alpha)
     if transforms is not None:
         train_ds.set_transforms(transforms)
         train_ds.set_mixup(mixup)
 
-    valid_ds = PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, species=species, CONFIG=CONFIG)
+    valid_ds = PyhaDFDataset(valid, csv_file="valid.csv",train=False, species=species, CONFIG=CONFIG)
     return train_ds, valid_ds
 
 

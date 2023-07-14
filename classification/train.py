@@ -24,7 +24,7 @@ import torch
 import torch.nn.functional as F
 from augmentations import SyntheticNoise
 from config import get_config
-from dataset import PyhaDF_Dataset, get_datasets
+from dataset import PyhaDFDataset, get_datasets
 from model import EarlyStopper, TimmModel
 from torch.amp import autocast
 from torch.optim import Adam
@@ -36,7 +36,7 @@ import wandb
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 def check_shape(outputs, labels):
     """
@@ -51,12 +51,12 @@ def check_shape(outputs, labels):
 
 # Splitting this up would be annoying!!!
 # pylint: disable=too-many-statements 
+# pylint: disable=too-many-locals
 def train(model: Any,
-        data_loader: PyhaDF_Dataset,
-        valid_loader:  PyhaDF_Dataset,
+        data_loader: PyhaDFDataset,
+        valid_loader:  PyhaDFDataset,
         optimizer: torch.optim.Optimizer,
         scheduler,
-        device: str,
         epoch: int,
         best_valid_map: float,
         CONFIG) -> Tuple[float, int, float]:
@@ -73,7 +73,7 @@ def train(model: Any,
     log_loss = 0
     correct = 0
     total = 0
-    mAP = 0
+    m_ap = 0
     
     scaler = torch.cuda.amp.GradScaler()
 
@@ -84,10 +84,10 @@ def train(model: Any,
 
     for i, (mels, labels) in enumerate(data_loader):
         optimizer.zero_grad()
-        mels = mels.to(device)
-        labels = labels.to(device)
+        mels = mels.to(DEVICE)
+        labels = labels.to(DEVICE)
         
-        with autocast(device_type=device, dtype=torch.float16, enabled=CONFIG.mixed_precision):
+        with autocast(device_type=DEVICE, dtype=torch.float16, enabled=CONFIG.mixed_precision):
             outputs = model(mels)
             check_shape(outputs, labels)
             loss = model.loss_fn(outputs, labels)
@@ -108,12 +108,12 @@ def train(model: Any,
         running_loss += loss.item()
 
         metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
-        batch_mAP = metric(outputs.detach().cpu(), labels.detach().cpu().long()).item()
+        batch_map = metric(outputs.detach().cpu(), labels.detach().cpu().long()).item()
         # https://forums.fast.ai/t/nan-values-when-using-precision-in-multi-classification/59767/2
         # Could be possible when model is untrained so we only have FNs
-        if np.isnan(batch_mAP):
-            batch_mAP = 0
-        mAP += batch_mAP
+        if np.isnan(batch_map):
+            batch_map = 0
+        m_ap += batch_map
 
         out_max_inx = torch.round(outputs)
         lab_max_inx = torch.round(labels)
@@ -132,7 +132,7 @@ def train(model: Any,
             #Log to Weights and Biases
             wandb.log({
                 "train/loss": log_loss / log_n,
-                "train/mAP": mAP / log_n,
+                "train/mAP": m_ap / log_n,
                 "train/accuracy": correct / total,
                 "i": i,
                 "epoch": epoch,
@@ -142,12 +142,12 @@ def train(model: Any,
             print("i:", i, "epoch:", epoch_progress,
                   "clips/s:", annotations_per_sec, 
                   "Loss:", log_loss / log_n, 
-                  "mAP", mAP / log_n)
+                  "mAP", m_ap / log_n)
             log_loss = 0
             log_n = 0
             correct = 0
             total = 0
-            mAP = 0
+            m_ap = 0
 
         if (i != 0 and i % (CONFIG.valid_freq) == 0):
             valid_start_time = datetime.datetime.now()
@@ -157,8 +157,9 @@ def train(model: Any,
     return running_loss/len(data_loader), best_valid_map
 
 
+# pylint: disable=too-many-locals
 def valid(model: Any,
-          data_loader: PyhaDF_Dataset,
+          data_loader: PyhaDFDataset,
           epoch: int,
           best_valid_map: float,
           CONFIG) -> Tuple[float, float]:
@@ -172,15 +173,15 @@ def valid(model: Any,
     label = []
 
     # tqdm is a progress bar
-    dl = tqdm(data_loader, position=5)
+    dl_iter = tqdm(data_loader, position=5)
 
     if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
         pred = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
         label = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
     else:
-        for _, (mels, labels) in enumerate(dl):
-            mels = mels.to(device)
-            labels = labels.to(device)
+        for _, (mels, labels) in enumerate(dl_iter):
+            mels = mels.to(DEVICE)
+            labels = labels.to(DEVICE)
 
             # argmax
             outputs = model(mels)
@@ -200,7 +201,7 @@ def valid(model: Any,
             torch.save(label, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
 
     # softmax predictions
-    pred = F.softmax(pred).to(device)
+    pred = F.softmax(pred).to(DEVICE)
 
     metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
     valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
@@ -266,7 +267,7 @@ def main():
     """ Main function
     """
     torch.multiprocessing.set_start_method('spawn')
-    print("Device is: ",device)
+    print("Device is: ",DEVICE)
     CONFIG = get_config()
     init_wandb(CONFIG)
     set_seed(CONFIG.seed)
@@ -281,7 +282,7 @@ def main():
     print("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
                                 model_name=CONFIG.model, 
-                                CONFIG=CONFIG).to(device)
+                                CONFIG=CONFIG).to(DEVICE)
     model_for_run.create_loss_fn(train_dataset)
     if CONFIG.model_checkpoint is not None:
         model_for_run.load_state_dict(torch.load(CONFIG.model_checkpoint))
@@ -301,7 +302,6 @@ def main():
             val_dataloader,
             optimizer,
             scheduler,
-            device,
             epoch,
             best_valid_map,
             CONFIG
