@@ -199,7 +199,7 @@ def valid(model: Any,
     else:
         with torch.no_grad():
             for index, (mels, labels) in enumerate(dl):
-                if index * dataset_ratio > len(dl):
+                if index > len(dl) * dataset_ratio:
                     # Stop early if not doing full validation
                     break
                 mels = mels.to(device)
