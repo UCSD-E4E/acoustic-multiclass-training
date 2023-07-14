@@ -420,9 +420,7 @@ disable=raw-checker-failed,
         useless-suppression,
         deprecated-pragma,
         use-symbolic-message-instead,
-        trailing-whitespace,
-        too-many-locals,
-        invalid-name
+        trailing-whitespace
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
