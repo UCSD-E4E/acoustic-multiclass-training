@@ -304,7 +304,7 @@ def main():
     # pylint: disable=unused-variable
     # for future can use torchvision.transforms.RandomApply here
     transforms = torch.nn.Sequential(SyntheticNoise("white", 0.95))
-    train_dataset, val_dataset = get_datasets(transforms=transforms, CONFIG=CONFIG, alpha=0.3)
+    train_dataset, val_dataset = get_datasets(transforms=transforms, CONFIG=CONFIG)
     train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset, CONFIG)
 
     print("Loading Model...")
