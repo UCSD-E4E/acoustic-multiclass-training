@@ -4,7 +4,8 @@ to the mixup function in a torch.nn.Sequential object.
 """
 import os
 from pathlib import Path
-from typing import Tuple, Callable
+from typing import Callable, Tuple
+
 import numpy as np
 import torch
 import torchaudio

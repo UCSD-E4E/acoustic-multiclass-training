@@ -15,30 +15,28 @@
 
 
 """
-from typing import Dict, Any, Tuple
-import os
 import datetime
-from torchmetrics.classification import MultilabelAveragePrecision
+import os
+from typing import Any, Dict, Tuple
 
+import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.optim import Adam
-from torch.amp import autocast
-import numpy as np
-from dataset import PyhaDF_Dataset, get_datasets
-from model import TimmModel, EarlyStopper
-from utils import set_seed, print_verbose
-from config import get_config
 from augmentations import SyntheticNoise
+from config import get_config
+from dataset import PyhaDF_Dataset, get_datasets
+from model import EarlyStopper, TimmModel
+from torch.amp import autocast
+from torch.optim import Adam
+from torchmetrics.classification import MultilabelAveragePrecision
 from tqdm import tqdm
+from utils import print_verbose, set_seed
+
 import wandb
-
-
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-wandb_run = None
 
 def check_shape(outputs, labels):
     """
@@ -216,7 +214,7 @@ def valid(model: Any,
 
     print(f"Validation Loss:\t{running_loss/len(data_loader)} \n Validation mAP:\t{valid_map}" )
     if valid_map > best_valid_map:
-        path = os.path.join("models",wandb_run.name + '.pt')
+        path = os.path.join("models",CONFIG.model +f"-{time_now}" + '.pt')
         if not os.path.exists("models"):
             os.mkdir("models")
         torch.save(model.state_dict(), path)
@@ -270,15 +268,11 @@ def main():
     torch.multiprocessing.set_start_method('spawn')
     print("Device is: ",device)
     CONFIG = get_config()
-    # Needed to redefine wandb_run as a global variable
-    # pylint: disable=global-statement
-    global wandb_run
-    wandb_run = init_wandb(CONFIG)
+    init_wandb(CONFIG)
     set_seed(CONFIG.seed)
 
     # Load in dataset
     print("Loading Dataset")
-    # pylint: disable=unused-variable
     # for future can use torchvision.transforms.RandomApply here
     transforms = torch.nn.Sequential(SyntheticNoise("white", 1))
     train_dataset, val_dataset = get_datasets(transforms=transforms, CONFIG=CONFIG, alpha=0.3)

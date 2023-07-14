@@ -4,11 +4,11 @@
     Model: model with forward pass method. Generated automatically from a timm model
 
 """
+# timm is a library of premade models
+import timm
 import torch
 from torch import nn
 
-# timm is a library of premade models
-import timm
 
 # pylint: disable=too-many-instance-attributes
 class TimmModel(nn.Module):

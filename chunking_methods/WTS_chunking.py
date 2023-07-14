@@ -1,8 +1,10 @@
 """Chunking script from PyHa to convert weak labels to strong labels.
 """
 import math
-import pandas as pd
+
 import numpy as np
+import pandas as pd
+
 
 def annotation_chunker_no_duplicates(
         kaleidoscope_df,

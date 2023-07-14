@@ -15,22 +15,18 @@
 import os
 from typing import Dict, List, Tuple
 
-import torch
-import torch.nn.functional as F
-from torch.utils.data import Dataset
-import torchaudio
-from torchaudio import transforms as audtr
-
+import numpy as np
 # Math library imports
 import pandas as pd
-import numpy as np
-
-from utils import set_seed, print_verbose
+import torch
+import torch.nn.functional as F
+import torchaudio
+from augmentations import Mixup  # , add_mixup
 from config import get_config
+from torch.utils.data import Dataset
+from torchaudio import transforms as audtr
 from tqdm import tqdm
-from augmentations import Mixup#, add_mixup
-        
-
+from utils import print_verbose, set_seed
 
 tqdm.pandas()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -129,8 +125,8 @@ class PyhaDF_Dataset(Dataset):
         # removed from training so it isn't stopped after hours of time
         # Hence broad exception
         # pylint: disable-next=W0718
-        except Exception as e:
-            print_verbose(file_name, "is bad", e, verbose=self.config.verbose)
+        except Exception as exc:
+            print_verbose(file_name, "is bad", exc, verbose=self.config.verbose)
             return pd.Series({
                 "FILE NAME": file_name,    
                 "files": "bad"
@@ -218,10 +214,10 @@ class PyhaDF_Dataset(Dataset):
             # Pad if too short
             if audio.shape[0] < self.num_samples:
                 audio = self.pad_audio(audio)
-        except Exception as e:
-            print(e)
+        except Exception as exc:
+            print(exc)
             print(file_name, index)
-            raise RuntimeError("Bad Audio") from e
+            raise RuntimeError("Bad Audio") from exc
 
         #Assume audio is all mono and at target sample rate
         #assert audio.shape[0] == 1
