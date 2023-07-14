@@ -15,12 +15,13 @@ class Mixup(torch.nn.Module):
     """
     Attributes:
         dataset: Dataset from which to mixup with other clips
-        alpha: Strength (proportion) of original audio in augmented clip
+        alpha: Strength (proportion) of new audio in augmented clip
     """
-    def __init__(self, dataset, alpha: float):
+    def __init__(self, dataset, alpha_range: Tuple[float,float]=(0.1, 0.4), p: float=0.4):
         super().__init__()
         self.dataset = dataset
-        self.alpha = alpha
+        self.alpha_range = alpha_range
+        self.p = p
 
     def forward(
         self, clip: torch.Tensor, target: torch.Tensor
@@ -34,6 +35,10 @@ class Mixup(torch.nn.Module):
         chosen clip, Tensor of target mixed with the
         target of the randomly chosen file
         """
+        self.alpha = utils.rand(*self.alpha_range)
+        if utils.rand(0,1) < self.p:
+            return clip, target
+
         # Generate random index in dataset
         other_idx = utils.randint(0, len(self.dataset))
         try:
@@ -41,8 +46,8 @@ class Mixup(torch.nn.Module):
         except RuntimeError:
             print('Error loading other clip, mixup not performed')
             return clip, target
-        mixed_clip = self.alpha * clip + (1 - self.alpha) * other_clip
-        mixed_target = self.alpha * target + (1 - self.alpha) * other_target
+        mixed_clip = (1 - self.alpha) * clip + self.alpha * other_clip
+        mixed_target = (1 - self.alpha) * target + self.alpha * other_target
         return mixed_clip, mixed_target
 
 
