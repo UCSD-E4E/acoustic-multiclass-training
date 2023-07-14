@@ -82,7 +82,7 @@ def attach_labels(metadata_df, binary_df):
         metadata (DataFrame)
             - DataFrame with original audio clip information. Assumes 
             Xeno-canto formatting.
-        strong_labels (DataFrame)
+        binary_df (DataFrame)
             - DataFrame with time-specific labels. Assumes PyHa formatting.  
     Returns a DataFrame with minimum required columns
     """
