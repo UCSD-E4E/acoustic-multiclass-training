@@ -1,10 +1,10 @@
-""" Contains methods for loading the dataset and also creates dataloaders for training and validation
+""" Contains methods for loading the dataset and creates dataloaders for training and validation
 
     BirdCLEFDataset is a generic loader with a given root directory.
     It loads the audio files and converts them to mel spectrograms.
     get_datasets returns the train and validation datasets as BirdCLEFDataset objects.
 
-    If this module is run directly, it tests that the dataloader works and prints the shape of the first batch.
+    If this module is run directly, it tests that the dataloader works
 
 """
 import os
@@ -177,12 +177,13 @@ class PyhaDFDataset(Dataset):
         annotation = self.samples.iloc[index]
         file_name = annotation[self.config.file_name_col]
 
-        # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+        # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0]
         class_name = annotation[self.config.manual_id_col]
 
         def one_hot(x, num_classes, on_value=1., off_value=0.):
             x = x.long().view(-1, 1)
-            return torch.full((x.size()[0], num_classes), off_value, device=x.device).scatter_(1, x, on_value)
+            return torch.full((x.size()[0], num_classes), off_value, device=x.device) \
+                .scatter_(1, x, on_value)
 
         target = one_hot(
                 torch.tensor(self.class_to_idx[class_name]),
@@ -324,7 +325,9 @@ class PyhaDFDataset(Dataset):
 def get_datasets(
         CONFIG, transforms = None, alpha=0.3
         ):
-    """ Returns train and validation datasets, does random sampling for train/valid split, adds transforms to dataset
+    """ Returns train and validation datasets
+    Does random sampling for train/valid split
+    Adds transforms to dataset
     """
 
 
@@ -359,7 +362,8 @@ def get_datasets(
         train_ds.set_transforms(transforms)
         train_ds.set_mixup(mixup)
 
-    valid_ds = PyhaDFDataset(valid, csv_file="valid.csv",train=False, species=species, CONFIG=CONFIG)
+    valid_ds = PyhaDFDataset(valid, csv_file="valid.csv",
+                             train=False, species=species, CONFIG=CONFIG)
     return train_ds, valid_ds
 
 

@@ -11,6 +11,7 @@ import git
 
 # Machine learning has a lot of arugments
 # pylint: disable=too-many-statements
+# pylint: disable=line-too-long
 def get_config():
     """ Returns a config variable with the command line arguments or defaults
     """

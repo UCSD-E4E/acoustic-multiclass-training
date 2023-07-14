@@ -123,7 +123,8 @@ def train(model: Any,
         if (i != 0 and i % (CONFIG.logging_freq) == 0) or i == len(data_loader) - 1:
             duration = (datetime.datetime.now() - start_time).total_seconds()
             start_time = datetime.datetime.now()
-            annotations = ((i % CONFIG.logging_freq) or CONFIG.logging_freq) * CONFIG.train_batch_size
+            batches = (i % CONFIG.logging_freq) or CONFIG.logging_freq
+            annotations = batches * CONFIG.train_batch_size
             annotations_per_sec = annotations / duration
             epoch_progress = epoch + float(i) / len(data_loader)
             #Log to Weights and Biases
@@ -148,7 +149,9 @@ def train(model: Any,
 
         if (i != 0 and i % (CONFIG.valid_freq) == 0):
             valid_start_time = datetime.datetime.now()
-            _, _, best_valid_map = valid(model, valid_loader, epoch + i / len(data_loader), best_valid_map, CONFIG)
+            _, _, best_valid_map = valid(
+                model, valid_loader, epoch + i / len(data_loader), best_valid_map, CONFIG
+            )
             # Ignore the time it takes to validate in annotations/sec
             start_time += datetime.datetime.now() - valid_start_time
     return running_loss/len(data_loader), best_valid_map
@@ -304,7 +307,13 @@ def main():
             CONFIG
         )
         
-        _, valid_map, best_valid_map = valid(model_for_run, val_dataloader, epoch + 1, best_valid_map, CONFIG)
+        _, valid_map, best_valid_map = valid(
+            model_for_run,
+            val_dataloader,
+            epoch + 1,
+            best_valid_map,
+            CONFIG
+        )
         print("Best validation map:", best_valid_map.item())
         if CONFIG.early_stopping and early_stopper.early_stop(valid_map):
             print("Early stopping has triggered on epoch", epoch)
