@@ -5,7 +5,6 @@
 """
 import sys
 import argparse
-from operator import itemgetter
 import git
 
 # Machine learning has a lot of arugments
@@ -70,11 +69,20 @@ def get_config():
     parser.add_argument('-md', '--map_debug', action='store_true')
     parser.add_argument('-mxp', '--mixed_precision', action='store_true')
 
+    # Loss Function
+    parser.add_argument('-lr', "--lr", type=float, default=1e-3, help='learning rate')
+    parser.add_argument('-lfn', "--loss_fnc", type=str, default="BCEWL", help='loss function')
+    # Loss function options: CE, BCE, BCEWL
+
+    # Early stopping
+    parser.add_argument('-es', '--early_stopping', action='store_true')
+    parser.add_argument('-pa', '--patience', type=int, default=3, help="epochs to wait before stopping")
+    parser.add_argument('-del', '--min_delta', type=float, default=0.01, help='min improvement btwn epochs')
+    
     # Transforms settings
     parser.add_argument('-p', '--p', default=0, type=float, help='probability for mixup')
     parser.add_argument('-i', '--imb', action='store_true', help='imbalance sampler')
     parser.add_argument('-pw', "--pos_weight", type=float, default=1, help='pos weight')
-    parser.add_argument('-lr', "--lr", type=float, default=1e-3, help='learning rate')
     parser.add_argument('-mp', "--mix_p", type=float, default=0.4, help='mixup probability')
     parser.add_argument('-tsp', "--time_shift_p", type=float, default=0, help='time shift probability')
     parser.add_argument('-np', "--noise_p", type=float, default=0.35, help='noise probability')
@@ -108,13 +116,3 @@ def get_config():
         sys.exit(1)
 
     return CONFIG
-
-def get_args(*args):
-    """
-    Args:
-        *args: Series of strings corresponding to the command line arguments
-    Returns: Values of the command line arguments
-    """
-    CONFIG = get_config().__dict__
-    return itemgetter(*args)(CONFIG)
-    
