@@ -18,8 +18,8 @@ data/*
 *.out
 *.zip
 
-# Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,jupyternotebooks,python,windows,linux
-# Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,jupyternotebooks,python,windows,linux
+# Created by https://www.toptal.com/developers/gitignore/api/linux,macos,python,windows,jupyternotebooks,visualstudiocode
+# Edit at https://www.toptal.com/developers/gitignore?templates=linux,macos,python,windows,jupyternotebooks,visualstudiocode
 
 ### JupyterNotebooks ###
 # gitignore template for Jupyter Notebooks
@@ -49,6 +49,39 @@ ipython_config.py
 
 # .nfs files are created when an open file is removed but is still being accessed
 .nfs*
+
+### macOS ###
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+### macOS Patch ###
+# iCloud generated files
+*.icloud
 
 ### Python ###
 # Byte-compiled / optimized / DLL files
@@ -221,11 +254,11 @@ pyrightconfig.json
 
 ### VisualStudioCode ###
 .vscode/*
-# !.vscode/settings.json
-# !.vscode/tasks.json
-# !.vscode/launch.json
-# !.vscode/extensions.json
-# !.vscode/*.code-snippets
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
 
 # Local History for Visual Studio Code
 .history/
@@ -264,4 +297,4 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-# End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,jupyternotebooks,python,windows,linux
+# End of https://www.toptal.com/developers/gitignore/api/linux,macos,python,windows,jupyternotebooks,visualstudiocode
