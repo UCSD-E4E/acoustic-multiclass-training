@@ -6,6 +6,69 @@
 import sys
 import argparse
 import git
+import yaml
+import os
+import shutil
+
+class Config():
+    def __new__(self):
+        if not hasattr(self, 'instance'):
+
+            self.test_ = "testing!"
+            self.instance = super(Config, self).__new__(self)
+        else:
+            print("CONFIG ALREADY EXISTS")
+            return self.instance
+
+        #Set defaults
+        with open('config.yml', 'r') as file:
+            self.config_dict = yaml.safe_load(file)
+
+        default_keys = set()
+        print(self.config_dict)
+        for (key, value) in self.config_dict.items():
+            setattr(self, key, value)
+            default_keys.add(key)
+
+        #Set User Custom Values
+        if (os.path.exists('config_personal.yml')):
+            with open('config_personal.yml', 'r') as file:
+                self.config_personal_dict = yaml.safe_load(file)
+
+            for (key, value) in self.config_personal_dict.items():
+                setattr(self, key, value)
+                
+
+            self.config_dict.update(self.config_personal_dict)
+        else:
+            shutil.copy("config.yml", "config_personal.yml")
+
+
+        # Update personal dict
+
+        attrs_to_append = []
+
+        for key in default_keys:
+            if key in self.config_personal_dict: continue
+            
+            appending_attrs = {
+                key: self.config_dict[key]
+            }
+
+            #https://media.tenor.com/dxPl_UoR8J0AAAAC/fire-writing.gif
+            attrs_to_append.append(appending_attrs) 
+
+        if (len(attrs_to_append) == 0):
+            return self.instance
+        
+        with open('config_personal.yml', 'a') as file:
+            file.write("\n\n#NEW DEFAULTS\n")
+
+            for new_attrs in attrs_to_append:
+                yaml.dump(new_attrs, file)
+
+        return self.instance
+
 
 # Machine learning has a lot of arugments
 # pylint: disable=too-many-statements
@@ -108,3 +171,17 @@ def get_config():
         sys.exit(1)
 
     return CONFIG
+
+
+def testing():
+    """
+    Test functionality of generating and caching configs
+    """
+    config = Config()
+    config2 = Config()
+    print(config == config2)
+    print(config.test_)
+    print(config2.test_)
+
+if __name__ == "__main__":
+    testing()
