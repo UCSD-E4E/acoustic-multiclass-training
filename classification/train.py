@@ -73,8 +73,6 @@ def train(model: Any,
     running_loss = 0
     log_n = 0
     log_loss = 0
-    correct = 0
-    total = 0
     mAP = 0
     
     scaler = torch.cuda.amp.GradScaler()
@@ -117,11 +115,6 @@ def train(model: Any,
             batch_mAP = 0
         mAP += batch_mAP
 
-        out_max_inx = torch.round(outputs)
-        lab_max_inx = torch.round(labels)
-        correct += (out_max_inx == lab_max_inx).sum().item()
-        total += labels.shape[0] * labels.shape[1]
-
         log_loss += loss.item()
         log_n += 1
 
@@ -135,7 +128,6 @@ def train(model: Any,
             wandb.log({
                 "train/loss": log_loss / log_n,
                 "train/mAP": mAP / log_n,
-                "train/accuracy": correct / total,
                 "i": i,
                 "epoch": epoch,
                 "clips/sec": annotations_per_sec,
@@ -147,8 +139,6 @@ def train(model: Any,
                   "mAP", mAP / log_n)
             log_loss = 0
             log_n = 0
-            correct = 0
-            total = 0
             mAP = 0
 
         if (i != 0 and i % (CONFIG.valid_freq) == 0):
