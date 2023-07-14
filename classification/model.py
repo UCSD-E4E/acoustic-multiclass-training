@@ -53,7 +53,7 @@ class TimmModel(nn.Module):
         raise RuntimeError("Pick a loss in the form of CE, BCE, BCEWL")
 
 def cross_entropy_loss_fn(self,train_dataset):
-    """ Returns the loss function and sets self.loss_fn
+    """ Returns the cross entropy loss function and sets self.loss_fn
     """
     print_verbose("CE", self.config.loss_fnc, verbose=self.config.verbose)
     if not self.config.imb: # normal loss
@@ -66,6 +66,11 @@ def cross_entropy_loss_fn(self,train_dataset):
     return self.loss_fn
 
 def bce_loss_fn(self, without_logits=False):
+    """ Returns the BCE loss function and sets self.loss_fn of model
+
+    Added support for if we want to spilt sigmod and BCE loss or combine with
+    BCEwithLogitsLoss
+    """
     if not without_logits:
         self.loss_fn = nn.BCEWithLogitsLoss()
         print_verbose("BCEWL", self.config.loss_fnc, verbose=self.config.verbose)
