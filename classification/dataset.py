@@ -329,7 +329,7 @@ class PyhaDF_Dataset(Dataset):
 
 
 def get_datasets(
-        transforms = None, CONFIG=None, alpha=0.3
+        transforms = None, CONFIG=None
         ):
     """ Returns train and validation datasets, does random sampling for train/valid split, adds transforms to dataset
     """

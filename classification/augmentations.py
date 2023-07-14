@@ -35,7 +35,7 @@ class Mixup(torch.nn.Module):
         chosen clip, Tensor of target mixed with the
         target of the randomly chosen file
         """
-        self.alpha = utils.rand(*self.alpha_range)
+        alpha = utils.rand(*self.alpha_range)
         if utils.rand(0,1) < self.p:
             return clip, target
 
@@ -46,8 +46,8 @@ class Mixup(torch.nn.Module):
         except RuntimeError:
             print('Error loading other clip, mixup not performed')
             return clip, target
-        mixed_clip = (1 - self.alpha) * clip + self.alpha * other_clip
-        mixed_target = (1 - self.alpha) * target + self.alpha * other_target
+        mixed_clip = (1 - alpha) * clip + alpha * other_clip
+        mixed_target = (1 - alpha) * target + alpha * other_target
         return mixed_clip, mixed_target
 
 
