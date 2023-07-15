@@ -5,6 +5,7 @@ PyHa/*
 Miniconda3-*.sh
 classification/wandb/*
 wandb/*
+config_personal.yml
 
 
 
