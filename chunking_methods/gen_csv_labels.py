@@ -10,9 +10,10 @@ import sys
 from math import ceil
 import pandas as pd
 from pydub import AudioSegment, exceptions
-from config import get_config
+from chunks_config import get_config
 from WTS_chunking import dynamic_yan_chunking
 # pylint: disable=import-error #this file gets put into PyHa
+# pylint: disable=no-name-in-module
 from PyHa.IsoAutio import generate_automated_labels
 
 
