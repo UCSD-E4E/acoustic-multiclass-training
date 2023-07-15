@@ -104,10 +104,8 @@ class Config():
         # Unless they are default value
         arg_cfgs = vars(arg_cfgs)
         for key in arg_cfgs:
-            if self[key] == (parser.get_default(key)):
+            if self.config_dict[key] == parser.get_default(key):
                 setattr(self, key, arg_cfgs[key])
-
-
 
     def required_checks(self, parameter):
         """
@@ -182,6 +180,7 @@ def testing():
     print(config.change, "Expect hah")
     print(config2.change, "Expect hah")
     print(config.dataframe_csv)
+    print(config.logging)
     get_config()
     #cfg.generate_config_file()
 
