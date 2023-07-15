@@ -16,6 +16,11 @@ class Config():
     Saves config from config files
     Allows for customising runs
     """
+    def __init__(self):
+        """Constructor that runs after creating the singleton class
+        """
+        self.get_git_hash()
+    
     def __new__(cls):
         """
         Constructor for Config
@@ -27,6 +32,7 @@ class Config():
         """
         
         # Set up singleton class design template
+        print("hello new")
         if not hasattr(cls, 'instance'):
             cls.instance = super(Config, cls).__new__(cls)
         else:
@@ -70,16 +76,12 @@ class Config():
             #https://media.tenor.com/dxPl_UoR8J0AAAAC/fire-writing.gif
             attrs_to_append.append(appending_attrs) 
 
-        if len(attrs_to_append) == 0:
-            return cls.instance    
-        
-        with open('config_personal.yml', 'a', encoding='utf-8') as file:
-            file.write("\n\n#NEW DEFAULTS\n")
 
-            for new_attrs in attrs_to_append:
-                yaml.dump(new_attrs, file)
+        if len(attrs_to_append) != 0:
+            print("There are new updates in default config")
+            print("please manually update these keys from the new config")
+            print(attrs_to_append)
 
-        cls.get_git_hash()
         return cls.instance
 
     def generate_config_file(self, filename="test.yml"):
@@ -93,9 +95,12 @@ class Config():
     def __getattribute__(self,attr):
         return self.config_dict[attr]
 
-    @classmethod
-    def get_git_hash(cls):
-        """ Gets current git hash and adds it to config dictionary """
+    def get_git_hash(self):
+        """
+        Gets the hash of the current git commit
+        This requires recording the hash before model training
+        """
+
         #Add git hash to config so wand logging can track vrs used for reproduciblity
         try:
             repo = git.Repo(search_parent_directories=True)
@@ -124,7 +129,13 @@ def testing():
     """
     Test functionality of generating and caching configs
     """
+
     config = Config()
+
+    # I want to test singleton class creation
+    # So I want to change one instance var and see that var in a new class
+    # in practice, I never want to change a config setting outside of config
+    # pylint: disable=attribute-defined-outside-init
     config.change = " hah"
     config2 = Config()
     print(config == config2, "Expect True")
