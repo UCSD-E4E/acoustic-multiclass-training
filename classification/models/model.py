@@ -2,13 +2,14 @@
 
 """ Contains model methods
 
+    note: Models have been moved to thier own python folder
 """
 import torch
 from torch import nn
 from utils import print_verbose
 import config 
 # timm is a library of premade models
-import timm
+
 
 cfg = config.cfg
 
