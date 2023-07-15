@@ -106,6 +106,11 @@ class Config():
             yaml.dump(self.config_dict, file)
     
     def __getattr__(self,attr):
+        """
+        Gets a config value in a dict-like way
+
+        attr string for varible name as defined in a config.yml file
+        """
         return self.config_dict[attr]
 
     def get_git_hash(self):
