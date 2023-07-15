@@ -28,7 +28,7 @@ import numpy as np
 from dataset import PyhaDF_Dataset, get_datasets
 from model import TimmModel, EarlyStopper
 from utils import set_seed, print_verbose
-from config import get_config
+from config import cfg
 from augmentations import SyntheticNoise
 from tqdm import tqdm
 import wandb
@@ -60,14 +60,14 @@ def train(model: Any,
         scheduler,
         device: str,
         epoch: int,
-        best_valid_map: float,
-        CONFIG) -> Tuple[float, int, float]:
+        best_valid_map: float
+       ) -> Tuple[float, int, float]:
     """ Trains the model
         Returns:
             loss: the average loss over the epoch
             best_valid_map: the best validation mAP
     """
-    print_verbose('size of data loader:', len(data_loader),verbose=CONFIG.verbose)
+    print_verbose('size of data loader:', len(data_loader),verbose=cfg.verbose)
     model.train()
 
     running_loss = 0
@@ -87,14 +87,14 @@ def train(model: Any,
         mels = mels.to(device)
         labels = labels.to(device)
         
-        with autocast(device_type=device, dtype=torch.float16, enabled=CONFIG.mixed_precision):
+        with autocast(device_type=device, dtype=torch.float16, enabled=cfg.mixed_precision):
             outputs = model(mels)
             check_shape(outputs, labels)
             loss = model.loss_fn(outputs, labels)
         outputs = outputs.to(dtype=torch.float32)
         loss = loss.to(dtype=torch.float32)
 
-        if CONFIG.mixed_precision:
+        if cfg.mixed_precision:
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -118,10 +118,10 @@ def train(model: Any,
         log_loss += loss.item()
         log_n += 1
 
-        if (i != 0 and i % (CONFIG.logging_freq) == 0) or i == len(data_loader) - 1:
+        if (i != 0 and i % (cfg.logging_freq) == 0) or i == len(data_loader) - 1:
             duration = (datetime.datetime.now() - start_time).total_seconds()
             start_time = datetime.datetime.now()
-            annotations = ((i % CONFIG.logging_freq) or CONFIG.logging_freq) * CONFIG.train_batch_size
+            annotations = ((i % cfg.logging_freq) or cfg.logging_freq) * cfg.train_batch_size
             annotations_per_sec = annotations / duration
             epoch_progress = epoch + float(i) / len(data_loader)
             #Log to Weights and Biases
@@ -141,13 +141,12 @@ def train(model: Any,
             log_n = 0
             mAP = 0
 
-        if (i != 0 and i % (CONFIG.valid_freq) == 0):
+        if (i != 0 and i % (cfg.valid_freq) == 0):
             valid_start_time = datetime.datetime.now()
             _, _, best_valid_map = valid(model, 
-                                          valid_loader, 
-                                          epoch + i / len(data_loader), 
-                                          best_valid_map, 
-                                          CONFIG)
+                                         valid_loader, 
+                                         epoch + i / len(data_loader), 
+                                         best_valid_map)
 
             # Ignore the time it takes to validate in annotations/sec
             start_time += datetime.datetime.now() - valid_start_time
@@ -157,17 +156,16 @@ def train(model: Any,
 def valid(model: Any,
           data_loader: PyhaDF_Dataset,
           epoch_progress: float,
-          best_valid_map: float,
-          CONFIG) -> Tuple[float, float, float]:
+          best_valid_map: float
+          ) -> Tuple[float, float, float]:
     """ Run a validation loop
     Arguments:
         model: the model to validate
         data_loader: the validation data loader
         epoch_progress: the progress of the epoch
             - Note: If this is an integer, it will run the full
-                    validation set, otherwise runs config.valid_dataset_ratio
+                    validation set, otherwise runs cfg.valid_dataset_ratio
         best_valid_map: the best validation mAP
-        CONFIG
     Returns:
         Tuple of (loss, valid_map, best_valid_map)
     """
@@ -176,16 +174,16 @@ def valid(model: Any,
     running_loss = 0
     pred = []
     label = []
-    dataset_ratio: float = CONFIG.valid_dataset_ratio
+    dataset_ratio: float = cfg.valid_dataset_ratio
     if epoch_progress.is_integer():
         dataset_ratio = 1.0
 
     # tqdm is a progress bar
     dl = tqdm(data_loader, position=5, total=int(len(data_loader)*dataset_ratio))
 
-    if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
-        pred = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
-        label = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
+    if cfg.map_debug and cfg.model_checkpoint is not None:
+        pred = torch.load("/".join(cfg.model_checkpoint.split('/')[:-1]) + '/pred.pt')
+        label = torch.load("/".join(cfg.model_checkpoint.split('/')[:-1]) + '/label.pt')
     else:
         with torch.no_grad():
             for index, (mels, labels) in enumerate(dl):
@@ -209,9 +207,9 @@ def valid(model: Any,
 
             pred = torch.cat(pred)
             label = torch.cat(label)
-            if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
-                torch.save(pred, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
-                torch.save(label, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
+            if cfg.map_debug and cfg.model_checkpoint is not None:
+                torch.save(pred, "/".join(cfg.model_checkpoint.split('/')[:-1]) + '/pred.pt')
+                torch.save(label, "/".join(cfg.model_checkpoint.split('/')[:-1]) + '/label.pt')
 
     # softmax predictions
     pred = F.softmax(pred).to(device)
@@ -240,24 +238,24 @@ def valid(model: Any,
     return running_loss/len(data_loader), valid_map, best_valid_map
 
 
-def init_wandb(CONFIG: Dict[str, Any]):
+def init_wandb():
     """
     Initialize the weights and biases logging
     """
     run = wandb.init(
         project="acoustic-species-reu2023",
         entity="acoustic-species",
-        config=CONFIG,
-        mode="online" if CONFIG.logging else "disabled"
+        config=cfg.config_dict,
+        mode="online" if cfg.logging else "disabled"
     )
     run.name = (
-        CONFIG.model + 
+        cfg.model + 
         f"-{time_now}"
     )
 
     return run
 
-def load_datasets(train_dataset, val_dataset, CONFIG: Dict[str, Any]
+def load_datasets(train_dataset, val_dataset
         )-> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
     """
         Loads datasets and dataloaders for train and validation
@@ -265,15 +263,15 @@ def load_datasets(train_dataset, val_dataset, CONFIG: Dict[str, Any]
 
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
-        CONFIG.train_batch_size,
+        cfg.train_batch_size,
         shuffle=True,
-        num_workers=CONFIG.jobs,
+        num_workers=cfg.jobs,
     )
     val_dataloader = torch.utils.data.DataLoader(
         val_dataset,
-        CONFIG.valid_batch_size,
+        cfg.validation_batch_size,
         shuffle=False,
-        num_workers=CONFIG.jobs,
+        num_workers=cfg.jobs,
     )
     return train_dataloader, val_dataloader
 
@@ -282,36 +280,34 @@ def main():
     """
     torch.multiprocessing.set_start_method('spawn')
     print("Device is: ",device)
-    CONFIG = get_config()
     # Needed to redefine wandb_run as a global variable
     # pylint: disable=global-statement
     global wandb_run
-    wandb_run = init_wandb(CONFIG)
-    set_seed(CONFIG.seed)
+    wandb_run = init_wandb()
+    set_seed(cfg.seed)
 
     # Load in dataset
     print("Loading Dataset")
     # pylint: disable=unused-variable
     # for future can use torchvision.transforms.RandomApply here
     transforms = torch.nn.Sequential(SyntheticNoise("white", 0.05))
-    train_dataset, val_dataset = get_datasets(transforms=transforms, CONFIG=CONFIG)
-    train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset, CONFIG)
+    train_dataset, val_dataset = get_datasets(transforms=transforms)
+    train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset)
 
     print("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
-                                model_name=CONFIG.model, 
-                                CONFIG=CONFIG).to(device)
+                              model_name=cfg.model).to(device)
     model_for_run.create_loss_fn(train_dataset)
-    if CONFIG.model_checkpoint is not None:
-        model_for_run.load_state_dict(torch.load(CONFIG.model_checkpoint))
-    optimizer = Adam(model_for_run.parameters(), lr=CONFIG.lr)
+    if cfg.model_checkpoint != "":
+        model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))
+    optimizer = Adam(model_for_run.parameters(), lr=cfg.learning_rate)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
     print("Model / Optimizer Loading Successful :P")
     
     print("Training")
     best_valid_map = 0
-    early_stopper = EarlyStopper(patience=CONFIG.patience, min_delta=CONFIG.min_delta)
-    for epoch in range(CONFIG.epochs):
+    early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
+    for epoch in range(cfg.epochs):
         print("Epoch " + str(epoch))
 
         _, best_valid_map = train(
@@ -322,18 +318,16 @@ def main():
             scheduler,
             device,
             epoch,
-            best_valid_map,
-            CONFIG
+            best_valid_map
         )
         
         _, valid_map, best_valid_map = valid(model_for_run, 
                                              val_dataloader, 
                                              epoch + 1.0, 
-                                             best_valid_map, 
-                                             CONFIG)
+                                             best_valid_map)
 
         print("Best validation map:", best_valid_map.item())
-        if CONFIG.early_stopping and early_stopper.early_stop(valid_map):
+        if cfg.early_stopping and early_stopper.early_stop(valid_map):
             print("Early stopping has triggered on epoch", epoch)
             break
 

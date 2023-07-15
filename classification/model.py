@@ -7,6 +7,7 @@
 import torch
 from torch import nn
 from utils import print_verbose
+from config import cfg
 # timm is a library of premade models
 import timm
 
@@ -18,19 +19,17 @@ class TimmModel(nn.Module):
     def __init__(self,
                  num_classes,
                  model_name="tf_efficientnet_b4",
-                 pretrained=True,
-                 CONFIG=None):
+                 pretrained=True):
         """ Initializes the model
         """
         super().__init__()
-        self.config = CONFIG
         self.num_classes = num_classes
         # See config.py for list of recommended models
         self.model = timm.create_model(model_name, pretrained=pretrained, num_classes=num_classes)
         self.loss_fn = None
-        self.without_logits = self.config.loss_fnc == "BCE"
+        self.without_logits = cfg.loss_fnc == "BCE"
 
-        print_verbose("add sigmod: ", self.without_logits, verbose=self.config.verbose)
+        print_verbose("add sigmod: ", self.without_logits, verbose=cfg.verbose)
     
     def forward(self, images):
         """ Forward pass of the model
@@ -43,7 +42,7 @@ class TimmModel(nn.Module):
     def create_loss_fn(self,train_dataset):
         """ Returns the loss function and sets self.loss_fn
         """
-        loss_desc = self.config.loss_fnc
+        loss_desc = cfg.loss_fnc
         if loss_desc == "CE":
             return cross_entropy_loss_fn(self, train_dataset)#
         if loss_desc == "BCE":
@@ -55,8 +54,8 @@ class TimmModel(nn.Module):
 def cross_entropy_loss_fn(self,train_dataset):
     """ Returns the cross entropy loss function and sets self.loss_fn
     """
-    print_verbose("CE", self.config.loss_fnc, verbose=self.config.verbose)
-    if not self.config.imb: # normal loss
+    print_verbose("CE", cfg.loss_fnc, verbose=cfg.verbose)
+    if not cfg.imb: # normal loss
         self.loss_fn = nn.CrossEntropyLoss()
     else: # weighted loss
         self.loss_fn = nn.CrossEntropyLoss(
@@ -73,10 +72,10 @@ def bce_loss_fn(self, without_logits=False):
     """
     if not without_logits:
         self.loss_fn = nn.BCEWithLogitsLoss()
-        print_verbose("BCEWL", self.config.loss_fnc, verbose=self.config.verbose)
+        print_verbose("BCEWL", cfg.loss_fnc, verbose=cfg.verbose)
     else:
         self.loss_fn = nn.BCELoss()
-        print_verbose("BCE", self.config.loss_fnc, verbose=self.config.verbose)
+        print_verbose("BCE", cfg.loss_fnc, verbose=cfg.verbose)
     return self.loss_fn
 
 class EarlyStopper:

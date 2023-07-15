@@ -19,6 +19,7 @@ verbose: false
 logging_freq: 20
 valid_freq: 2000
 mixed_precision: true
+valid_dataset_ratio: 0.3
 
 # Functional settings
 seed: 0
@@ -43,6 +44,8 @@ num_fold: 5
 model: "eca_nfnet_l0"
 epochs: 10
 learning_rate: 0.001
+# Loss function options: CE, BCE, BCEWL
+loss_fnc: "BCEWL"
 
 # Specify path to load a checkpoint
 model_checkpoint: ""
