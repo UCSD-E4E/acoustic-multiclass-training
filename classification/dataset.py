@@ -21,7 +21,7 @@ from config import get_config
 from torch.utils.data import Dataset
 from torchaudio import transforms as audtr
 from tqdm import tqdm
-from utils import print_verbose, set_seed
+from augmentations import Mixup, add_mixup
 
 tqdm.pandas()
 if torch.cuda.is_available():
@@ -240,25 +240,25 @@ class PyhaDFDataset(Dataset):
             shift = torch.randint(0, self.num_samples, (1,))
             audio = torch.roll(audio, shift, dims=1)
         
-        #if self.transforms is not None:
-        #    mixup_idx = 0
-        #    audio, target = add_mixup(audio, 
-        #                              target, 
-        #                              self.mixup, 
-        #                              self.transforms, 
-        #                              mixup_idx) 
+        if self.transforms is not None:
+            mixup_idx = 0
+            audio, target = add_mixup(audio, 
+                                     target, 
+                                      self.mixup, 
+                                      self.transforms, 
+                                      mixup_idx) 
 
         
         # Add noise
-        if self.train and torch.randn(1) < self.config.noise_p:
-            noise = torch.randn_like(audio) * self.config.noise_std
-            audio = audio + noise
+        #if self.train and torch.randn(1) < self.config.noise_p:
+        #    noise = torch.randn_like(audio) * self.config.noise_std
+        #    audio = audio + noise
         # Mixup
-        if self.train and torch.randn(1) < self.config.mix_p:
-            audio_2, target_2 = self.get_annotation(np.random.randint(0, self.__len__()))
-            alpha = np.random.rand() * 0.3 + 0.1
-            audio = audio * alpha + audio_2 * (1 - alpha)
-            target = target * alpha + target_2 * (1 - alpha)
+        #if self.train and torch.randn(1) < self.config.mix_p:
+        #    audio_2, target_2 = self.get_annotation(np.random.randint(0, self.__len__()))
+        #    alpha = np.random.rand() * 0.3 + 0.1
+        #    audio = audio * alpha + audio_2 * (1 - alpha)
+        #    target = target * alpha + target_2 * (1 - alpha)
 
         # Mel spectrogram
         mel = self.mel_spectogram(audio)
@@ -323,7 +323,7 @@ class PyhaDFDataset(Dataset):
 
 
 def get_datasets(
-        CONFIG, transforms = None, alpha=0.3
+        transforms = None, CONFIG=None
         ):
     """ Returns train and validation datasets
     Does random sampling for train/valid split
@@ -356,8 +356,9 @@ def get_datasets(
     train_ds = PyhaDFDataset(train, csv_file="train.csv", CONFIG=CONFIG)
     species = train_ds.get_classes()
 
-    mixup_ds = PyhaDFDataset(train, csv_file="mixup.csv",train=False, CONFIG=CONFIG)
-    mixup = Mixup(mixup_ds, alpha)
+    mixup_ds = PyhaDF_Dataset(train, csv_file="mixup.csv",train=False, CONFIG=CONFIG)
+    mixup = Mixup(mixup_ds)
+
     if transforms is not None:
         train_ds.set_transforms(transforms)
         train_ds.set_mixup(mixup)
@@ -365,7 +366,6 @@ def get_datasets(
     valid_ds = PyhaDFDataset(valid, csv_file="valid.csv",
                              train=False, species=species, CONFIG=CONFIG)
     return train_ds, valid_ds
-
 
 def main():
     """

@@ -5,8 +5,7 @@ PyHa/*
 Miniconda3-*.sh
 classification/wandb/*
 wandb/*
-
-
+*.tflite
 
 #### Data ###
 data/*
