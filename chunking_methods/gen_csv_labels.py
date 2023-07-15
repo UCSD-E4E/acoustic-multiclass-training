@@ -123,7 +123,7 @@ def generate_sliding_chunks(strong_df: pd.DataFrame, chunk_length_s: int=5) -> p
     """
     return dynamic_yan_chunking(strong_df, chunk_length_s, only_slide=False)
 
-def generate_raw_chunks(directory: str, metadata_df: pd.DataFrame, chunk_length_s: int=5, 
+def generate_raw_chunks(directory: str, metadata_df: pd.DataFrame, chunk_length_s: int=5,
                         filetype: str='.wav') -> pd.DataFrame:
     """Create simple chunks by dividing the file into equal length
     segments. Used as a baseline comparison to PyHa's pseudo-labeling.
@@ -141,7 +141,6 @@ def generate_raw_chunks(directory: str, metadata_df: pd.DataFrame, chunk_length_
     """  
     chunks = []
     chunk_length_ms = chunk_length_s * 1000
-    #files = [str(f) for f in rootdir.rglob('*') if f.suffix]
     file_list = [f for f in Path(directory).glob('**/*') if f.is_file() and f.suffix == filetype]
     for path in sorted(file_list):
         try:
