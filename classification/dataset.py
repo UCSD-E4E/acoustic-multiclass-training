@@ -114,7 +114,9 @@ class PyhaDF_Dataset(Dataset):
             # old error: "load" is not a known member of module "torchaudio"
             # Load is a known member of torchaudio:
             # https://pytorch.org/audio/stable/tutorials/audio_io_tutorial.html#loading-audio-data
-            audio, sample_rate = torchaudio.load(os.path.join(cfg.data_path, file_name)) #pyright: ignore [reportGeneralTypeIssues ]
+            audio, sample_rate = torchaudio.load(       #pyright: ignore [reportGeneralTypeIssues ]
+                os.path.join(cfg.data_path, file_name)
+            ) 
 
             if len(audio.shape) > 1:
                 audio = self.to_mono(audio)
