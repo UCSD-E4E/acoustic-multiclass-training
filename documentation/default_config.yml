@@ -44,7 +44,10 @@ num_fold: 5
 model: "eca_nfnet_l0"
 epochs: 10
 learning_rate: 0.001
-# Loss function options: CE, BCE, BCEWL
+# Loss function options:
+#   CE: Cross entropy
+#   BCE: Binary cross entropy
+#   BCEWL: Binary cross entropy with logits
 loss_fnc: "BCEWL"
 
 # Specify path to load a checkpoint
