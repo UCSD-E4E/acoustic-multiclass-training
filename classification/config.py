@@ -3,10 +3,10 @@
     Methods:
         get_config: returns an ArgumentParser with the default arguments
 """
-import sys
-import os
 import argparse
+import os
 import shutil
+import sys
 
 import git
 import yaml

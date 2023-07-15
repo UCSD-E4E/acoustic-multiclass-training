@@ -5,6 +5,7 @@
 """
 import argparse
 
+
 def get_config():
     """ Returns a config variable with the command line arguments or defaults
     """
