@@ -32,7 +32,6 @@ class Config():
         """
         
         # Set up singleton class design template
-        print("hello new")
         if not hasattr(cls, 'instance'):
             cls.instance = super(Config, cls).__new__(cls)
         else:
@@ -92,7 +91,7 @@ class Config():
         with open(filename, 'w', encoding='utf-8') as file:
             yaml.dump(self.config_dict, file)
     
-    def __getattribute__(self,attr):
+    def __getattr__(self,attr):
         return self.config_dict[attr]
 
     def get_git_hash(self):
@@ -105,8 +104,7 @@ class Config():
         try:
             repo = git.Repo(search_parent_directories=True)
             sha = repo.head.object.hexsha
-            setattr(cls.config_dict, "git_hash", sha)
-            print(sha)
+            self.config_dict["git_hash"] = sha
 
         #I want to catch this spefific error, and it doesn't extend from base exception
         #¯\(ツ)/¯
