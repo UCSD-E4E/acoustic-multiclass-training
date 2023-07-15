@@ -35,7 +35,6 @@ class Config():
         """
         
         # Set up singleton class design template
-        print("hello new")
         if not hasattr(cls, 'instance'):
             cls.instance = super(Config, cls).__new__(cls)
         else:
@@ -100,6 +99,9 @@ class Config():
         """
         with open(filename, 'w', encoding='utf-8') as file:
             yaml.dump(self.config_dict, file)
+    
+    def __getattr__(self,attr):
+        return self.config_dict[attr]
 
     def get_git_hash(self):
         """
@@ -111,8 +113,7 @@ class Config():
         try:
             repo = git.Repo(search_parent_directories=True)
             sha = repo.head.object.hexsha
-            setattr(self, "git_hash", sha)
-            print(sha)
+            self.config_dict["git_hash"] = sha
 
         #I want to catch this spefific error, and it doesn't extend from base exception
         #¯\(ツ)/¯
@@ -129,12 +130,13 @@ def get_config():
     """ Returns a config variable with the command line arguments or defaults
     Decrepated, returns Config to prevent largescale code breaks
     """
-    return Config()
+    return Config().config_dict
 
 def testing():
     """
     Test functionality of generating and caching configs
     """
+
     config = Config()
 
     # I want to test singleton class creation
@@ -148,9 +150,11 @@ def testing():
     print(config2.change, "Expect hah")
     print(config.dataframe_csv)
 
-    #config.generate_config_file()
-if __name__ == "__main__":
-    testing()
+    Config().generate_config_file()
+
 
 #Expose variable to page scope
 cfg = Config()
+
+if __name__ == "__main__":
+    testing()

@@ -25,7 +25,7 @@ ISOLATION_PARAMETERS = {
 }
 
 
-def convert_audio(path, filetype=".wav"):
+def convert_audio(path, filetype):
     """Convert audio files to .wav files with PyDub. Used to ensure
     that TweetyNet can read the files for predictions.
     Args:
@@ -43,7 +43,7 @@ def convert_audio(path, filetype=".wav"):
             x = AudioSegment.from_file(os.path.join(path, file))
             x.export(file.replace(filetype, '.wav'), format='wav')
 
-def generate_labels(path):
+def generate_labels(path, filetype):
     """Generate binary automated time-specific labels using TweetyNet as 
     implemented in PyHa.
     Args:
@@ -57,7 +57,6 @@ def generate_labels(path):
         sys.exit(1)
 
     # generate labels at a top level
-    convert_audio(path)
     automated_df = generate_automated_labels(path, ISOLATION_PARAMETERS)
 
     # check one-level deep in case files organized by class
@@ -65,7 +64,7 @@ def generate_labels(path):
     if subfolders:
         subfolders.sort()
         for s in subfolders:
-            convert_audio(path)
+            convert_audio(path, filetype=filetype)
             temp_df = generate_automated_labels(s, ISOLATION_PARAMETERS)
             if temp_df.empty:
                 continue
@@ -76,19 +75,17 @@ def generate_labels(path):
     
     return automated_df
 
-def attach_labels(metadata, strong_labels):
+def attach_labels(metadata_df, binary_df):
     """ Attach the primary label from original metadata as a strong label
     for each chunk and reformat the columns for the training pipeline.
     Args:
-        metadata (str)
-            - Path to .csv with original audio clip information. Assumes 
+        metadata (DataFrame)
+            - DataFrame with original audio clip information. Assumes 
             Xeno-canto formatting.
-        strong_labels (str)
-            - Path to .csv with time-specific labels. Assumes PyHa formatting.  
+        binary_df (DataFrame)
+            - DataFrame with time-specific labels. Assumes PyHa formatting.  
     Returns a DataFrame with minimum required columns
     """
-    metadata_df = pd.read_csv(metadata)
-    binary_df = pd.read_csv(strong_labels)
     strong_df = metadata_df.merge(binary_df, left_on="filename", right_on="IN FILE")
     strong_df = strong_df[["Species eBird Code", "Scientific Name", "IN FILE", "FOLDER", "OFFSET", 
                            "DURATION", "CLIP LENGTH"]]
@@ -97,28 +94,27 @@ def attach_labels(metadata, strong_labels):
                                           "Scientific Name": "SCIENTIFIC"})
     return strong_df
 
-def generate_sliding_chunks(strong_labels, chunk_duration=5):
-    """Creates sliding window chunks out of previously made annotations to 
+def generate_sliding_chunks(strong_df, chunk_duration=5):
+    """Wrapper function. Creates sliding window chunks out of previously made annotations to 
     create more data for training and better capture calls.
     Args: 
-        strong_labels (str)
-            - Path to .csv with time-specific labels.
+        strong_df (DataFrame)
+            - DataFrame with time-specific labels
         chunk_duration (int)
             - Length of desired file chunks
         
     Returns a DataFrame with sliding window chunked annotations
     """
-    unchunked_df = pd.read_csv(strong_labels)
-    return dynamic_yan_chunking(unchunked_df, chunk_duration=chunk_duration, only_slide=False)
+    return dynamic_yan_chunking(strong_df, chunk_duration=chunk_duration, only_slide=False)
 
-def generate_raw_chunks(path, metadata, chunk_duration=5, filetype=".wav"):
+def generate_raw_chunks(path, metadata_df, chunk_duration=5, filetype=".wav"):
     """Create simple chunks by dividing the file into equal length
     segments. Used as a baseline comparison to PyHa's pseudo-labeling.
     Args:
         path (string)
             - Path to folder containing audio files
-        metadata (string)
-            - Path to .csv with original audio clip information. Assumes 
+        metadata_df (DataFrame)
+            - DataFrame original audio clip information. Assumes 
             Xeno-canto formatting.
         chunk_duration (int)
             - Length of desired file chunks
@@ -128,8 +124,6 @@ def generate_raw_chunks(path, metadata, chunk_duration=5, filetype=".wav"):
     """  
     chunked_df = []
     chunk_length = chunk_duration * 1000
-
-    metadata_df = pd.read_csv(metadata)
 
     files = [f.path for f in os.scandir(path) if f.path.endswith(filetype)]
     files.sort()
@@ -182,26 +176,31 @@ def generate_raw_chunks(path, metadata, chunk_duration=5, filetype=".wav"):
 
 if __name__ == "__main__":
     CONFIG = get_config()
+    metadata = pd.read_csv(CONFIG.metadata)
 
     if CONFIG.sliding_chunks:
         print("converting audio...?")
         convert_audio(
             path=CONFIG.data_path,
             filetype=CONFIG.filetype)
+
         # saved to csv in case attaching labels fails as generating labels takes more time
         print("generating labels...")
-        generate_labels(CONFIG.data_path).to_csv(CONFIG.strong_labels)
-        attach_labels(
-            metadata=CONFIG.metadata,
-            strong_labels=CONFIG.strong_labels).to_csv(CONFIG.strong_labels)
+        labels = generate_labels(CONFIG.data_path, filetype=CONFIG.filetype)
+        labels.to_csv(CONFIG.strong_labels)
+
+        print("attaching strong labels...")
+        strong_labels = attach_labels(metadata, labels)
+        strong_labels.to_csv(CONFIG.strong_labels)
+        
         print("generating sliding chunks...")
-        generate_sliding_chunks(
-            strong_labels=CONFIG.strong_labels,
-            chunk_duration=CONFIG.chunk_duration).to_csv(CONFIG.chunk_path)
+        chunks_df = generate_sliding_chunks(strong_labels, CONFIG.chunk_duration)
+        chunks_df.to_csv(CONFIG.chunk_path)
     else:
         print("generating raw chunks...")
-        generate_raw_chunks(
+        chunks_df = generate_raw_chunks(
             path=CONFIG.data_path,
-            metadata=CONFIG.metadata,
+            metadata_df=metadata,
             chunk_duration=CONFIG.chunk_duration,
-            filetype=CONFIG.filetype).to_csv(CONFIG.chunk_path)
+            filetype=CONFIG.filetype)
+        chunks_df.to_csv(CONFIG.chunk_path)
