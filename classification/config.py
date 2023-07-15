@@ -45,7 +45,7 @@ class Config():
             return cls.instance
 
         #Set defaults config
-        with open('config.yml', 'r', encoding='utf-8') as file:
+        with open('documentation/default_config.yml', 'r', encoding='utf-8') as file:
             cls.config_dict = yaml.safe_load(file)
 
         default_keys = set()
@@ -54,8 +54,8 @@ class Config():
             default_keys.add(key)
 
         #Set User Custom Values
-        if os.path.exists('config_personal.yml'):
-            with open('config_personal.yml', 'r', encoding='utf-8') as file:
+        if os.path.exists('config.yml'):
+            with open('config.yml', 'r', encoding='utf-8') as file:
                 cls.config_personal_dict = yaml.safe_load(file)
 
             for (key, value) in cls.config_personal_dict.items():
@@ -83,7 +83,7 @@ class Config():
                 print("please manually update these keys from the new config")
                 print(attrs_to_append)
         else:
-            shutil.copy("config.yml", "config_personal.yml")
+            shutil.copy(os.path.join("documentation","default_config.yml"), "config.yml")
 
             # Update personal dict with new keys
     
@@ -146,7 +146,7 @@ class Config():
             sha = repo.head.object.hexsha
             self.config_dict["git_hash"] = sha
 
-        #I want to catch this spefific error, and it doesn't extend from base exception
+        #I want to catch this specific error, and it doesn't extend from base exception
         #¯\(ツ)/¯
         # pylint: disable=no-member
         except git.exc.InvalidGitRepositoryError:

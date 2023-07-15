@@ -5,7 +5,8 @@ PyHa/*
 Miniconda3-*.sh
 classification/wandb/*
 wandb/*
-config_personal.yml
+config.yml
+*.tflite
 
 
 
@@ -266,5 +267,4 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,jupyternotebooks,python,windows,linux
-*.tflite
 
