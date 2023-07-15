@@ -37,8 +37,9 @@ from utils import set_seed, print_verbose
 from augmentations import SyntheticNoise
 import config
 from dataset import  get_datasets
-from model import TimmModel, EarlyStopper
-
+import model
+from models.timm_model import TimmModel
+from models.early_stopper import EarlyStopper
 
 
 tqdm.pandas()
