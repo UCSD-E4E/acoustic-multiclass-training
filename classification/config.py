@@ -34,7 +34,7 @@ class Config():
             return cls.instance
 
         #Set defaults config
-        with open('config.yml', 'r') as file:
+        with open('config.yml', 'r', encoding='utf-8') as file:
             cls.config_dict = yaml.safe_load(file)
 
         default_keys = set()
@@ -45,7 +45,7 @@ class Config():
 
         #Set User Custom Values
         if os.path.exists('config_personal.yml'):
-            with open('config_personal.yml', 'r') as file:
+            with open('config_personal.yml', 'r', encoding='utf-8') as file:
                 cls.config_personal_dict = yaml.safe_load(file)
 
             for (key, value) in cls.config_personal_dict.items():
@@ -74,7 +74,7 @@ class Config():
         if len(attrs_to_append) == 0:
             return cls.instance    
         
-        with open('config_personal.yml', 'a') as file:
+        with open('config_personal.yml', 'a', encoding='utf-8') as file:
             file.write("\n\n#NEW DEFAULTS\n")
 
             for new_attrs in attrs_to_append:
@@ -194,10 +194,8 @@ def testing():
     config = Config()
     config.change = " hah"
     config2 = Config()
-    print(config == config2)
-    print(config.test_)
-    print(config2.test_)
-    print(config.change)
-    print(config2.change)
+    print(config == config2, "Expect True")
+    print(config.change, "Expect hah")
+    print(config2.change, "Expect hah")
 if __name__ == "__main__":
     testing()
