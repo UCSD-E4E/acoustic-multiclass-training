@@ -16,7 +16,7 @@ Passive acoustic monitoring (PAM) plays a crucial role in conservation efforts a
 
 This repo attempts to address this issue as part of the Automated Acoustic Species Identification pipeline in UCSD [Engineers for Exploration](https://e3e.ucsd.edu/). We created a uniform pipeline for preprocessing, training, and testing neural networks that aim to identify a significant number of species in a given environment. The full pipeline takes [Xeno-Canto](https://xeno-canto.org/) data as input, runs our Weak to Strong label pipeline [PyHa](https://github.com/UCSD-E4E/PyHa) over file-level labels to produce time-specific, strongly labeled annotations that can be passed into our training methods. From here, acoustic bird species classifiers can be trained and tested to determine their ability to detect species of interest in any given region.
 
-This work was initially started during the [BirdCLEF2022 Kaggle Competition](https://www.kaggle.com/competitions/birdclef-2023). Large credits to CSE 145 and 237d teams who assisted with this project and the summer 2023 REU students at E4E. 
+This work was initially started during the [BirdCLEF2023 Kaggle Competition](https://www.kaggle.com/competitions/birdclef-2023). Large credits to spring 2023 [CSE 145 and 237D](https://kastner.ucsd.edu/ryan/cse145/) teams who assisted with this project and the summer 2023 REU students at E4E. 
 
 ![outline](images/main_diag.png)
 
@@ -56,6 +56,9 @@ The data folder, cache folder (optional), and CSV location must all be reference
 The CSV file referenced in `config.py` contains all metadata about clips in that dataset, which includes song file location, offset and duration of the clip, and species name. Using multiple different CSV files allows for different training scenarios such as using a small subset of clips to test a data augmentation technique.
 
 We ran into issues running PyHa over `.ogg` files, so there is an included function in `gen_csv_labels.py` to convert `.ogg` to `.wav` files and can be swapped out for your original file type. This is an issue for the data processing pipeline. However, the training pipeline can accept most file types. This will be fixed in future versions of PyHa.
+
+### Quick Start Data Setup
+You can download a sample dataset and labels .csv here: [http://gofile.me/4PtL7/4dwRKkSu2](http://gofile.me/4PtL7/4dwRKkSu2). This contains 10 `.mp3` files for the Amazonian Barred Woodcreeper and their metadata from Xeno-canto.
 
 ## Data Processing
 To process data using TweetyNet, you will need to have [PyHa](https://github.com/UCSD-E3E/PyHa) installed and set up.  
@@ -102,4 +105,3 @@ python train.py -l False
 The `inference.ipynb` notebook can be directly uploaded to and run on Kaggle. In the import section, the notebook takes in a local path to a pretrained checkpoint (can be replaced with a `timm` fetched model) with the model architecture and to the final model. Replicate any changes you made to the BirdCLEFModel class, or directly import from `train.py` if running on a local machine.
 
 Under the inference section, modify the `pd.read_csv` line to your training metadata file. This is used to get a list of labels to predict. Also, change the `filepaths` variable to where your test data is stored. The given notebook removes two classes from the predictions, as there was no training data actually used (chunks were not able to generate), but these can be removed. The final output is `submission.csv`, which outputs probabilistic predictions for each class for every 5 second chunk of the training data.
-
