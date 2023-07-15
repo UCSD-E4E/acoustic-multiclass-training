@@ -288,7 +288,7 @@ class PyhaDF_Dataset(Dataset):
             #try again with a diff annotation to avoid training breaking
             image, target = self[self.samples.sample(1).index[0]]
 
-        return image, target
+        return image, target, audio
 
     def set_transforms(self, transforms):
         """ Sets the transforms for the dataset

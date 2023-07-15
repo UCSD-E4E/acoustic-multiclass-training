@@ -26,7 +26,8 @@ from torch.optim import Adam
 from torch.amp import autocast
 import numpy as np
 from dataset import PyhaDF_Dataset, get_datasets
-from model import TimmModel, EarlyStopper
+
+from model import TimmModel, EarlyStopper, BirdnetYCNNModel
 from utils import set_seed, print_verbose
 from config import get_config
 from augmentations import SyntheticNoise
@@ -82,13 +83,14 @@ def train(model: Any,
     
     scaler = torch.cuda.amp.GradScaler()
 
-    for i, (mels, labels) in enumerate(data_loader):
+    for i, (mels, labels, audio) in enumerate(data_loader):
         optimizer.zero_grad()
         mels = mels.to(device)
         labels = labels.to(device)
+        audio = audio.to(device)
         
         with autocast(device_type=device, dtype=torch.float16, enabled=CONFIG.mixed_precision):
-            outputs = model(mels)
+            outputs = model(mels, audio)
             check_shape(outputs, labels)
             loss = model.loss_fn(outputs, labels)
         outputs = outputs.to(dtype=torch.float32)
@@ -298,9 +300,13 @@ def main():
     train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset, CONFIG)
 
     print("Loading Model...")
-    model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
-                                model_name=CONFIG.model, 
-                                CONFIG=CONFIG).to(device)
+    model_for_run = BirdnetYCNNModel(
+        num_classes=train_dataset.num_classes,
+        CONFIG=CONFIG,
+        device=device) #, device=device
+    # model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
+    #                             model_name=CONFIG.model, 
+    #                             CONFIG=CONFIG).to(device)
     model_for_run.create_loss_fn(train_dataset)
     if CONFIG.model_checkpoint is not None:
         model_for_run.load_state_dict(torch.load(CONFIG.model_checkpoint))

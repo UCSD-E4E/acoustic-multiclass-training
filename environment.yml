@@ -173,4 +173,6 @@ dependencies:
       - matplotlib
       - librosa
       - gitpython
+      #- birdnetlib
+      - tensorflow 
 prefix: /home/znovak/miniconda3/envs/asid
