@@ -5,6 +5,7 @@
 """
 import sys
 import os
+import argparse
 import shutil
 
 import git
@@ -23,6 +24,7 @@ class Config():
         self.required_checks( "dataframe_csv")
         self.required_checks( "data_path")
         self.get_git_hash()
+        self.cli_values()
 
     def __new__(cls):
         """
@@ -86,6 +88,23 @@ class Config():
             # Update personal dict with new keys
     
         return cls.instance
+
+    def cli_values(self):
+        """ 
+        Saves all command line arguments to config class
+        """
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-l', '--logging', action='store_false')
+        
+        arg_cfgs = parser.parse_args()
+        
+        # Add all command line args to config
+        # Overwrite because user is defining them most recently
+        arg_cfgs = vars(arg_cfgs)
+        for key in arg_cfgs:
+            setattr(self, key, arg_cfgs[key])
+
+
 
     def required_checks(self, parameter):
         """
