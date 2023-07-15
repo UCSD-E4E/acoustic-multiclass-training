@@ -15,18 +15,19 @@
 
 
 """
-from typing import Any, Tuple
+from typing import Any, List, Tuple,Union
 import os
 import datetime
 from torchmetrics.classification import MultilabelAveragePrecision
 
 import torch
+from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from torch.optim import Adam
-from torch.amp import autocast
+from torch.amp.autocast_mode import autocast
 import numpy as np
 from dataset import PyhaDF_Dataset, get_datasets
-from model import TimmModel, EarlyStopper
+from .model import TimmModel, EarlyStopper
 from utils import set_seed, print_verbose
 import config
 from augmentations import SyntheticNoise
@@ -38,7 +39,7 @@ import wandb
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-wandb_run = None
+#wandb_run = wandb.run
 cfg = config.cfg
 
 def check_shape(outputs, labels):
@@ -55,14 +56,14 @@ def check_shape(outputs, labels):
 # Splitting this up would be annoying!!!
 # pylint: disable=too-many-statements 
 def train(model: Any,
-        data_loader: PyhaDF_Dataset,
-        valid_loader:  PyhaDF_Dataset,
+        data_loader: DataLoader,
+        valid_loader:  DataLoader,
         optimizer: torch.optim.Optimizer,
         scheduler,
         device: str,
         epoch: int,
         best_valid_map: float
-       ) -> Tuple[float, int, float]:
+       ) -> Tuple[float, float]:
     """ Trains the model
         Returns:
             loss: the average loss over the epoch
@@ -76,12 +77,11 @@ def train(model: Any,
     log_loss = 0
     mAP = 0
     
-    scaler = torch.cuda.amp.GradScaler()
-
+    #scaler = torch.cuda.amp.GradScaler()
 
     start_time = datetime.datetime.now()
     
-    scaler = torch.cuda.amp.GradScaler()
+    scaler = torch.cuda.amp.grad_scaler.GradScaler()
 
     for i, (mels, labels) in enumerate(data_loader):
         optimizer.zero_grad()
@@ -96,7 +96,10 @@ def train(model: Any,
         loss = loss.to(dtype=torch.float32)
 
         if cfg.mixed_precision:
-            scaler.scale(loss).backward()
+            # Pyright complains about scaler.scale(loss) returning iterable of unknown types
+            # This is a problem in the pytorch typing, documentation says it returns iterables of Tensors
+            #  keep if needed - noqa: reportGeneralTypeIssues 
+            scaler.scale(loss).backward()  # type: ignore
             scaler.step(optimizer)
             scaler.update()
         else:
@@ -155,10 +158,10 @@ def train(model: Any,
 
 
 def valid(model: Any,
-          data_loader: PyhaDF_Dataset,
+          data_loader: DataLoader,
           epoch_progress: float,
           best_valid_map: float
-          ) -> Tuple[float, float, float]:
+          ) -> Tuple[float,float, float]:
     """ Run a validation loop
     Arguments:
         model: the model to validate
@@ -226,14 +229,14 @@ def valid(model: Any,
     })
 
     print(f"Validation Loss:\t{running_loss/len(data_loader)} \n Validation mAP:\t{valid_map}" )
-    if valid_map > best_valid_map:
-        path = os.path.join("models",wandb_run.name + '.pt')
+    if valid_map > best_valid_map and wandb.run is not None:
+        path = os.path.join("models",wandb.run.name + '.pt')
         if not os.path.exists("models"):
             os.mkdir("models")
         torch.save(model.state_dict(), path)
         print("Model saved in:", path)
         print(f"Validation mAP Improved - {best_valid_map} ---> {valid_map}")
-        best_valid_map = valid_map
+        best_valid_map = valid_map.item()
 
     
     return running_loss/len(data_loader), valid_map, best_valid_map
@@ -249,26 +252,25 @@ def init_wandb():
         config=cfg.config_dict,
         mode="online" if cfg.logging else "disabled"
     )
-    run.name = (
-        cfg.model + 
-        f"-{time_now}"
-    )
+
+    assert run is not None
+    run.name(cfg.model + f"-{time_now}")
 
     return run
 
 def load_datasets(train_dataset, val_dataset
-        )-> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
+        )-> Tuple[DataLoader, DataLoader]:
     """
         Loads datasets and dataloaders for train and validation
     """
 
-    train_dataloader = torch.utils.data.DataLoader(
+    train_dataloader = DataLoader(
         train_dataset,
         cfg.train_batch_size,
         shuffle=True,
         num_workers=cfg.jobs,
     )
-    val_dataloader = torch.utils.data.DataLoader(
+    val_dataloader = DataLoader(
         val_dataset,
         cfg.validation_batch_size,
         shuffle=False,
@@ -283,6 +285,7 @@ def main():
     print("Device is: ",device)
     # Needed to redefine wandb_run as a global variable
     init_wandb()
+    assert wandb.run is not None
     set_seed(cfg.seed)
 
     # Load in dataset
@@ -325,7 +328,7 @@ def main():
                                              epoch + 1.0, 
                                              best_valid_map)
 
-        print("Best validation map:", best_valid_map.item())
+        print("Best validation map:", best_valid_map)
         if cfg.early_stopping and early_stopper.early_stop(valid_map):
             print("Early stopping has triggered on epoch", epoch)
             break

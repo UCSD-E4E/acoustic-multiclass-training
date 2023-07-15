@@ -80,7 +80,7 @@ def bce_loss_fn(self, without_logits=False):
         print_verbose("BCE", cfg.loss_fnc, verbose=cfg.verbose)
     return self.loss_fn
 
-class EarlyStopper:
+class EarlyStopper():
     """Stop when the model is no longer improving
     """
     def __init__(self, patience=3, min_delta=0):
