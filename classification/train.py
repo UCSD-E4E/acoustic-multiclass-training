@@ -282,9 +282,7 @@ def main():
     torch.multiprocessing.set_start_method('spawn')
     print("Device is: ",device)
     # Needed to redefine wandb_run as a global variable
-    # pylint: disable=global-statement
-    global wandb_run
-    wandb_run = init_wandb()
+    init_wandb()
     set_seed(cfg.seed)
 
     # Load in dataset
