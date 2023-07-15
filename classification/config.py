@@ -29,7 +29,6 @@ class Config():
         
         # Set up singleton class design template
         if not hasattr(cls, 'instance'):
-            cls.test_ = "testing!"
             cls.instance = super(Config, cls).__new__(cls)
         else:
             return cls.instance
@@ -52,7 +51,6 @@ class Config():
             for (key, value) in cls.config_personal_dict.items():
                 setattr(cls, key, value)
                 
-
             cls.config_dict.update(cls.config_personal_dict)
         else:
             shutil.copy("config.yml", "config_personal.yml")
@@ -62,7 +60,8 @@ class Config():
         attrs_to_append = []
 
         for key in default_keys:
-            if key in cls.config_personal_dict: continue
+            if key in cls.config_personal_dict: 
+                continue
             
             value = cls.config_dict[key]
             appending_attrs = {
