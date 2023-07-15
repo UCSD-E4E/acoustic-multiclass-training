@@ -18,7 +18,7 @@ class Config():
     """
     def __init__(self):
         """Constructor that runs after creating the singleton class
-        Post processing for getting config file
+        Post processing after reading config file
         """
         self.required_checks( "dataframe_csv")
         self.required_checks( "data_path")
@@ -32,6 +32,8 @@ class Config():
         that can store all system vars
 
         returns a refrence to the singleton class
+
+        Intended to read config files
         """
         
         # Set up singleton class design template
@@ -45,7 +47,6 @@ class Config():
             cls.config_dict = yaml.safe_load(file)
 
         default_keys = set()
-        print(cls.config_dict)
         for (key, value) in cls.config_dict.items():
             setattr(cls, key, value)
             default_keys.add(key)
@@ -140,7 +141,7 @@ def get_config():
     """ Returns a config variable with the command line arguments or defaults
     Decrepated, returns Config to prevent largescale code breaks
     """
-    return Config().config_dict
+    return cfg
 
 def testing():
     """
@@ -159,8 +160,8 @@ def testing():
     print(config.change, "Expect hah")
     print(config2.change, "Expect hah")
     print(config.dataframe_csv)
-
-    Config().generate_config_file()
+    get_config()
+    #cfg.generate_config_file()
 
 
 #Expose variable to page scope
