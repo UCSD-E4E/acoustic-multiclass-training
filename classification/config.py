@@ -87,6 +87,11 @@ class Config():
         return cls.instance
 
     def required_checks(self, parameter):
+        """
+        Parameter string
+
+        Raises ValueError if parameter isn't decalred in config yaml or isn't defined
+        """
         if parameter not in self.config_dict:
             raise ValueError(f'The required parameter "{parameter}" is not present in yaml')
         if  self.config_dict[parameter] is None:
