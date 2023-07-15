@@ -26,11 +26,11 @@ import pandas as pd
 import numpy as np
 
 from utils import set_seed, print_verbose
-from config import cfg
+import config
 from tqdm import tqdm
 from augmentations import Mixup, add_mixup
         
-
+cfg = config.cfg
 
 tqdm.pandas()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'

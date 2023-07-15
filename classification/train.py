@@ -28,7 +28,7 @@ import numpy as np
 from dataset import PyhaDF_Dataset, get_datasets
 from model import TimmModel, EarlyStopper
 from utils import set_seed, print_verbose
-from config import cfg
+import config
 from augmentations import SyntheticNoise
 from tqdm import tqdm
 import wandb
@@ -39,6 +39,7 @@ tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 wandb_run = None
+cfg = config.cfg
 
 def check_shape(outputs, labels):
     """

@@ -7,9 +7,11 @@
 import torch
 from torch import nn
 from utils import print_verbose
-from config import cfg
+import config 
 # timm is a library of premade models
 import timm
+
+cfg = config.cfg
 
 # pylint: disable=too-many-instance-attributes
 class TimmModel(nn.Module):
