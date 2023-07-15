@@ -4,7 +4,6 @@
         get_config: returns an ArgumentParser with the default arguments
 """
 import sys
-import argparse
 import os
 import shutil
 
@@ -80,7 +79,7 @@ class Config():
             for new_attrs in attrs_to_append:
                 yaml.dump(new_attrs, file)
 
-        self.get_git_hash()
+        cls.get_git_hash()
         return cls.instance
 
     def generate_config_file(self, filename="test.yml"):
@@ -90,13 +89,18 @@ class Config():
         """
         with open(filename, 'w', encoding='utf-8') as file:
             yaml.dump(self.config_dict, file)
+    
+    def __getattribute__(self,attr):
+        return self.config_dict[attr]
 
-    def get_git_hash(self):
+    @classmethod
+    def get_git_hash(cls):
+        """ Gets current git hash and adds it to config dictionary """
         #Add git hash to config so wand logging can track vrs used for reproduciblity
         try:
             repo = git.Repo(search_parent_directories=True)
             sha = repo.head.object.hexsha
-            setattr(self, "git_hash", sha)
+            setattr(cls.config_dict, "git_hash", sha)
             print(sha)
 
         #I want to catch this spefific error, and it doesn't extend from base exception
@@ -114,7 +118,7 @@ def get_config():
     """ Returns a config variable with the command line arguments or defaults
     Decrepated, returns Config to prevent largescale code breaks
     """
-    return Config()
+    return Config().config_dict
 
 def testing():
     """
@@ -128,8 +132,10 @@ def testing():
     print(config2.change, "Expect hah")
 
     Config().generate_config_file()
-if __name__ == "__main__":
-    testing()
+
 
 #Expose variable to page scope
 cfg = Config()
+
+if __name__ == "__main__":
+    testing()
