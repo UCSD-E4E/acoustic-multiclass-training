@@ -126,6 +126,7 @@ def testing():
     """
     Test functionality of generating and caching configs
     """
+
     config = Config()
 
     # I want to test singleton class creation

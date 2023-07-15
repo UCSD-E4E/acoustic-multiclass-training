@@ -73,8 +73,6 @@ def train(model: Any,
     running_loss = 0
     log_n = 0
     log_loss = 0
-    correct = 0
-    total = 0
     mAP = 0
     
     scaler = torch.cuda.amp.GradScaler()
@@ -117,11 +115,6 @@ def train(model: Any,
             batch_mAP = 0
         mAP += batch_mAP
 
-        out_max_inx = torch.round(outputs)
-        lab_max_inx = torch.round(labels)
-        correct += (out_max_inx == lab_max_inx).sum().item()
-        total += labels.shape[0] * labels.shape[1]
-
         log_loss += loss.item()
         log_n += 1
 
@@ -135,7 +128,6 @@ def train(model: Any,
             wandb.log({
                 "train/loss": log_loss / log_n,
                 "train/mAP": mAP / log_n,
-                "train/accuracy": correct / total,
                 "i": i,
                 "epoch": epoch,
                 "clips/sec": annotations_per_sec,
@@ -147,13 +139,16 @@ def train(model: Any,
                   "mAP", mAP / log_n)
             log_loss = 0
             log_n = 0
-            correct = 0
-            total = 0
             mAP = 0
 
         if (i != 0 and i % (CONFIG.valid_freq) == 0):
             valid_start_time = datetime.datetime.now()
-            _, _, best_valid_map = valid(model, valid_loader, epoch + i / len(data_loader), best_valid_map, CONFIG)
+            _, _, best_valid_map = valid(model, 
+                                          valid_loader, 
+                                          epoch + i / len(data_loader), 
+                                          best_valid_map, 
+                                          CONFIG)
+
             # Ignore the time it takes to validate in annotations/sec
             start_time += datetime.datetime.now() - valid_start_time
     return running_loss/len(data_loader), best_valid_map
@@ -161,45 +156,62 @@ def train(model: Any,
 
 def valid(model: Any,
           data_loader: PyhaDF_Dataset,
-          epoch: int,
+          epoch_progress: float,
           best_valid_map: float,
-          CONFIG) -> Tuple[float, float]:
-    """
-    Run a validation loop
+          CONFIG) -> Tuple[float, float, float]:
+    """ Run a validation loop
+    Arguments:
+        model: the model to validate
+        data_loader: the validation data loader
+        epoch_progress: the progress of the epoch
+            - Note: If this is an integer, it will run the full
+                    validation set, otherwise runs config.valid_dataset_ratio
+        best_valid_map: the best validation mAP
+        CONFIG
+    Returns:
+        Tuple of (loss, valid_map, best_valid_map)
     """
     model.eval()
 
     running_loss = 0
     pred = []
     label = []
+    dataset_ratio: float = CONFIG.valid_dataset_ratio
+    if epoch_progress.is_integer():
+        dataset_ratio = 1.0
 
     # tqdm is a progress bar
-    dl = tqdm(data_loader, position=5)
+    dl = tqdm(data_loader, position=5, total=int(len(data_loader)*dataset_ratio))
 
     if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
         pred = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
         label = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
     else:
-        for _, (mels, labels) in enumerate(dl):
-            mels = mels.to(device)
-            labels = labels.to(device)
+        with torch.no_grad():
+            for index, (mels, labels) in enumerate(dl):
+                if index > len(dl) * dataset_ratio:
+                    # Stop early if not doing full validation
+                    break
+                mels = mels.to(device)
+                labels = labels.to(device)
+                
+                # argmax
+                outputs = model(mels)
+                check_shape(outputs, labels)
+                
+                loss = model.loss_fn(outputs, labels)
+                    
+                running_loss += loss.item()
+                
+                pred.append(outputs.cpu().detach())
+                label.append(labels.cpu().detach())
 
-            # argmax
-            outputs = model(mels)
-            check_shape(outputs, labels)
 
-            loss = model.loss_fn(outputs, labels)
-
-            running_loss += loss.item()
-
-            pred.append(outputs.cpu().detach())
-            label.append(labels.cpu().detach())
-
-        pred = torch.cat(pred)
-        label = torch.cat(label)
-        if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
-            torch.save(pred, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
-            torch.save(label, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
+            pred = torch.cat(pred)
+            label = torch.cat(label)
+            if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
+                torch.save(pred, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
+                torch.save(label, "/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/label.pt')
 
     # softmax predictions
     pred = F.softmax(pred).to(device)
@@ -211,7 +223,7 @@ def valid(model: Any,
     wandb.log({
         "valid/loss": running_loss/len(data_loader),
         "valid/map": valid_map,
-        "epoch_progress": epoch,
+        "epoch_progress": epoch_progress,
     })
 
     print(f"Validation Loss:\t{running_loss/len(data_loader)} \n Validation mAP:\t{valid_map}" )
@@ -221,7 +233,7 @@ def valid(model: Any,
             os.mkdir("models")
         torch.save(model.state_dict(), path)
         print("Model saved in:", path)
-        print(f"Validation cmAP Improved - {best_valid_map} ---> {valid_map}")
+        print(f"Validation mAP Improved - {best_valid_map} ---> {valid_map}")
         best_valid_map = valid_map
 
     
@@ -234,8 +246,9 @@ def init_wandb(CONFIG: Dict[str, Any]):
     """
     run = wandb.init(
         project="acoustic-species-reu2023",
+        entity="acoustic-species",
         config=CONFIG,
-        mode="disabled" if CONFIG.logging is False else "online"
+        mode="online" if CONFIG.logging else "disabled"
     )
     run.name = (
         CONFIG.model + 
@@ -280,8 +293,8 @@ def main():
     print("Loading Dataset")
     # pylint: disable=unused-variable
     # for future can use torchvision.transforms.RandomApply here
-    transforms = torch.nn.Sequential(SyntheticNoise("white", 1))
-    train_dataset, val_dataset = get_datasets(transforms=transforms, CONFIG=CONFIG, alpha=0.3)
+    transforms = torch.nn.Sequential(SyntheticNoise("white", 0.05))
+    train_dataset, val_dataset = get_datasets(transforms=transforms, CONFIG=CONFIG)
     train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset, CONFIG)
 
     print("Loading Model...")
@@ -313,11 +326,17 @@ def main():
             CONFIG
         )
         
-        _, valid_map, best_valid_map = valid(model_for_run, val_dataloader, epoch + 1, best_valid_map, CONFIG)
+        _, valid_map, best_valid_map = valid(model_for_run, 
+                                             val_dataloader, 
+                                             epoch + 1.0, 
+                                             best_valid_map, 
+                                             CONFIG)
+
         print("Best validation map:", best_valid_map.item())
         if CONFIG.early_stopping and early_stopper.early_stop(valid_map):
             print("Early stopping has triggered on epoch", epoch)
             break
+
         
 if __name__ == '__main__':
     main()
