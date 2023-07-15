@@ -94,7 +94,7 @@ class Config():
         Saves all command line arguments to config class
         """
         parser = argparse.ArgumentParser()
-        parser.add_argument('-l', '--logging', action='store_true')
+        parser.add_argument('-l', '--logging', action='store_false')
         
         arg_cfgs = parser.parse_args()
         
