@@ -92,6 +92,7 @@ class Config():
     def cli_values(self):
         """ 
         Saves all command line arguments to config class
+        Primarily intended for quick flags such as turning a property on or off
         """
         parser = argparse.ArgumentParser()
         parser.add_argument('-l', '--logging', action='store_false')
@@ -100,9 +101,11 @@ class Config():
         
         # Add all command line args to config
         # Overwrite because user is defining them most recently
+        # Unless they are default value
         arg_cfgs = vars(arg_cfgs)
         for key in arg_cfgs:
-            setattr(self, key, arg_cfgs[key])
+            if self[key] == (parser.get_default(key)):
+                setattr(self, key, arg_cfgs[key])
 
 
 
