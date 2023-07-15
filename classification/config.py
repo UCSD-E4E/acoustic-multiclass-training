@@ -18,9 +18,12 @@ class Config():
     """
     def __init__(self):
         """Constructor that runs after creating the singleton class
+        Post processing for getting config file
         """
+        self.required_checks( "dataframe_csv")
+        self.required_checks( "data_path")
         self.get_git_hash()
-    
+
     def __new__(cls):
         """
         Constructor for Config
@@ -57,32 +60,38 @@ class Config():
                 setattr(cls, key, value)
                 
             cls.config_dict.update(cls.config_personal_dict)
+            
+            attrs_to_append = []
+
+            for key in default_keys:
+                if key in cls.config_personal_dict: 
+                    continue
+                
+                value = cls.config_dict[key]
+                appending_attrs = {
+                    key: value
+                }
+
+                #https://media.tenor.com/dxPl_UoR8J0AAAAC/fire-writing.gif
+                attrs_to_append.append(appending_attrs) 
+
+
+            if len(attrs_to_append) != 0:
+                print("There are new updates in default config")
+                print("please manually update these keys from the new config")
+                print(attrs_to_append)
         else:
             shutil.copy("config.yml", "config_personal.yml")
 
-
-        # Update personal dict with new keys
-        attrs_to_append = []
-
-        for key in default_keys:
-            if key in cls.config_personal_dict: 
-                continue
-            
-            value = cls.config_dict[key]
-            appending_attrs = {
-                key: value
-            }
-
-            #https://media.tenor.com/dxPl_UoR8J0AAAAC/fire-writing.gif
-            attrs_to_append.append(appending_attrs) 
-
-
-        if len(attrs_to_append) != 0:
-            print("There are new updates in default config")
-            print("please manually update these keys from the new config")
-            print(attrs_to_append)
-
+            # Update personal dict with new keys
+    
         return cls.instance
+
+    def required_checks(self, parameter):
+        if parameter not in self.config_dict:
+            raise ValueError(f'The required parameter "{parameter}" is not present in yaml')
+        if  self.config_dict[parameter] is None:
+            raise ValueError(f'The required parameter "{parameter}" is not defined in yaml')
 
     def generate_config_file(self, filename="test.yml"):
         """
@@ -137,6 +146,7 @@ def testing():
     print(config == config2, "Expect True")
     print(config.change, "Expect hah")
     print(config2.change, "Expect hah")
+    print(config.dataframe_csv)
 
     #config.generate_config_file()
 if __name__ == "__main__":
