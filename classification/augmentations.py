@@ -9,19 +9,21 @@ import numpy as np
 import torch
 import torchaudio
 import utils
-import config
 
 
 class Mixup(torch.nn.Module):
     """
     Attributes:
         dataset: Dataset from which to mixup with other clips
-        alpha: Strength (proportion) of original audio in augmented clip
+        alpha_range: Range of alpha parameter, which determines 
+        proportion of new audio in augmented clip
+        p: Probability of mixing
     """
-    def __init__(self, dataset, alpha: float):
+    def __init__(self, dataset, alpha_range: Tuple[float,float]=(0.1, 0.4), p: float=0.4):
         super().__init__()
         self.dataset = dataset
-        self.alpha = alpha
+        self.alpha_range = alpha_range
+        self.p = p
 
     def forward(
         self, clip: torch.Tensor, target: torch.Tensor
@@ -35,6 +37,10 @@ class Mixup(torch.nn.Module):
         chosen clip, Tensor of target mixed with the
         target of the randomly chosen file
         """
+        alpha = utils.rand(*self.alpha_range)
+        if utils.rand(0,1) < self.p:
+            return clip, target
+
         # Generate random index in dataset
         other_idx = utils.randint(0, len(self.dataset))
         try:
@@ -42,8 +48,8 @@ class Mixup(torch.nn.Module):
         except RuntimeError:
             print('Error loading other clip, mixup not performed')
             return clip, target
-        mixed_clip = self.alpha * clip + (1 - self.alpha) * other_clip
-        mixed_target = self.alpha * target + (1 - self.alpha) * other_target
+        mixed_clip = (1 - alpha) * clip + alpha * other_clip
+        mixed_target = (1 - alpha) * target + alpha * other_target
         return mixed_clip, mixed_target
 
 
@@ -129,7 +135,7 @@ class SyntheticNoise(torch.nn.Module):
     """
     Attributes:
         noise_type: type of noise to add to clips
-        alpha: Strength (proportion) of original audio in augmented clip
+        alpha: Strength (proportion) of noise audio in augmented clip
     """
     noise_names = {'pink': pink_noise,
                    'brown': brown_noise,
@@ -149,9 +155,7 @@ class SyntheticNoise(torch.nn.Module):
         """
         noise_function = self.noise_names[self.noise_type]
         noise = noise_function(len(clip))
-        augmented = self.alpha * clip + (1-self.alpha)* noise
-        # Normalize noise to be between 0 and 1
-        return utils.norm(augmented)
+        return (1 - self.alpha) * clip + self.alpha* noise
 
 
 class RandomEQ(torch.nn.Module):
@@ -175,7 +179,7 @@ class RandomEQ(torch.nn.Module):
         self.g_range = g_range
         self.q_range = q_range
         self.num_applications = num_applications
-        self.sample_rate = config.get_args("sample_rate")
+        self.sample_rate = utils.get_args("sample_rate")
 
     def forward(self, clip: torch.Tensor) -> torch.Tensor:
         """
@@ -203,7 +207,7 @@ class BackgroundNoise(torch.nn.Module):
         length: Length of audio clip (s)
     """
     def __init__(
-            self, noise_path: Path, alpha: float, length=5
+            self, noise_path: Path, alpha: float, length=5, norm=True
             ):
         super().__init__()
         if isinstance(noise_path, str):
@@ -213,8 +217,9 @@ class BackgroundNoise(torch.nn.Module):
         else:
             raise TypeError('noise_path must be of type Path or str')
         self.alpha = alpha
-        self.sample_rate = config.get_args("sample_rate")
+        self.sample_rate = utils.get_args("sample_rate")
         self.length = length
+        self.norm = norm
 
     def forward(self, clip: torch.Tensor)->torch.Tensor:
         """
@@ -247,7 +252,8 @@ class BackgroundNoise(torch.nn.Module):
         if sr != self.sample_rate:
             waveform = torchaudio.functional.resample(
                     waveform, orig_freq=sr, new_freq=self.sample_rate)
-        waveform = utils.norm(waveform)
+        if self.norm:
+            waveform = utils.norm(waveform)
         start_idx = utils.randint(0, len(waveform))
         return waveform[start_idx, start_idx+clip_len]
 
@@ -264,7 +270,7 @@ class LowpassFilter(torch.nn.Module):
     """
     def __init__(self, cutoff: int, Q: float):
         super().__init__()
-        self.sample_rate = config.get_args("sample_rate")
+        self.sample_rate = utils.get_args("sample_rate")
         self.cutoff = cutoff
         self.Q = Q
 
