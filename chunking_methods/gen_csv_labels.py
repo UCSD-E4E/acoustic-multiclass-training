@@ -10,7 +10,7 @@ from pathlib import Path
 import pandas as pd
 from pydub import AudioSegment, exceptions
 from config import get_config
-from WTS_chunking import dynamic_yan_chunking
+from sliding_chunks import dynamic_yan_chunking
 # pylint: disable=import-error #this file gets put into PyHa
 from PyHa.IsoAutio import generate_automated_labels
 
@@ -45,11 +45,6 @@ def convert_audio(directory: str, filetype: str) -> None:
             audio = AudioSegment.from_file(path)
             audio.export(path.with_suffix('.wav'), format='wav')
         
-    # for path in Path(directory).iterdir():
-    #     if path.is_file() and path.suffix == filetype:
-    #         audio = AudioSegment.from_file(path)
-    #         audio.export(path.with_suffix('.wav'), format='wav')
-
 def generate_labels(path: str, filetype: str) -> None:
     """Generate binary automated time-specific labels using TweetyNet as 
     implemented in PyHa.
@@ -68,13 +63,11 @@ def generate_labels(path: str, filetype: str) -> None:
         sys.exit(1)
 
     # generate labels at a top level
-    convert_audio(path, filetype)
     automated_df = generate_automated_labels(path, ISOLATION_PARAMETERS)
 
     # check subdirectories in case files organized by class
     subfolders = [str(f) for f in rootdir.rglob('*') if f.is_dir()]
     for folder in sorted(subfolders):
-        convert_audio(folder, filetype=filetype)
         temp_df = generate_automated_labels(folder, ISOLATION_PARAMETERS)
         if temp_df.empty:
             continue
@@ -195,6 +188,7 @@ def main():
     if cfg.sliding_window:
         # saved to csv in case attaching labels fails as generating labels takes more time
         print('Generating labels...')
+        convert_audio(cfg.audio_path)
         labels = generate_labels(cfg.audio_path, cfg.filetype)
         labels.to_csv(cfg.strong_labels)
 

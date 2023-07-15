@@ -55,38 +55,21 @@ The data folder, cache folder (optional), and CSV location must all be reference
 
 The CSV file referenced in `config.py` contains all metadata about clips in that dataset, which includes song file location, offset and duration of the clip, and species name. Using multiple different CSV files allows for different training scenarios such as using a small subset of clips to test a data augmentation technique.
 
-We ran into issues running PyHa over `.ogg` files, so there is an included function in `gen_tweety_labels.py` to convert `.ogg` to `.wav` files and can be swapped out for your original file type. This is an issue for the data processing pipeline. However, the training pipeline can accept most file types.
-
+We ran into issues running PyHa over `.ogg` files, so there is an included function in `gen_csv_labels.py` to convert `.ogg` to `.wav` files and can be swapped out for your original file type. This is an issue for the data processing pipeline. However, the training pipeline can accept most file types. This will be fixed in future versions of PyHa.
 
 ## Data Processing
-The main file is is `gen_csv_labels.py` and uses functions from `config.py` and `WTS_chunking.py`. After downloading and setting up PyHa, copy all scripts in the `chunking_methods/` folder into the PyHa directory and cd into it. Also, activate the PyHa conda environment. 
-If PyHa was correctly set up, this script will generate two csvs: one with strong labels, one with chunked strong labels. For example, to create labels with 5 second, sliding window chunks for `.ogg` files in a folder called `~/amabaw1`, you can run the following:
+To process data using TweetyNet, you will need to have [PyHa](https://github.com/UCSD-E3E/PyHa) installed and set up.  
 
-The first file in our data processing pipeline is `gen_tweety_labels.py`. After downloading and setting up PyHa, copy this script into the PyHa directory and cd into it. If PyHa was correctly set up, this script will run TweetyNet on the entire BirdCLEF2022 dataset to produce binary labels in a file called `BirdCLEF2023_TweetyNet_Labels.csv`. For example, if the BirdCLEF2023 directory called `train_audio` is located at `/share/acoustic_species_id`, the script can be run with the following command:
-
-```bash
-python gen_tweety_labels.py /share/acoustic_species_id
+The main file is is `gen_csv_labels.py` and uses functions from `config.py` and `sliding_chunks.py`. After downloading and setting up PyHa, copy all scripts in the `chunking_methods/` folder into the PyHa directory and `cd` into it. Activate the PyHa conda environment and run the script by doing the following:
 ```
-
-After generating the TweetyNet labels, we next run `attach_strong_labels.py`, we attach the strong labels as given from the `train_metadata.csv` included in the BirdCLEF2022 directory. This will produce a file called `BirdCLEF2023_Strong_Labels.csv`. Remember to include the path in the script as follows:
-
-```bash
-python attach_strong_labels.py /share/acoustic_species_id
+conda env create --file conda_environments/{filename}
+conda activate species-id
 ```
-
-Next, we need to chunk the data since some files are longer than the 4-second duration used at inference time. The script `gen_chunks_from_labels.py` chunks the clips in `BirdCLEF2023_Strong_Labels.csv` and outputs all of the chunks in a new directory called `BirdCLEF2023_train_audio_chunks`. To generate these chunks, we run the following command:
-
-```bash
-python gen_chunks_from_labels.py /share/acoustic_species_id
+If PyHa was correctly set up, running `gen_csv_labels.py` will generate two csvs: one with strong labels, one with chunked strong labels. For example, to create labels with 5 second, sliding window chunks for `.ogg` files in a folder called `~/amabaw1`, you can run the following:
 ```
-
-Next, we need to split the data into training and validation sets. These splits can either be done manually by putting clips in train/validation folders or doing a random shuffle split. However, multiple audio chunks from a single file should be kept together in their respective folders to avoid data leakage. To do so automatically, we run the `distribute_chunks.py` script, which first distributes all of the audio files into 3:1 training/validation splits, and then distributes all of the chunks according to the file split. These chunks are stored in a new directory called `BirdCLEF2023_split_chunks`. We do so using the following command:
-
-```bash
-python distribute_chunks.py /share/acoustic_species_id
-
+python gen_csv_labels.py -l 5 -f .ogg -w -a ~/amabaw1  
 ```
-If using simple chunks, ie. if `SLIDING_CHUNKS` is set to `False`, it will only create one `.csv`
+If using simple chunks, ie. if the `sliding_window` is not used, it will only create one `.csv` for `chunk_labels`.
 
 ## Classification
 The main file is `train.py`, which has the main training loop and uses functions from `dataset.py` and `model.py`. This has several hyperparameters related to training, logging, and data augmentation that can be passed in as arguments. For example, to run with a mixup probability of -1.6, with all other arguments kept to the defaults, you would run:
