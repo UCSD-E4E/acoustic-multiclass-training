@@ -17,6 +17,8 @@ class Config():
     Allows for customising runs
     """
     def __init__(self):
+        """Constructor that runs after creating the singleton class
+        """
         self.get_git_hash()
     
     def __new__(cls):
@@ -136,7 +138,7 @@ def testing():
     print(config.change, "Expect hah")
     print(config2.change, "Expect hah")
 
-    Config().generate_config_file()
+    #config.generate_config_file()
 if __name__ == "__main__":
     testing()
 
