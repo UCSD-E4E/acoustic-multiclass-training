@@ -260,7 +260,7 @@ def init_wandb():
     )
 
     assert run is not None
-    run.name(cfg.model + f"-{time_now}")
+    run.name = f"{cfg.model}-{time_now}"
 
     return run
 
