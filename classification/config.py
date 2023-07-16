@@ -71,7 +71,7 @@ def get_config():
 
     # Loss Function
     parser.add_argument('-lr', "--lr", type=float, default=1e-3, help='learning rate')
-    parser.add_argument('-lfn', "--loss_fnc", type=str, default="BCEWL", help='loss function')
+    parser.add_argument('-lfn', "--loss_fnc", type=str, default="CE", help='loss function')
     # Loss function options: CE, BCE, BCEWL
 
     # Early stopping
