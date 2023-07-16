@@ -150,6 +150,7 @@ def train(model: Any,
                                           epoch + i / len(data_loader), 
                                           best_valid_map, 
                                           CONFIG)
+            model.train()
 
             # Ignore the time it takes to validate in annotations/sec
             start_time += datetime.datetime.now() - valid_start_time
@@ -182,8 +183,10 @@ def valid(model: Any,
     if epoch_progress.is_integer():
         dataset_ratio = 1.0
 
+    num_valid_samples = int(len(data_loader)*dataset_ratio)
+
     # tqdm is a progress bar
-    dl = tqdm(data_loader, position=5, total=int(len(data_loader)*dataset_ratio))
+    dl = tqdm(data_loader, position=5, total=num_valid_samples)
 
     if CONFIG.map_debug and CONFIG.model_checkpoint is not None:
         pred = torch.load("/".join(CONFIG.model_checkpoint.split('/')[:-1]) + '/pred.pt')
@@ -223,7 +226,7 @@ def valid(model: Any,
 
     # Log to Weights and Biases
     wandb.log({
-        "valid/loss": running_loss/len(data_loader),
+        "valid/loss": running_loss/num_valid_samples,
         "valid/map": valid_map,
         "epoch_progress": epoch_progress,
     })
@@ -248,7 +251,7 @@ def init_wandb(CONFIG: Dict[str, Any]):
     """
     run = wandb.init(
         project="acoustic-species-reu2023",
-        entity="acoustic-species",
+        entity="acoustic-species-identification",
         config=CONFIG,
         mode="online" if CONFIG.logging else "disabled"
     )
