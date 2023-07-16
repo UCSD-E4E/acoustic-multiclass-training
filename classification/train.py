@@ -38,7 +38,6 @@ import wandb
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-wandb_run = None
 cfg = config.cfg
 
 def check_shape(outputs, labels):
@@ -230,7 +229,7 @@ def valid(model: Any,
 
     print(f"Validation Loss:\t{running_loss/len(data_loader)} \n Validation mAP:\t{valid_map}" )
     if valid_map > best_valid_map:
-        path = os.path.join("models",wandb_run.name + '.pt')
+        path = os.path.join("models", f"{cfg.model}-{time_now}.pt")
         if not os.path.exists("models"):
             os.mkdir("models")
         torch.save(model.state_dict(), path)
@@ -284,7 +283,6 @@ def main():
     """
     torch.multiprocessing.set_start_method('spawn')
     print("Device is: ",device)
-    # Needed to redefine wandb_run as a global variable
     init_wandb()
     set_seed(cfg.seed)
 
