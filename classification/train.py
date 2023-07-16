@@ -246,7 +246,7 @@ def init_wandb(CONFIG: Dict[str, Any]):
     """
     run = wandb.init(
         project="acoustic-species-reu2023",
-        entity="acoustic-species",
+        entity="acoustic-species-identification",
         config=CONFIG,
         mode="online" if CONFIG.logging else "disabled"
     )
