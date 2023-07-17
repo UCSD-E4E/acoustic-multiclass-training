@@ -45,7 +45,6 @@ from models.early_stopper import EarlyStopper
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-#wandb_run = wandb.run
 cfg = config.cfg
 
 def check_shape(outputs, labels):
@@ -157,6 +156,7 @@ def train(model: Any,
                                          valid_loader, 
                                          epoch + i / len(data_loader), 
                                          best_valid_map)
+            model.train()
 
             # Ignore the time it takes to validate in annotations/sec
             start_time += datetime.datetime.now() - valid_start_time
@@ -188,8 +188,10 @@ def valid(model: Any,
     if epoch_progress.is_integer():
         dataset_ratio = 1.0
 
+    num_valid_samples = int(len(data_loader)*dataset_ratio)
+
     # tqdm is a progress bar
-    dl = tqdm(data_loader, position=5, total=int(len(data_loader)*dataset_ratio))
+    dl = tqdm(data_loader, position=5, total=num_valid_samples)
 
     if cfg.map_debug and cfg.model_checkpoint is not None:
         pred = torch.load("/".join(cfg.model_checkpoint.split('/')[:-1]) + '/pred.pt')
@@ -229,14 +231,15 @@ def valid(model: Any,
 
     # Log to Weights and Biases
     wandb.log({
-        "valid/loss": running_loss/len(data_loader),
+        "valid/loss": running_loss/num_valid_samples,
         "valid/map": valid_map,
         "epoch_progress": epoch_progress,
     })
 
     print(f"Validation Loss:\t{running_loss/len(data_loader)} \n Validation mAP:\t{valid_map}" )
-    if valid_map > best_valid_map and wandb.run is not None:
-        path = os.path.join("models",wandb.run.name + '.pt')
+
+    if valid_map > best_valid_map:
+        path = os.path.join("models", f"{cfg.model}-{time_now}.pt")
         if not os.path.exists("models"):
             os.mkdir("models")
         torch.save(model.state_dict(), path)
@@ -254,7 +257,7 @@ def init_wandb():
     """
     run = wandb.init(
         project="acoustic-species-reu2023",
-        entity="acoustic-species",
+        entity="acoustic-species-identification",
         config=cfg.config_dict,
         mode="online" if cfg.logging else "disabled"
     )
@@ -289,7 +292,6 @@ def main():
     """
     torch.multiprocessing.set_start_method('spawn')
     print("Device is: ",device)
-    # Needed to redefine wandb_run as a global variable
     init_wandb()
     assert wandb.run is not None
     set_seed(cfg.seed)

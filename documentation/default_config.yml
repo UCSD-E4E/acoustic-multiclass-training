@@ -48,7 +48,8 @@ learning_rate: 0.001
 #   CE: Cross entropy
 #   BCE: Binary cross entropy
 #   BCEWL: Binary cross entropy with logits
-loss_fnc: "BCEWL"
+loss_fnc: "CE"
+imb: false
 
 # Specify path to load a checkpoint
 model_checkpoint: ""
