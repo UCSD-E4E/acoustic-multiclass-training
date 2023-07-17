@@ -185,59 +185,6 @@ class PyhaDF_Dataset(Dataset):
         self.formatted_csv_file = ".".join(self.csv_file.split(".")[:-1]) + "formatted.csv"
         self.samples.to_csv(self.formatted_csv_file)
 
-#    def get_annotation(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
-#        """ Returns tuple of audio waveform and its one-hot label
-#        """
-#        annotation = self.samples.iloc[index]
-#        file_name = annotation[cfg.file_name_col]
-#
-#        # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
-#        class_name = annotation[cfg.manual_id_col]
-#
-#        def one_hot(x, num_classes, on_value=1., off_value=0.):
-#            x = x.long().view(-1, 1)
-#            return torch.full((x.size()[0], num_classes), off_value, device=x.device).scatter_(1, x, on_value)
-#
-#        target = one_hot(
-#                torch.tensor(self.class_to_idx[class_name]),
-#                self.num_classes)[0]
-#        target = target.float()
-#
-#        try:
-#            # Get necessary variables from annotation
-#            annotation = self.samples.iloc[index]
-#            file_name = annotation[cfg.file_name_col]
-#            sample_per_sec = self.target_sample_rate
-#            frame_offset = int(annotation[cfg.offset_col] * sample_per_sec)
-#            num_frames = int(annotation[cfg.duration_col] * sample_per_sec)
-#
-#            # Load audio
-#            audio = torch.load(os.path.join(cfg.data_path,file_name))
-#        
-#            if audio.shape[0] > num_frames:
-#                audio = audio[frame_offset:frame_offset+num_frames]
-#            else:
-#                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=cfg.verbose)
-#
-#            # Crop if too long
-#            if audio.shape[0] > self.num_samples:
-#                audio = self.crop_audio(audio)
-#            # Pad if too short
-#            if audio.shape[0] < self.num_samples:
-#                audio = self.pad_audio(audio)
-#        except Exception as e:
-#            print(e)
-#            print(file_name, index)
-#            raise RuntimeError("Bad Audio") from e
-#
-#        #Assume audio is all mono and at target sample rate
-#        #assert audio.shape[0] == 1
-#        #assert sample_rate == self.target_sample_rate
-#        #audio = self.to_mono(audio) #basically reshapes to col vect
-#
-#        audio = audio.to(device)
-#        target = target.to(device)
-#        return audio, target
 
     def __len__(self):
         return self.samples.shape[0]
@@ -260,7 +207,7 @@ class PyhaDF_Dataset(Dataset):
         """
         #TODO: don't initialize these every time
         audio_augmentations = vitr.RandomApply(torch.nn.Sequential(
-                SyntheticNoise("white", 0.05)), p=0.4)
+                SyntheticNoise("white", 0.05)), p=1)
         image_augmentations = vitr.RandomApply(torch.nn.Sequential(
                 audtr.FrequencyMasking(cfg.freq_mask_param),
                 audtr.TimeMasking(cfg.time_mask_param)), p=0.4)

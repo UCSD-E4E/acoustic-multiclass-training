@@ -115,11 +115,6 @@ def get_annotation(df: pd.DataFrame,
         print(file_name, index)
         raise RuntimeError("Bad Audio") from e
 
-    #Assume audio is all mono and at target sample rate
-    #assert audio.shape[0] == 1
-    #assert sample_rate == self.target_sample_rate
-    #audio = self.to_mono(audio) #basically reshapes to col vect
-
     audio = audio.to(device)
     target = target.to(device)
     return audio, target

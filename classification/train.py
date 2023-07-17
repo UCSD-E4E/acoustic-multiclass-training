@@ -15,32 +15,27 @@
 
 
 """
-from typing import Any, Tuple
-import os
 import datetime
-from torchmetrics.classification import MultilabelAveragePrecision, MultilabelRecall, MultilabelPrecision
+import os
+from typing import Any, Tuple
 
-import torch
-from torch.utils.data import DataLoader
-import torch.nn.functional as F
-from torch.optim import Adam
-from torch.amp.autocast_mode import autocast
-import numpy as np
-from tqdm import tqdm
-import wandb
-
-from utils import set_seed, print_verbose
-
-
-
-
-from augmentations import SyntheticNoise
 import config
-from dataset import  get_datasets
-
-from models.timm_model import TimmModel
+import numpy as np
+import torch
+import torch.nn.functional as F
+from augmentations import SyntheticNoise
+from dataset import get_datasets
 from models.early_stopper import EarlyStopper
+from models.timm_model import TimmModel
+from torch.amp.autocast_mode import autocast
+from torch.optim import Adam
+from torch.utils.data import DataLoader
+from torchmetrics.classification import (MultilabelAveragePrecision,
+                                         MultilabelPrecision, MultilabelRecall)
+from tqdm import tqdm
+from utils import print_verbose, set_seed
 
+import wandb
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 
@@ -314,7 +309,6 @@ def main():
     # Load in dataset
     print("Loading Dataset")
     # pylint: disable=unused-variable
-    transforms = torch.nn.Sequential(SyntheticNoise("white", 0.05))
     train_dataset, val_dataset = get_datasets()
     train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset)
 
