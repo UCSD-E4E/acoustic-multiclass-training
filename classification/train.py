@@ -8,32 +8,25 @@
 
 
 """
-from typing import Any, Tuple
-import os
 import datetime
 import os
 from typing import Any, Dict, Tuple
 
+import config
 import numpy as np
 import torch
-from torch.utils.data import DataLoader
 import torch.nn.functional as F
-from torch.optim import Adam
+from augmentations import SyntheticNoise
+from dataset import get_datasets
+from models.early_stopper import EarlyStopper
+from models.timm_model import TimmModel
 from torch.amp.autocast_mode import autocast
-import numpy as np
+from torch.optim import Adam
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 from utils import print_verbose, set_seed
 
 import wandb
-from utils import set_seed, print_verbose
-
-from augmentations import SyntheticNoise
-import config
-from dataset import  get_datasets
-
-from models.timm_model import TimmModel
-from models.early_stopper import EarlyStopper
-
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 

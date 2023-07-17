@@ -4,12 +4,13 @@
     Model: model with forward pass method. Generated automatically from a timm model
 
 """
+import config
+# timm is a library of premade models
+import timm
 import torch
 from torch import nn
 from utils import print_verbose
-import config 
-# timm is a library of premade models
-import timm
+
 from .model import bce_loss_fn, cross_entropy_loss_fn
 
 cfg = config.cfg
