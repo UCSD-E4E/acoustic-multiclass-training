@@ -45,15 +45,13 @@ def convert_audio(directory: str, filetype: str) -> None:
             audio = AudioSegment.from_file(path)
             audio.export(path.with_suffix('.wav'), format='wav')
         
-def generate_labels(path: str, filetype: str) -> None:
+def generate_labels(path: str) -> None:
     """Generate binary automated time-specific labels using TweetyNet as 
     implemented in PyHa.
     Args:
         path (str)
             - Path to folder containing audio files with at most one 
             subdirectory level
-        filetype (str)
-            - File extension for incoming audio files
     Returns:
         PyHa-formatted DataFrame
     """
@@ -188,8 +186,8 @@ def main():
     if cfg.sliding_window:
         # saved to csv in case attaching labels fails as generating labels takes more time
         print('Generating labels...')
-        convert_audio(cfg.audio_path)
-        labels = generate_labels(cfg.audio_path, cfg.filetype)
+        convert_audio(cfg.audio_path, cfg.filetype)
+        labels = generate_labels(cfg.audio_path)
         labels.to_csv(cfg.strong_labels)
 
         print('Attaching strong labels...')
