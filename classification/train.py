@@ -265,7 +265,7 @@ def valid(model: Any,
         "valid/loss": running_loss/num_valid_samples,
         "valid/map": valid_map,
         "valid/mr": valid_mr,
-        "valid/mr": valid_mp,
+        "valid/mp": valid_mp,
         "epoch_progress": epoch_progress,
     })
 
