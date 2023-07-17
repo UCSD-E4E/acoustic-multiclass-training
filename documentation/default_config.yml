@@ -24,6 +24,7 @@ valid_dataset_ratio: 0.3
 logging: true
 wandb_entity: "acoustic-species-identification"
 wandb_project: "acoustic-species-reu2023"
+wandb_run_name: "auto"
 
 # Functional settings
 seed: 0
