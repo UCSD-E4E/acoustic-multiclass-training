@@ -126,7 +126,8 @@ def train(model: Any,
         batch_mAP = map_metric(out_for_score, labels_for_score).item()
 
         ouputs_list.append(out_for_score)
-        labels_list.append((labels.detach().cpu() > 0).long()) 
+        labels_list.append((labels.detach().cpu() > 0).long())
+        print(labels_list[0][0]) 
 
 
         #batch_mr = mr_metric(out_for_score, labels_for_score).item()
