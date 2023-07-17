@@ -110,27 +110,27 @@ def gen_noise_func(func: Callable):
     return lambda N: gen_noise(N, func)
 
 @gen_noise_func
-def white_noise(_: Callable):
+def white_noise(_: torch.Tensor):
     """White noise PSD shape"""
     return 1
 
 @gen_noise_func
-def blue_noise(vec: np.ndarray):
+def blue_noise(vec: torch.Tensor):
     """Blue noise PSD shape"""
     return torch.sqrt(vec)
 
 @gen_noise_func
-def violet_noise(vec: np.ndarray):
+def violet_noise(vec: torch.Tensor):
     """Violet noise PSD shape"""
     return vec
 
 @gen_noise_func
-def brown_noise(vec: np.ndarray):
+def brown_noise(vec: torch.Tensor):
     """Brown noise PSD shape"""
     return 1/torch.where(vec == 0, float('inf'), vec)
 
 @gen_noise_func
-def pink_noise(vec: np.ndarray):
+def pink_noise(vec: torch.Tensor):
     """Pink noise PSD shape"""
     return 1/torch.where(vec == 0, float('inf'), torch.sqrt(vec))
 

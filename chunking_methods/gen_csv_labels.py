@@ -46,7 +46,7 @@ def convert_audio(directory: str, filetype: str) -> None:
             audio = AudioSegment.from_file(path)
             audio.export(path.with_suffix('.wav'), format='wav')
         
-def generate_labels(path: str) -> None:
+def generate_labels(path: str) -> pd.DataFrame:
     """Generate binary automated time-specific labels using TweetyNet as 
     implemented in PyHa.
     Args:
