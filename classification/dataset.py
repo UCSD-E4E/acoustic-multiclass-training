@@ -28,7 +28,6 @@ import numpy as np
 
 from utils import set_seed, print_verbose
 import utils
-from config import get_config
 import config
 from tqdm import tqdm
 from augmentations import Mixup, SyntheticNoise
@@ -205,7 +204,6 @@ class PyhaDF_Dataset(Dataset):
     def __getitem__(self, index): #-> Any:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
-        #TODO: don't initialize these every time
         audio_augmentations = vitr.RandomApply(torch.nn.Sequential(
                 SyntheticNoise("white", 0.05)), p=1)
         image_augmentations = vitr.RandomApply(torch.nn.Sequential(

@@ -23,15 +23,14 @@ import config
 import numpy as np
 import torch
 import torch.nn.functional as F
-from augmentations import SyntheticNoise
 from dataset import get_datasets
 from models.early_stopper import EarlyStopper
 from models.timm_model import TimmModel
 from torch.amp.autocast_mode import autocast
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from torchmetrics.classification import (MultilabelAveragePrecision,
-                                         MultilabelPrecision, MultilabelRecall)
+from torchmetrics.classification import MultilabelAveragePrecision
+                                       
 from tqdm import tqdm
 from utils import print_verbose, set_seed
 
@@ -76,10 +75,6 @@ def train(model: Any,
     log_n = 0
     log_loss = 0
     mAP = 0
-    ouputs_list = []
-    labels_list = []
-    
-    #scaler = torch.cuda.amp.GradScaler()
 
     start_time = datetime.datetime.now()
     
