@@ -1,115 +1,87 @@
 """Chunking script from PyHa to convert weak labels to strong labels.
 """
+from typing import List, Dict
 import pandas as pd
-
-def create_chunk_row(row, rows_to_add, new_start, new_end):
+def convolving_chunk(row:dict, 
+                     chunk_length_s=3, 
+                     min_length_s=0.4, 
+                     only_slide=False)->List[Dict]:
     """
-    Helper function that takes in a Dataframe containing annotations 
-    and appends a single row to the Dataframe before returning it.
-    Args:
-        row (Series)
-            - Row of a single annotation
-        rows_to_add (Dataframe)
-            - Dataframe of labels
-        new_start (float)
-            - The start time of the annotation in row
-        duration (int)
-            - The duration of the annotation in row
-    Returns:
-        Dataframe of labels with the newly appended row
-    """
-    chunk_row = row.copy()
-    chunk_row['DURATION'] = new_end
-    chunk_row['OFFSET'] = new_start
-    rows_to_add.append(chunk_row.to_frame().T)
-    return rows_to_add
-
-def convolving_chunk(row, chunk_length_s=3, only_slide=False):
-    # TODO: add kwargs to emphasize what things are
-    """
-    Helper function that converts a Dataframe row containing a binary
-    annotation to uniform chunks of chunk_length. 
+    Helper function that converts a binary annotation row to uniform chunks. 
     Note: Annotations of length shorter than min_length are ignored. Annotations
     that are shorter than or equal to chunk_length are chopped into three chunks
     where the annotation is placed at the start, middle, and end. Annotations
     that are longer than chunk_length are chunked used a sliding window.
     Args:
-        row (Series)
-            - Row of a single annotation
-        chunk_length (int)
-            - duration in seconds to set all annotation chunks
-        
-        min_length (float)
-            - duration in seconds to ignore annotations shorter in length
+        row (dict)
+            - Single annotation row represented as a dict
+        chunk_length_s (int)
+            - Duration in seconds to set all annotation chunks
+        min_length_s (float)
+            - Duration in seconds to ignore annotations shorter in length
         only_slide (bool)
-            - If True, only annotations greater than chunk_length are chunked
+            - If True, only annotations greater than chunk_length_s are chunked
     Returns:
-        Dataframe of labels with chunk_length duration 
-        (elements in "OFFSET" are divisible by chunk_length).
+        Array of labels of chunk_length_s duration
     """
-    chunk_df = pd.DataFrame(columns=row.to_frame().T.columns)
-    rows_to_add = []
-    offset = row['OFFSET']
-    duration = row['DURATION']
-    chunk_half_duration = chunk_length_s / 2
+    starts = []
+    offset_s = row['OFFSET']        # start time of original clip
+    duration_s = row['DURATION']    # length of annotation
+    end_s = offset_s + duration_s
+    half_chunk_s = chunk_length_s / 2
     
     #Ignore small duration (could be errors, play with this value)
-    if duration < 0.4:
-        return chunk_df
-
-    if duration <= chunk_length_s and not only_slide:
-        #Put the original bird call at...
-        #1) Start of clip
-        if (offset+chunk_length_s) < row['CLIP LENGTH']:
-            rows_to_add = create_chunk_row(row, rows_to_add, offset, chunk_length_s)
-            
-        #2) End of clip
-        if offset+duration-chunk_length_s > 0: 
-            rows_to_add = create_chunk_row(row, rows_to_add, offset+duration-chunk_length_s, chunk_length_s)
-            
-        #3) Middle of clip
-        if offset+duration-chunk_half_duration>0 and (offset+duration+chunk_half_duration)< row["CLIP LENGTH"]:
-            #Could be better placed in middle, maybe with some randomization?
-            rows_to_add = create_chunk_row(row, rows_to_add, (offset+duration-chunk_half_duration), chunk_length_s)
-    #Longer than chunk duration
+    if duration_s < min_length_s:
+        return []
+    
+    # calculate valid offsets for short annotations
+    if (duration_s <= chunk_length_s) and not only_slide:
+        # start of clip
+        if (offset_s + chunk_length_s) < row['CLIP LENGTH']:
+            starts.append(offset_s)
+        # middle of clip
+        if end_s - half_chunk_s > 0 and end_s + half_chunk_s < row['CLIP LENGTH']:
+            starts.append(end_s - half_chunk_s)
+        # end of clip
+        if end_s - chunk_length_s > 0:
+            starts.append(end_s - chunk_length_s)
+    # calculate valid offsets for long annotations
     else:
-        #Perform Yan's Sliding Window operation
-        clip_num=int(duration/(chunk_half_duration))
+        clip_num = int(duration_s / half_chunk_s)
         for i in range(clip_num-1):
-            new_start = offset+i*chunk_half_duration
-            #new_end = offset + chunk_length_s+i*chunk_half_duration
-            if ((offset+chunk_length_s)+i*chunk_half_duration) < row['CLIP LENGTH']:
-                rows_to_add = create_chunk_row(row, rows_to_add, new_start, chunk_length_s)
-    #Add all new rows to our return df
-    if len(rows_to_add) == 0:
-        return chunk_df
-    chunk_df = pd.concat(rows_to_add, ignore_index=True)
-    return chunk_df
+            if (offset_s + chunk_length_s) + (i * half_chunk_s) < row['CLIP LENGTH']:
+                starts.append(offset_s + i * half_chunk_s)
+    
+    # create new rows
+    rows = []
+    for value in starts:
+        new_row = row
+        new_row['OFFSET'] = value
+        new_row['DURATION'] = chunk_length_s
+        rows.append(new_row)
+    return rows
 
-def dynamic_yan_chunking(df, chunk_length_s=3, only_slide=False):
+def dynamic_yan_chunking(df: pd.DataFrame,
+                         chunk_length_s:int=3,
+                         min_length_s:float=0.4,
+                         only_slide:bool=False)-> pd.DataFrame:
     """
-    Function that converts a Dataframe containing binary
-    annotations to uniform chunks of chunk_length. 
-    Note: Annotations shorter than min_length are ignored. Annotations
-    shorter than or equal to chunk_length are chopped into three chunks
-    where the annotation is placed at the start, middle, and end. Annotations
-    longer than chunk_length are chunked used a sliding window.
+    Function that converts a Dataframe containing binary annotations 
+    to uniform chunks using a sliding window
     Args:
         df (Dataframe)
             - Dataframe of annotations 
-        chunk_length (int)
-            - duration in seconds to set all annotation chunks
-        
-        min_length (float)
-            - duration in seconds to ignore annotations shorter than
+        chunk_length_s (int)
+            - Duration in seconds to set all annotation chunks
+        min_length_s (float)
+            - Duration in seconds to ignore annotations shorter in length
         only_slide (bool)
-            - If True, only annotations greater than chunk_length are chunked
+            - If True, only annotations greater than chunk_length_s are chunked
     Returns:
         Dataframe of labels with chunk_length duration 
-        (elements in "OFFSET" are divisible by chunk_length).
     """
-    return_dfs = []
+    return_dicts = []
     for _, row in df.iterrows():
-        chunk_df = convolving_chunk(row, chunk_length_s, only_slide)
-        return_dfs.append(chunk_df)
-    return pd.concat(return_dfs,  ignore_index=True)
+        rows_dict = convolving_chunk(row.to_dict(), chunk_length_s, min_length_s, only_slide)
+        return_dicts.extend(rows_dict)
+    return pd.DataFrame(return_dicts)
