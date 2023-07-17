@@ -27,12 +27,9 @@ import pandas as pd
 import numpy as np
 
 from utils import set_seed, print_verbose
-<<<<<<< HEAD
 import utils
 from config import get_config
-=======
 import config
->>>>>>> 177484763bc23473386de0addb178f7e26e75251
 from tqdm import tqdm
 from augmentations import Mixup, SyntheticNoise
         
@@ -160,7 +157,7 @@ class PyhaDF_Dataset(Dataset):
         Future training faster
         """
         self.verify_audio()
-        files = pd.DataFrame( self.samples[cfg.file_name_col].unique(),
+        files = pd.DataFrame(self.samples[cfg.file_name_col].unique(),
             columns=["files"]
         )
         files = files["files"].progress_apply(self.process_audio_file)
@@ -188,15 +185,14 @@ class PyhaDF_Dataset(Dataset):
         self.formatted_csv_file = ".".join(self.csv_file.split(".")[:-1]) + "formatted.csv"
         self.samples.to_csv(self.formatted_csv_file)
 
-<<<<<<< HEAD
 #    def get_annotation(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
 #        """ Returns tuple of audio waveform and its one-hot label
 #        """
 #        annotation = self.samples.iloc[index]
-#        file_name = annotation[self.config.file_name_col]
+#        file_name = annotation[cfg.file_name_col]
 #
 #        # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
-#        class_name = annotation[self.config.manual_id_col]
+#        class_name = annotation[cfg.manual_id_col]
 #
 #        def one_hot(x, num_classes, on_value=1., off_value=0.):
 #            x = x.long().view(-1, 1)
@@ -210,18 +206,18 @@ class PyhaDF_Dataset(Dataset):
 #        try:
 #            # Get necessary variables from annotation
 #            annotation = self.samples.iloc[index]
-#            file_name = annotation[self.config.file_name_col]
+#            file_name = annotation[cfg.file_name_col]
 #            sample_per_sec = self.target_sample_rate
-#            frame_offset = int(annotation[self.config.offset_col] * sample_per_sec)
-#            num_frames = int(annotation[self.config.duration_col] * sample_per_sec)
+#            frame_offset = int(annotation[cfg.offset_col] * sample_per_sec)
+#            num_frames = int(annotation[cfg.duration_col] * sample_per_sec)
 #
 #            # Load audio
-#            audio = torch.load(os.path.join(self.config.data_path,file_name))
+#            audio = torch.load(os.path.join(cfg.data_path,file_name))
 #        
 #            if audio.shape[0] > num_frames:
 #                audio = audio[frame_offset:frame_offset+num_frames]
 #            else:
-#                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=self.config.verbose)
+#                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=cfg.verbose)
 #
 #            # Crop if too long
 #            if audio.shape[0] > self.num_samples:
@@ -242,61 +238,6 @@ class PyhaDF_Dataset(Dataset):
 #        audio = audio.to(device)
 #        target = target.to(device)
 #        return audio, target
-=======
-    def get_annotation(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        """ Returns tuple of audio waveform and its one-hot label
-        """
-        annotation = self.samples.iloc[index]
-        file_name = annotation[cfg.file_name_col]
-
-        # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
-        class_name = annotation[cfg.manual_id_col]
-
-        def one_hot(x, num_classes, on_value=1., off_value=0.):
-            x = x.long().view(-1, 1)
-            return torch.full((x.size()[0], num_classes), off_value, device=x.device).scatter_(1, x, on_value)
-
-        target = one_hot(
-                torch.tensor(self.class_to_idx[class_name]),
-                self.num_classes)[0]
-        target = target.float()
-
-        try:
-            # Get necessary variables from annotation
-            annotation = self.samples.iloc[index]
-            file_name = annotation[cfg.file_name_col]
-            sample_per_sec = self.target_sample_rate
-            frame_offset = int(annotation[cfg.offset_col] * sample_per_sec)
-            num_frames = int(annotation[cfg.duration_col] * sample_per_sec)
-
-            # Load audio
-            audio = torch.load(os.path.join(cfg.data_path,file_name))
-        
-            if audio.shape[0] > num_frames:
-                audio = audio[frame_offset:frame_offset+num_frames]
-            else:
-                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=cfg.verbose)
-
-            # Crop if too long
-            if audio.shape[0] > self.num_samples:
-                audio = self.crop_audio(audio)
-            # Pad if too short
-            if audio.shape[0] < self.num_samples:
-                audio = self.pad_audio(audio)
-        except Exception as e:
-            print(e)
-            print(file_name, index)
-            raise RuntimeError("Bad Audio") from e
-
-        #Assume audio is all mono and at target sample rate
-        #assert audio.shape[0] == 1
-        #assert sample_rate == self.target_sample_rate
-        #audio = self.to_mono(audio) #basically reshapes to col vect
-
-        audio = audio.to(device)
-        target = target.to(device)
-        return audio, target
->>>>>>> 177484763bc23473386de0addb178f7e26e75251
 
     def __len__(self):
         return self.samples.shape[0]
@@ -321,8 +262,8 @@ class PyhaDF_Dataset(Dataset):
         audio_augmentations = vitr.RandomApply(torch.nn.Sequential(
                 SyntheticNoise("white", 0.05)), p=0.4)
         image_augmentations = vitr.RandomApply(torch.nn.Sequential(
-                audtr.FrequencyMasking(self.config.freq_mask_param),
-                audtr.TimeMasking(self.config.time_mask_param)), p=0.4)
+                audtr.FrequencyMasking(cfg.freq_mask_param),
+                audtr.TimeMasking(cfg.time_mask_param)), p=0.4)
 
 
         audio, target = utils.get_annotation(
@@ -331,17 +272,14 @@ class PyhaDF_Dataset(Dataset):
                 class_to_idx = self.class_to_idx,
                 sample_rate = self.target_sample_rate,
                 target_num_samples = self.num_samples,
-                device = device,
-                config = self.config)
+                device = device)
 
         
-<<<<<<< HEAD
         mixup = Mixup(
                 df = self.samples,
                 class_to_idx = self.class_to_idx,
                 sample_rate = self.target_sample_rate,
                 target_num_samples = self.num_samples,
-                config = self.config,
                 alpha_range = (0.1, 0.4),
                 p = 0.4)
         
@@ -351,44 +289,6 @@ class PyhaDF_Dataset(Dataset):
         image = self.to_image(audio)
         if self.train:
             image = image_augmentations(image)
-=======
-        # Randomly shift audio
-        if self.train and torch.rand(1) < cfg.time_shift_p:
-            shift = int(torch.randint(0, self.num_samples, (1,)))
-            audio = torch.roll(audio, shift, dims=1)
-        
-        if self.transforms is not None and self.mixup is not None:
-            mixup_idx = 0
-            audio, target = add_mixup(audio, 
-                                     target, 
-                                      self.mixup, 
-                                      self.transforms, 
-                                      mixup_idx)
-        elif  self.transforms is not None:
-            audio = self.transforms(audio)
->>>>>>> 177484763bc23473386de0addb178f7e26e75251
-
-
-        # Randomly shift audio
-        #if self.train and torch.rand(1) < self.config.time_shift_p:
-        #    shift = torch.randint(0, self.num_samples, (1,))
-        #    audio = torch.roll(audio, shift, dims=1)
-        # Add noise
-        #if self.train and torch.randn(1) < cfg.noise_p:
-        #    noise = torch.randn_like(audio) * cfg.noise_std
-        #    audio = audio + noise
-        # Mixup
-        #if self.train and torch.randn(1) < cfg.mix_p:
-        #    audio_2, target_2 = self.get_annotation(np.random.randint(0, self.__len__()))
-        #    alpha = np.random.rand() * 0.3 + 0.1
-        #    audio = audio * alpha + audio_2 * (1 - alpha)
-        #    target = target * alpha + target_2 * (1 - alpha)
-
-        # Frequency masking and time masking
-        if self.train and torch.randn(1) < cfg.freq_mask_p:
-            image = self.freq_mask(image)
-        if self.train and torch.randn(1) < cfg.time_mask_p:
-            image = self.time_mask(image)
 
         if image.isnan().any():
             print("ERROR IN ANNOTATION #", index)

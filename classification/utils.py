@@ -5,21 +5,15 @@
 
 """
 
-<<<<<<< HEAD
-from operator import itemgetter
 from pathlib import Path
 from typing import Dict, Any, Tuple
-=======
->>>>>>> 177484763bc23473386de0addb178f7e26e75251
 import numpy as np
 import pandas as pd
 import torch
-<<<<<<< HEAD
 import torch.nn.functional as F
-from config import get_config
-=======
+import config
 
->>>>>>> 177484763bc23473386de0addb178f7e26e75251
+cfg = config.cfg
 
 def print_verbose(*args, **kwargs):
     """ 
@@ -78,16 +72,15 @@ def get_annotation(df: pd.DataFrame,
         class_to_idx: Dict[str, Any], 
         sample_rate: int,
         target_num_samples: int,
-        device,
-        config) -> Tuple[torch.Tensor, torch.Tensor]:
+        device) -> Tuple[torch.Tensor, torch.Tensor]:
     """ Returns tuple of audio waveform and its one-hot label
     """
     #annotation = self.samples.iloc[index]
     annotation = df.iloc[index]
-    file_name = annotation[config.file_name_col]
+    file_name = annotation[cfg.file_name_col]
 
     # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
-    class_name = annotation[config.manual_id_col]
+    class_name = annotation[cfg.manual_id_col]
 
 
     num_classes = len(set(class_to_idx.values()))
@@ -99,17 +92,17 @@ def get_annotation(df: pd.DataFrame,
     try:
         # Get necessary variables from annotation
         annotation = df.iloc[index]
-        file_name = annotation[config.file_name_col]
-        frame_offset = int(annotation[config.offset_col] * sample_rate)
-        num_frames = int(annotation[config.duration_col] * sample_rate)
+        file_name = annotation[cfg.file_name_col]
+        frame_offset = int(annotation[cfg.offset_col] * sample_rate)
+        num_frames = int(annotation[cfg.duration_col] * sample_rate)
 
         # Load audio
-        audio = torch.load(Path(config.data_path)/file_name)
+        audio = torch.load(Path(cfg.data_path)/file_name)
     
         if audio.shape[0] > num_frames:
             audio = audio[frame_offset:frame_offset+num_frames]
         else:
-            print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=config.verbose)
+            print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=cfg.verbose)
 
         # Crop if too long
         if audio.shape[0] > target_num_samples:

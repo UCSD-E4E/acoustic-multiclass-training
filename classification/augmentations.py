@@ -30,7 +30,6 @@ class Mixup(torch.nn.Module):
             target_num_samples: int,
             alpha_range: Tuple[float,float]=(0.1, 0.4), 
             p: float=0.4,
-            config = None
             ):
         super().__init__()
         self.df = df
@@ -39,7 +38,6 @@ class Mixup(torch.nn.Module):
         self.target_num_samples = target_num_samples
         self.alpha_range = alpha_range
         self.p = p
-        self.config = config
 
     def forward(
         self, clip: torch.Tensor, target: torch.Tensor
@@ -66,8 +64,7 @@ class Mixup(torch.nn.Module):
                     class_to_idx = self.class_to_idx, 
                     sample_rate = self.sample_rate, 
                     target_num_samples = self.target_num_samples, 
-                    device = clip.device, 
-                    config = self.config)
+                    device = clip.device)
         except RuntimeError:
             print('Error loading other clip, mixup not performed')
             return clip, target
