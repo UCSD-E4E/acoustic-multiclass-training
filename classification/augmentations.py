@@ -10,6 +10,7 @@ import pandas as pd
 import torch
 import torchaudio
 import utils
+from config import cfg
 
 
 class Mixup(torch.nn.Module):
@@ -201,7 +202,7 @@ class RandomEQ(torch.nn.Module):
         self.g_range = g_range
         self.q_range = q_range
         self.num_applications = num_applications
-        self.sample_rate = utils.get_args("sample_rate")
+        self.sample_rate = cfg.sample_rate
 
     def forward(self, clip: torch.Tensor) -> torch.Tensor:
         """
@@ -239,7 +240,7 @@ class BackgroundNoise(torch.nn.Module):
         else:
             raise TypeError('noise_path must be of type Path or str')
         self.alpha = alpha
-        self.sample_rate = utils.get_args("sample_rate")
+        self.sample_rate = cfg.sample_rate
         self.length = length
         self.norm = norm
 
@@ -270,7 +271,9 @@ class BackgroundNoise(torch.nn.Module):
         rand_idx = utils.randint(0, len(noise_clips))
         noise_file = self.noise_path/noise_clips[rand_idx]
         clip_len = self.sample_rate*self.length
-        waveform, sr = torchaudio.load(noise_file)
+
+        # pryright complains that load isn't called from torchaudio. It is.
+        waveform, sr = torchaudio.load(noise_file) #pyright: ignore
         if sr != self.sample_rate:
             waveform = torchaudio.functional.resample(
                     waveform, orig_freq=sr, new_freq=self.sample_rate)
@@ -292,7 +295,7 @@ class LowpassFilter(torch.nn.Module):
     """
     def __init__(self, cutoff: int, Q: float):
         super().__init__()
-        self.sample_rate = utils.get_args("sample_rate")
+        self.sample_rate = cfg.sample_rate
         self.cutoff = cutoff
         self.Q = Q
 

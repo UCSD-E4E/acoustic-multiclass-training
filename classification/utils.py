@@ -5,14 +5,21 @@
 
 """
 
+<<<<<<< HEAD
 from operator import itemgetter
 from pathlib import Path
 from typing import Dict, Any, Tuple
+=======
+>>>>>>> 177484763bc23473386de0addb178f7e26e75251
 import numpy as np
 import pandas as pd
 import torch
+<<<<<<< HEAD
 import torch.nn.functional as F
 from config import get_config
+=======
+
+>>>>>>> 177484763bc23473386de0addb178f7e26e75251
 
 def print_verbose(*args, **kwargs):
     """ 
@@ -45,15 +52,6 @@ def rand(low, high):
     Returns a random float between [low, high)
     """
     return (high - low) * float(torch.rand(1)[0]) + low
-
-def get_args(*args):
-    """
-    Args:
-        *args: Series of strings corresponding to the command line arguments
-    Returns: Values of the command line arguments
-    """
-    CONFIG = get_config().__dict__
-    return itemgetter(*args)(CONFIG)
     
 def pad_audio(audio: torch.Tensor, num_samples:int) -> torch.Tensor:
     """Fills the last dimension of the input audio with zeroes until it is num_samples long

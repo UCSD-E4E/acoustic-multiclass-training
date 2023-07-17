@@ -1,0 +1,88 @@
+# Acoustic Multiclass Training config file
+
+# Required path related config
+dataframe_csv:
+data_path:
+
+# Dataframe column names
+offset_col: "OFFSET"
+duration_col: "DURATION"
+file_name_col: "FILE NAME"
+manual_id_col: "MANUAL ID"
+
+# Training params
+train_batch_size: 4
+validation_batch_size: 4
+jobs: 2
+verbose: false
+logging_freq: 20
+valid_freq: 2000
+mixed_precision: true
+valid_dataset_ratio: 0.3
+
+# Logging
+logging: true
+wandb_entity: "acoustic-species-identification"
+wandb_project: "acoustic-species-reu2023"
+wandb_run_name: "auto"
+
+# Functional settings
+seed: 0
+sample_rate: 32_000
+map_debug: false
+train_test_split: 0.8
+num_fold: 5
+
+# Model hyperparameters
+# Specifies default model architecture from timm library
+# Options:
+#     eca_nfnet_l0 (90 MB)
+#     tf_efficientnet_b4 (70 MB)
+#     convnext_nano (60 MB)
+#     convnext_tiny (110 MB)
+#     resnetv2_50 (100 MB)
+#     resnetv2_101 (170 MB)
+#     seresnext50_32x4d (100 MB)
+#     seresnext101_32x4d (200 MB)
+#     rexnet_200 (70 MB)
+#     mobilenetv3_large_100_miil_in21k (70 MB)
+model: "eca_nfnet_l0"
+epochs: 10
+learning_rate: 0.001
+# Loss function options:
+#   CE: Cross entropy
+#   BCE: Binary cross entropy
+#   BCEWL: Binary cross entropy with logits
+loss_fnc: "CE"
+imb: false
+
+# Specify path to load a checkpoint
+model_checkpoint: ""
+
+# Patience
+early_stopping: false
+patience: 3
+min_valid_map_delta: 0.01
+
+# Data augmentation probabilities
+mixup_p: 0
+time_shift_p: 0
+noise_p: 0.35
+freq_mask_p: 0.5
+time_mask_p: 0.5
+
+# Data augmentation parameters
+noise_std: 0.005
+freq_mask_param: 10 # Number of frequencies masked
+time_mask_param: 25 # Number of samples masked
+
+# Transforms settings
+imbalance_sampler: false
+pos_weight: 1
+smoothing: 0.05
+
+# FFT Settings
+hop_length: 512
+n_mels: 194
+n_fft: 1400
+max_time: 5
