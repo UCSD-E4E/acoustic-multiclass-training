@@ -88,6 +88,8 @@ def attach_labels(metadata_df: pd.DataFrame, binary_df: pd.DataFrame) -> pd.Data
     Returns:
         DataFrame with minimum required columns for training
     """
+    if 'filename' not in metadata_df.columns:
+        raise KeyError("This function merges .csvs on filename. Check your metadata columns!")
     strong_df = metadata_df.merge(binary_df, left_on='filename', right_on='IN FILE')
     strong_df = strong_df[['Species eBird Code',
                            'Scientific Name',
@@ -130,6 +132,8 @@ def generate_raw_chunks(directory: str, metadata_df: pd.DataFrame, chunk_length_
             - File extension for incoming audio files
     Returns a DataFrame with end-to-end chunked annotations
     """  
+    if 'filename' not in metadata_df.columns:
+        raise KeyError("This function merges .csvs on filename. Check your metadata columns!")
     chunks = []
     chunk_length_ms = chunk_length_s * 1000
     file_list = [f for f in Path(directory).glob('**/*') if f.is_file() and f.suffix == filetype]
