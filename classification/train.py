@@ -129,9 +129,10 @@ def train(model: Any,
         if np.isnan(batch_mAP):
             batch_mAP = 0
         if np.isnan(batch_mar):
+            print("mar is nan")
             batch_mar = 0
         mAP += batch_mAP
-        mAP += batch_mar
+        mAR += batch_mar
 
         log_loss += loss.item()
         log_n += 1
@@ -155,10 +156,13 @@ def train(model: Any,
             print("i:", i, "epoch:", epoch_progress,
                   "clips/s:", annotations_per_sec, 
                   "Loss:", log_loss / log_n, 
-                  "mAP", mAP / log_n)
+                  "mAP", mAP / log_n,
+                  "mAR", mAR / log_n,
+                  "mAR no adverage", mAR)
             log_loss = 0
             log_n = 0
             mAP = 0
+            mAR = 0
 
         if (i != 0 and i % (cfg.valid_freq) == 0):
             valid_start_time = datetime.datetime.now()
