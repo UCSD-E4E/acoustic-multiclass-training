@@ -26,11 +26,11 @@ import pandas as pd
 import numpy as np
 
 from utils import set_seed, print_verbose
-from config import get_config
+import config
 from tqdm import tqdm
 from augmentations import Mixup, add_mixup
         
-
+cfg = config.cfg
 
 tqdm.pandas()
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -45,30 +45,29 @@ class PyhaDF_Dataset(Dataset):
     # df, csv_file, train, and species decided outside of config, so those cannot be added in there
     # pylint: disable-next=too-many-instance-attributes
     # pylint: disable-next=too-many-arguments
-    def __init__(self, df, csv_file="test.csv", CONFIG=None, train=True, species=None):
-        self.config = CONFIG
-        self.samples = df[~(df[self.config.file_name_col].isnull())]
+    def __init__(self, df, csv_file="test.csv", train=True, species=None):
+        self.samples = df[~(df[cfg.file_name_col].isnull())]
         self.csv_file = csv_file
         self.formatted_csv_file = "not yet formatted"
-        self.target_sample_rate = CONFIG.sample_rate
-        num_samples = self.target_sample_rate * CONFIG.max_time
+        self.target_sample_rate = cfg.sample_rate
+        num_samples = self.target_sample_rate * cfg.max_time
         self.num_samples = num_samples
         self.train = train
 
 
         self.mel_spectogram = audtr.MelSpectrogram(sample_rate=self.target_sample_rate,
-                                        n_mels=self.config.n_mels,
-                                        n_fft=self.config.n_fft)
-        self.mel_spectogram.cuda(device)
-        self.freq_mask = audtr.FrequencyMasking(freq_mask_param=self.config.freq_mask_param)
-        self.time_mask = audtr.TimeMasking(time_mask_param=self.config.time_mask_param)
+                                        n_mels=cfg.n_mels,
+                                        n_fft=cfg.n_fft)
+        self.mel_spectogram.to(device) #was cuda (?)
+        self.freq_mask = audtr.FrequencyMasking(freq_mask_param=cfg.freq_mask_param)
+        self.time_mask = audtr.TimeMasking(time_mask_param=cfg.time_mask_param)
         self.transforms = None
         self.mixup = None
 
         # List data directory and confirm it exists
-        if not os.path.exists(self.config.data_path):
+        if not os.path.exists(cfg.data_path):
             raise FileNotFoundError("Data path does not exist")
-        self.data_dir = set(os.listdir(self.config.data_path))
+        self.data_dir = set(os.listdir(cfg.data_path))
         
         #Log bad files
         self.bad_files = []
@@ -77,7 +76,7 @@ class PyhaDF_Dataset(Dataset):
         if species is not None:
             self.classes, self.class_to_idx = species
         else:
-            self.classes = self.samples[self.config.manual_id_col].unique()
+            self.classes = self.samples[cfg.manual_id_col].unique()
             class_idx = np.arange(len(self.classes))
             self.class_to_idx = dict(zip(self.classes, class_idx))
 
@@ -88,12 +87,12 @@ class PyhaDF_Dataset(Dataset):
         """
         Checks to make sure files exist that are referenced in input df
         """
-        missing_files = pd.Series(self.samples[self.config.file_name_col].unique()) \
+        missing_files = pd.Series(self.samples[cfg.file_name_col].unique()) \
             .progress_apply(lambda file: "good" if file in self.data_dir else file)
         missing_files = missing_files[missing_files != "good"].unique()
         print("ignoring", missing_files.shape[0], "missing files")
         self.samples = self.samples[
-            ~self.samples[self.config.file_name_col].isin(missing_files)
+            ~self.samples[cfg.file_name_col].isin(missing_files)
         ]
 
     def process_audio_file(self, file_name):
@@ -112,7 +111,12 @@ class PyhaDF_Dataset(Dataset):
 
 
         try:
-            audio, sample_rate = torchaudio.load(os.path.join(self.config.data_path, file_name))
+            # old error: "load" is not a known member of module "torchaudio"
+            # Load is a known member of torchaudio:
+            # https://pytorch.org/audio/stable/tutorials/audio_io_tutorial.html#loading-audio-data
+            audio, sample_rate = torchaudio.load(       #pyright: ignore [reportGeneralTypeIssues ]
+                os.path.join(cfg.data_path, file_name)
+            ) 
 
             if len(audio.shape) > 1:
                 audio = self.to_mono(audio)
@@ -123,14 +127,14 @@ class PyhaDF_Dataset(Dataset):
                 #resample.cuda(device)
                 audio = resample(audio)
 
-            torch.save(audio, os.path.join(self.config.data_path,new_name))
+            torch.save(audio, os.path.join(cfg.data_path,new_name))
             self.data_dir.add(new_name)
         # IO is messy, I want any file that could be problematic
         # removed from training so it isn't stopped after hours of time
         # Hence broad exception
         # pylint: disable-next=W0718
         except Exception as e:
-            print_verbose(file_name, "is bad", e, verbose=self.config.verbose)
+            print_verbose(file_name, "is bad", e, verbose=cfg.verbose)
             return pd.Series({
                 "FILE NAME": file_name,    
                 "files": "bad"
@@ -150,7 +154,7 @@ class PyhaDF_Dataset(Dataset):
         Future training faster
         """
         self.verify_audio()
-        files = pd.DataFrame( self.samples[self.config.file_name_col].unique(),
+        files = pd.DataFrame( self.samples[cfg.file_name_col].unique(),
             columns=["files"]
         )
         files = files["files"].progress_apply(self.process_audio_file)
@@ -163,17 +167,17 @@ class PyhaDF_Dataset(Dataset):
 
         files = files[files["files"] != "bad"]
         self.samples = self.samples.merge(files, how="left", 
-                       left_on=self.config.file_name_col,
+                       left_on=cfg.file_name_col,
                        right_on="FILE NAME").dropna()
     
-        print_verbose("Serialized form, fixed size:", self.samples.shape, verbose=self.config.verbose)
+        print_verbose("Serialized form, fixed size:", self.samples.shape, verbose=cfg.verbose)
 
         if "files" in self.samples.columns:
-            self.samples[self.config.file_name_col] = self.samples["files"].copy()
+            self.samples[cfg.file_name_col] = self.samples["files"].copy()
         if "files_y" in self.samples.columns:
-            self.samples[self.config.file_name_col] = self.samples["files_y"].copy()
+            self.samples[cfg.file_name_col] = self.samples["files_y"].copy()
         
-        self.samples["original_file_path"] = self.samples[self.config.file_name_col]
+        self.samples["original_file_path"] = self.samples[cfg.file_name_col]
 
         self.formatted_csv_file = ".".join(self.csv_file.split(".")[:-1]) + "formatted.csv"
         self.samples.to_csv(self.formatted_csv_file)
@@ -182,10 +186,10 @@ class PyhaDF_Dataset(Dataset):
         """ Returns tuple of audio waveform and its one-hot label
         """
         annotation = self.samples.iloc[index]
-        file_name = annotation[self.config.file_name_col]
+        file_name = annotation[cfg.file_name_col]
 
         # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
-        class_name = annotation[self.config.manual_id_col]
+        class_name = annotation[cfg.manual_id_col]
 
         def one_hot(x, num_classes, on_value=1., off_value=0.):
             x = x.long().view(-1, 1)
@@ -199,18 +203,18 @@ class PyhaDF_Dataset(Dataset):
         try:
             # Get necessary variables from annotation
             annotation = self.samples.iloc[index]
-            file_name = annotation[self.config.file_name_col]
+            file_name = annotation[cfg.file_name_col]
             sample_per_sec = self.target_sample_rate
-            frame_offset = int(annotation[self.config.offset_col] * sample_per_sec)
-            num_frames = int(annotation[self.config.duration_col] * sample_per_sec)
+            frame_offset = int(annotation[cfg.offset_col] * sample_per_sec)
+            num_frames = int(annotation[cfg.duration_col] * sample_per_sec)
 
             # Load audio
-            audio = torch.load(os.path.join(self.config.data_path,file_name))
+            audio = torch.load(os.path.join(cfg.data_path,file_name))
         
             if audio.shape[0] > num_frames:
                 audio = audio[frame_offset:frame_offset+num_frames]
             else:
-                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=self.config.verbose)
+                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=cfg.verbose)
 
             # Crop if too long
             if audio.shape[0] > self.num_samples:
@@ -242,25 +246,27 @@ class PyhaDF_Dataset(Dataset):
         audio, target = self.get_annotation(index)
         
         # Randomly shift audio
-        if self.train and torch.rand(1) < self.config.time_shift_p:
-            shift = torch.randint(0, self.num_samples, (1,))
+        if self.train and torch.rand(1) < cfg.time_shift_p:
+            shift = int(torch.randint(0, self.num_samples, (1,)))
             audio = torch.roll(audio, shift, dims=1)
         
-        if self.transforms is not None:
+        if self.transforms is not None and self.mixup is not None:
             mixup_idx = 0
             audio, target = add_mixup(audio, 
                                      target, 
                                       self.mixup, 
                                       self.transforms, 
-                                      mixup_idx) 
+                                      mixup_idx)
+        elif  self.transforms is not None:
+            audio = self.transforms(audio)
 
         
         # Add noise
-        #if self.train and torch.randn(1) < self.config.noise_p:
-        #    noise = torch.randn_like(audio) * self.config.noise_std
+        #if self.train and torch.randn(1) < cfg.noise_p:
+        #    noise = torch.randn_like(audio) * cfg.noise_std
         #    audio = audio + noise
         # Mixup
-        #if self.train and torch.randn(1) < self.config.mix_p:
+        #if self.train and torch.randn(1) < cfg.mix_p:
         #    audio_2, target_2 = self.get_annotation(np.random.randint(0, self.__len__()))
         #    alpha = np.random.rand() * 0.3 + 0.1
         #    audio = audio * alpha + audio_2 * (1 - alpha)
@@ -277,9 +283,9 @@ class PyhaDF_Dataset(Dataset):
         image = image / max_val
 
         # Frequency masking and time masking
-        if self.train and torch.randn(1) < self.config.freq_mask_p:
+        if self.train and torch.randn(1) < cfg.freq_mask_p:
             image = self.freq_mask(image)
-        if self.train and torch.randn(1) < self.config.time_mask_p:
+        if self.train and torch.randn(1) < cfg.time_mask_p:
             image = self.time_mask(image)
 
         if image.isnan().any():
@@ -315,7 +321,7 @@ class PyhaDF_Dataset(Dataset):
     def to_mono(self, audio: torch.Tensor) -> torch.Tensor:
         """ Converts audio to mono by averaging the channels
         """
-        return torch.mean(audio, axis=0)
+        return torch.mean(audio, dim=0)
 
     def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
         """ Returns tuple of class list and class to index dictionary
@@ -328,45 +334,43 @@ class PyhaDF_Dataset(Dataset):
         return self.num_classes
 
 
-def get_datasets(
-        transforms = None, CONFIG=None
-        ):
+def get_datasets(transforms = None):
     """ Returns train and validation datasets, does random sampling for train/valid split, adds transforms to dataset
     """
 
 
-    train_p = CONFIG.train_test_split
-    path = CONFIG.dataframe
+    train_p = cfg.train_test_split
+    path = cfg.dataframe_csv
     # Load the dataset
     data = pd.read_csv(path, usecols = [
-        CONFIG.file_name_col,
-        CONFIG.manual_id_col,
-        CONFIG.offset_col,
-        CONFIG.duration_col
+        cfg.file_name_col,
+        cfg.manual_id_col,
+        cfg.offset_col,
+        cfg.duration_col
     ], dtype={
-        CONFIG.file_name_col: str,
-        CONFIG.manual_id_col: str,
-        CONFIG.offset_col: float,
-        CONFIG.duration_col: float})
+        cfg.file_name_col: str,
+        cfg.manual_id_col: str,
+        cfg.offset_col: float,
+        cfg.duration_col: float})
     
     #for each species, get a random sample of files for train/valid split
-    train_files = data.groupby(CONFIG.manual_id_col, as_index=False).apply(
-        lambda x: pd.Series(x[CONFIG.file_name_col].unique()).sample(frac=train_p)
+    train_files = data.groupby(cfg.manual_id_col, as_index=False).apply(
+        lambda x: pd.Series(x[cfg.file_name_col].unique()).sample(frac=train_p)
     )
-    train = data[data[CONFIG.file_name_col].isin(train_files)]
+    train = data[data[cfg.file_name_col].isin(train_files)]
 
     valid = data[~data.index.isin(train.index)]
 
-    train_ds = PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG)
+    train_ds = PyhaDF_Dataset(train, csv_file="train.csv")
     species = train_ds.get_classes()
 
-    mixup_ds = PyhaDF_Dataset(train, csv_file="mixup.csv",train=False, CONFIG=CONFIG)
+    mixup_ds = PyhaDF_Dataset(train, csv_file="mixup.csv",train=False)
     mixup = Mixup(mixup_ds)
     if transforms is not None:
         train_ds.set_transforms(transforms)
         train_ds.set_mixup(mixup)
 
-    valid_ds = PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, species=species, CONFIG=CONFIG)
+    valid_ds = PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, species=species)
     return train_ds, valid_ds
 
 
@@ -375,9 +379,8 @@ def main():
     testing function.
     """
     torch.multiprocessing.set_start_method('spawn')
-    CONFIG = get_config()
-    set_seed(CONFIG.seed)
-    get_datasets(CONFIG=CONFIG)
+    set_seed(cfg.seed)
+    get_datasets()
 
 if __name__ == '__main__':
     main()

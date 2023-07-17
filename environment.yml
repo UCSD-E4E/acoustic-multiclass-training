@@ -173,4 +173,5 @@ dependencies:
       - matplotlib
       - librosa
       - gitpython
+      - pyyaml
 prefix: /home/znovak/miniconda3/envs/asid

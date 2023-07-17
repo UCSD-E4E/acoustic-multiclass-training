@@ -10,10 +10,11 @@ import sys
 from math import ceil
 import pandas as pd
 from pydub import AudioSegment, exceptions
-from config import get_config
+from chunks_config import get_config
 from WTS_chunking import dynamic_yan_chunking
 # pylint: disable=import-error #this file gets put into PyHa
-from PyHa.IsoAutio import generate_automated_labels
+# pylint: disable=no-name-in-module
+from PyHa.IsoAutio import generate_automated_labels #pyright: ignore
 
 
 # This could be changed to use Microfaune or BirdNET, but the parameters are
@@ -132,7 +133,7 @@ def generate_raw_chunks(path, metadata_df, chunk_duration=5, filetype=".wav"):
             audio = AudioSegment.from_file(f)
         except exceptions.CouldntDecodeError as e:
             # catch ffmpeg error
-            print("Audio conversion failed for ", filename + filetype)
+            print("Audio conversion failed for ", f)
             print(e)
             continue
         
