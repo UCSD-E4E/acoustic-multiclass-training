@@ -1,17 +1,16 @@
 """Generates binary annotations using TweetyNet from weakly labeled audio.
 This file should be run from inside the PyHa directory. It also requires
-WTS_chunking.py to be added to the PyHa directory. 
+config.py and WTS_Chunking.py to be added to the PyHa directory. 
 Input:     A path to a folder with audio files
 Output:    A csv with chunked, strongly-labeled annotations
 """
-
-import os
 import sys
 from math import ceil
+from pathlib import Path
 import pandas as pd
 from pydub import AudioSegment, exceptions
-from chunks_config import get_config
-from WTS_chunking import dynamic_yan_chunking
+from config import get_config
+from sliding_chunks import dynamic_yan_chunking
 # pylint: disable=import-error #this file gets put into PyHa
 # pylint: disable=no-name-in-module
 from PyHa.IsoAutio import generate_automated_labels #pyright: ignore
@@ -25,183 +24,193 @@ ISOLATION_PARAMETERS = {
     "verbose" : True
 }
 
-
-def convert_audio(path, filetype):
+def convert_audio(directory: str, filetype: str) -> None:
     """Convert audio files to .wav files with PyDub. Used to ensure
     that TweetyNet can read the files for predictions.
     Args:
-        path (string)
-            - Path to folder containing audio files without subfolders
+        directory (str)
+            - Path to folder containing audio files
         filetype (str)
             - File extension for incoming audio files
+    Returns:
+        None
     """
     # conversion not needed for tweetynet processing
     if filetype in [".wav", ".mp3"]:
-        print(f"Conversion from {filetype} not required for TweetyNet processing")
+        print(f'Conversion from {filetype} not required for TweetyNet processing')
         return
-    for file in os.listdir(path):
-        if file.endswith(filetype):
-            x = AudioSegment.from_file(os.path.join(path, file))
-            x.export(file.replace(filetype, '.wav'), format='wav')
-
-def generate_labels(path, filetype):
+    print(f'Converting audio for {directory}')
+    file_list = [f for f in Path(directory).glob('**/*') if f.is_file()]
+    for path in file_list:
+        if path.suffix == filetype:
+            audio = AudioSegment.from_file(path)
+            audio.export(path.with_suffix('.wav'), format='wav')
+        
+def generate_labels(path: str) -> None:
     """Generate binary automated time-specific labels using TweetyNet as 
     implemented in PyHa.
     Args:
-        path (string)
+        path (str)
             - Path to folder containing audio files with at most one 
             subdirectory level
-    Returns a PyHa-formatted DataFrame
+    Returns:
+        PyHa-formatted DataFrame
     """
-    if not os.path.exists(os.path.join(path)):
-        print(f"Directory not found in path {path}", file=sys.stderr)
+    rootdir = Path(path)
+    if not rootdir.is_dir():
+        print(f'Directory not found in path {path}', file=sys.stderr)
         sys.exit(1)
 
     # generate labels at a top level
     automated_df = generate_automated_labels(path, ISOLATION_PARAMETERS)
 
-    # check one-level deep in case files organized by class
-    subfolders = [f.path for f in os.scandir(path) if f.is_dir()]
-    if subfolders:
-        subfolders.sort()
-        for s in subfolders:
-            convert_audio(path, filetype=filetype)
-            temp_df = generate_automated_labels(s, ISOLATION_PARAMETERS)
-            if temp_df.empty:
-                continue
-            automated_df = pd.concat([automated_df, temp_df], ignore_index=True, sort=False)
+    # check subdirectories in case files organized by class
+    subfolders = [str(f) for f in rootdir.rglob('*') if f.is_dir()]
+    for folder in sorted(subfolders):
+        temp_df = generate_automated_labels(folder, ISOLATION_PARAMETERS)
+        if temp_df.empty:
+            continue
+        automated_df = pd.concat([automated_df, temp_df], ignore_index=True, sort=False)
     
     if automated_df.empty:
-        print("no labels generated")
+        print('No labels generated')
     
     return automated_df
 
-def attach_labels(metadata_df, binary_df):
+def attach_labels(metadata_df: pd.DataFrame, binary_df: pd.DataFrame) -> pd.DataFrame:
     """ Attach the primary label from original metadata as a strong label
     for each chunk and reformat the columns for the training pipeline.
     Args:
-        metadata (DataFrame)
+        metadata_df (DataFrame)
             - DataFrame with original audio clip information. Assumes 
             Xeno-canto formatting.
         binary_df (DataFrame)
             - DataFrame with time-specific labels. Assumes PyHa formatting.  
-    Returns a DataFrame with minimum required columns
+    Returns:
+        DataFrame with minimum required columns for training
     """
-    strong_df = metadata_df.merge(binary_df, left_on="filename", right_on="IN FILE")
-    strong_df = strong_df[["Species eBird Code", "Scientific Name", "IN FILE", "FOLDER", "OFFSET", 
-                           "DURATION", "CLIP LENGTH"]]
-    strong_df = strong_df.rename(columns={"IN FILE": "FILE NAME",
-                                          "Species eBird Code": "SPECIES",
-                                          "Scientific Name": "SCIENTIFIC"})
+    if 'filename' not in metadata_df.columns:
+        raise KeyError("This function merges .csvs on filename. Check your metadata columns!")
+    strong_df = metadata_df.merge(binary_df, left_on='filename', right_on='IN FILE')
+    strong_df = strong_df[['Species eBird Code',
+                           'Scientific Name',
+                           'IN FILE',
+                           'FOLDER',
+                           'OFFSET',
+                           'DURATION',
+                           'CLIP LENGTH']]
+    strong_df = strong_df.rename(columns={'IN FILE': 'FILE NAME',
+                                          'Species eBird Code': 'SPECIES',
+                                          'Scientific Name': 'SCIENTIFIC'})
     return strong_df
 
-def generate_sliding_chunks(strong_df, chunk_duration=5):
-    """Wrapper function. Creates sliding window chunks out of previously made annotations to 
-    create more data for training and better capture calls.
+def generate_sliding_chunks(strong_df: pd.DataFrame, chunk_length_s: int=5) -> pd.DataFrame:
+    """Wrapper function. Creates sliding window chunks out of previously made annotations
+    to make more training data and better capture calls.
     Args: 
         strong_df (DataFrame)
             - DataFrame with time-specific labels
-        chunk_duration (int)
-            - Length of desired file chunks
+        chunk_length_s (int)
+            - Length of desired file chunks in seconds
         
     Returns a DataFrame with sliding window chunked annotations
     """
-    return dynamic_yan_chunking(strong_df, chunk_duration=chunk_duration, only_slide=False)
+    return dynamic_yan_chunking(strong_df, chunk_length_s, only_slide=False)
 
-def generate_raw_chunks(path, metadata_df, chunk_duration=5, filetype=".wav"):
+def generate_raw_chunks(directory: str, metadata_df: pd.DataFrame, chunk_length_s: int=5,
+                        filetype: str='.wav') -> pd.DataFrame:
     """Create simple chunks by dividing the file into equal length
     segments. Used as a baseline comparison to PyHa's pseudo-labeling.
     Args:
-        path (string)
+        directory (str)
             - Path to folder containing audio files
         metadata_df (DataFrame)
             - DataFrame original audio clip information. Assumes 
             Xeno-canto formatting.
-        chunk_duration (int)
-            - Length of desired file chunks
-        filetype (string)
+        chunk_length_s (int)
+            - Length of desired file chunks in seconds
+        filetype (str)
             - File extension for incoming audio files
     Returns a DataFrame with end-to-end chunked annotations
     """  
-    chunked_df = []
-    chunk_length = chunk_duration * 1000
-
-    files = [f.path for f in os.scandir(path) if f.path.endswith(filetype)]
-    files.sort()
-    for f in files:
+    if 'filename' not in metadata_df.columns:
+        raise KeyError("This function merges .csvs on filename. Check your metadata columns!")
+    chunks = []
+    chunk_length_ms = chunk_length_s * 1000
+    file_list = [f for f in Path(directory).glob('**/*') if f.is_file() and f.suffix == filetype]
+    for path in sorted(file_list):
         try:
-            audio = AudioSegment.from_file(f)
-        except exceptions.CouldntDecodeError as e:
+            audio = AudioSegment.from_file(path)
+        except exceptions.CouldntDecodeError as ex:
             # catch ffmpeg error
-            print("Audio conversion failed for ", f)
-            print(e)
+            print('Audio conversion failed for ', path)
+            print(ex)
             continue
-        
-        basepath = os.path.splitext(os.path.basename(f))[0] # only want basepath
-        filename = basepath.split('.')[0]
-        file_length = len(audio) # in ms
-        num_chunks = ceil(file_length / (chunk_length))
+    
+        file_length_ms = len(audio)
+        num_chunks = ceil(file_length_ms / (chunk_length_ms))
 
         # attempt to match file with scientific name and ebird code
-        try: 
-            scientific = metadata_df.loc[metadata_df["filename"] == (filename + filetype),
-                                         'Scientific Name'].iloc[0]
-            species = metadata_df.loc[metadata_df["filename"] == (filename + filetype),
-                                      'Species eBird Code'].iloc[0]
-        except IndexError as e:
-            print("Scientific name or species lookup failed for ", filename + filetype)
-            print(e)
+        try:
+            row = metadata_df.loc[metadata_df['filename'] == path.name]
+            scientific = row['Scientific Name'].iloc[0]
+            species = row['Species eBird Code'].iloc[0]
+        except IndexError as ex:
+            print('Scientific name or species lookup failed for ', path.name)
+            print(ex)
             continue
         
         # create chunks and add to dataframe
         for i in range(num_chunks):
-            start = i * chunk_length
-            end = start + chunk_length
+            start = i * chunk_length_ms
+            end = start + chunk_length_ms
             # cut off ending chunks that won't be 5s long
-            if end > file_length:
-                pass
-            else:
-                temp = [
-                    species,
-                    scientific,
-                    f"{filename}{filetype}",
-                    path,
-                    start / 1000,
-                    chunk_duration,
-                    file_length
-                ]
-                chunked_df.append(temp)
-    return pd.DataFrame(chunked_df, columns=["SPECIES", "SCIENTIFIC",
-                                             "FILE NAME", "FOLDER", 
-                                             "OFFSET", "DURATION", "CLIP LENGTH"])
+            if end <= file_length_ms:
+                temp = {
+                    'SPECIES' : species,
+                    'SCIENTIFIC' : scientific,
+                    'FILE NAME' : path.name,
+                    'FOLDER' : path.parent,
+                    'OFFSET' : start / 1000,
+                    'DURATION' : chunk_length_s,
+                    'CLIP LENGTH' : file_length_ms
+                }
+                chunks.append(temp)
+    return pd.DataFrame(chunks)
 
-if __name__ == "__main__":
-    CONFIG = get_config()
-    metadata = pd.read_csv(CONFIG.metadata)
+def main():
+    """Generates binary annotations using TweetyNet from weakly labeled audio.
+    Args:
+        None
+    Returns:
+        None
+    """
+    cfg = get_config()
+    metadata = pd.read_csv(cfg.metadata)
 
-    if CONFIG.sliding_chunks:
-        print("converting audio...?")
-        convert_audio(
-            path=CONFIG.data_path,
-            filetype=CONFIG.filetype)
-
+    if cfg.sliding_window:
         # saved to csv in case attaching labels fails as generating labels takes more time
-        print("generating labels...")
-        labels = generate_labels(CONFIG.data_path, filetype=CONFIG.filetype)
-        labels.to_csv(CONFIG.strong_labels)
+        print('Generating labels...')
+        convert_audio(cfg.audio_path, cfg.filetype)
+        labels = generate_labels(cfg.audio_path)
+        labels.to_csv(cfg.strong_labels)
 
-        print("attaching strong labels...")
+        print('Attaching strong labels...')
         strong_labels = attach_labels(metadata, labels)
-        strong_labels.to_csv(CONFIG.strong_labels)
+        strong_labels.to_csv(cfg.strong_labels)
         
-        print("generating sliding chunks...")
-        chunks_df = generate_sliding_chunks(strong_labels, CONFIG.chunk_duration)
-        chunks_df.to_csv(CONFIG.chunk_path)
+        print('Generating sliding chunks...')
+        chunks_df = generate_sliding_chunks(strong_labels, cfg.chunk_length_s)
+        chunks_df.to_csv(cfg.chunk_labels)
     else:
-        print("generating raw chunks...")
+        print('Generating raw chunks...')
         chunks_df = generate_raw_chunks(
-            path=CONFIG.data_path,
+            directory=cfg.audio_path,
             metadata_df=metadata,
-            chunk_duration=CONFIG.chunk_duration,
-            filetype=CONFIG.filetype)
-        chunks_df.to_csv(CONFIG.chunk_path)
+            chunk_length_s=cfg.chunk_length_s,
+            filetype=cfg.filetype)
+        chunks_df.to_csv(cfg.chunk_labels)
+    print("Wrote chunks to", cfg.chunk_labels)
+
+if __name__=="__main__":
+    main()

@@ -23,19 +23,19 @@ def set_seed(seed: int):
     np.random.seed(seed)
     torch.manual_seed(seed)
 
-def norm(s):
+def norm(tensor: torch.Tensor):
     """ 
     Normalizes the tensor
     """
-    return s/torch.linalg.vector_norm(s, ord=2)
+    return tensor/torch.linalg.vector_norm(tensor, ord=2)
 
-def randint(low, high):
+def randint(low: int, high: int) -> int:
     """
     Returns a random integer between [low, high)
     """
     return int(torch.randint(low, high, (1,)))
 
-def rand(low, high):
+def rand(low: float , high: float) -> float:
     """
     Returns a random float between [low, high)
     """

@@ -1,10 +1,3 @@
-# pylint: disable=R0902
-# pylint: disable=W0621
-# pylint: disable=R0913
-# pylint: disable=E1121
-# R0902, W0621 -> Not redefining these values, they are all the same value,
-# R0913, E1121 -> These functions just have a lot of args that are frequently changed since ML
-
 """
     Contains the training and validation function and logging to Weights and Biases
     Methods:
@@ -18,8 +11,10 @@
 from typing import Any, Tuple
 import os
 import datetime
-from torchmetrics.classification import MultilabelAveragePrecision
+import os
+from typing import Any, Dict, Tuple
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
@@ -27,12 +22,10 @@ from torch.optim import Adam
 from torch.amp.autocast_mode import autocast
 import numpy as np
 from tqdm import tqdm
+from utils import print_verbose, set_seed
+
 import wandb
-
 from utils import set_seed, print_verbose
-
-
-
 
 from augmentations import SyntheticNoise
 import config
@@ -60,12 +53,13 @@ def check_shape(outputs, labels):
 
 # Splitting this up would be annoying!!!
 # pylint: disable=too-many-statements 
+# pylint: disable=too-many-locals
+# pylint: disable=too-many-arguments
 def train(model: Any,
         data_loader: DataLoader,
         valid_loader:  DataLoader,
         optimizer: torch.optim.Optimizer,
         scheduler,
-        device: str,
         epoch: int,
         best_valid_map: float
        ) -> Tuple[float, float]:
@@ -83,15 +77,13 @@ def train(model: Any,
     mAP = 0
     
     #scaler = torch.cuda.amp.GradScaler()
-
     start_time = datetime.datetime.now()
-    
     scaler = torch.cuda.amp.grad_scaler.GradScaler()
 
     for i, (mels, labels) in enumerate(data_loader):
         optimizer.zero_grad()
-        mels = mels.to(device)
-        labels = labels.to(device)
+        mels = mels.to(DEVICE)
+        labels = labels.to(DEVICE)
         
         with autocast(device_type=device, dtype=torch.float16, enabled=cfg.mixed_precision):
             outputs = model(mels)
@@ -162,12 +154,12 @@ def train(model: Any,
                                          epoch + i / len(data_loader), 
                                          best_valid_map)
             model.train()
-
             # Ignore the time it takes to validate in annotations/sec
             start_time += datetime.datetime.now() - valid_start_time
     return running_loss/len(data_loader), best_valid_map
 
 
+# pylint: disable=too-many-locals
 def valid(model: Any,
           data_loader: DataLoader,
           epoch_progress: float,
@@ -311,7 +303,6 @@ def main():
 
     # Load in dataset
     print("Loading Dataset")
-    # pylint: disable=unused-variable
     # for future can use torchvision.transforms.RandomApply here
     transforms = torch.nn.Sequential(SyntheticNoise("white", 0.05))
     train_dataset, val_dataset = get_datasets(transforms=transforms)
@@ -339,11 +330,9 @@ def main():
             val_dataloader,
             optimizer,
             scheduler,
-            device,
             epoch,
             best_valid_map
         )
-        
         _, valid_map, best_valid_map = valid(model_for_run, 
                                              val_dataloader, 
                                              epoch + 1.0, 
