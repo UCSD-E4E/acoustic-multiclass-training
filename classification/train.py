@@ -81,8 +81,8 @@ def train(model: Any,
     log_n = 0
     log_loss = 0
     mAP = 0
-    mR = 0
-    mP = 0
+    ouputs_list = []
+    labels_list = []
     
     #scaler = torch.cuda.amp.GradScaler()
 
@@ -124,25 +124,33 @@ def train(model: Any,
         out_for_score = outputs.detach().cpu()
         labels_for_score = labels.detach().cpu().long()
         batch_mAP = map_metric(out_for_score, labels_for_score).item()
-        batch_mr = mr_metric(out_for_score, labels_for_score).item()
-        batch_mp = mp_metric(out_for_score, labels_for_score).item()
+
+        ouputs_list.append(out_for_score)
+        labels_list.append((labels.detach().cpu() > 0).long()) 
+
+
+        #batch_mr = mr_metric(out_for_score, labels_for_score).item()
+        #batch_mp = mp_metric(out_for_score, labels_for_score).item()
 
         # https://forums.fast.ai/t/nan-values-when-using-precision-in-multi-classification/59767/2
         # Could be possible when model is untrained so we only have FNs
         if np.isnan(batch_mAP):
             batch_mAP = 0
-        if np.isnan(batch_mr):
-            batch_mr = 0
-        if np.isnan(batch_mp):
-            batch_mp = 0
-        mAP += batch_mAP
-        mR += batch_mr
-        mP += batch_mp
+        # if np.isnan(batch_mr):
+        #     batch_mr = 0
+        # if np.isnan(batch_mp):
+        #     batch_mp = 0
+        # mAP += batch_mAP
+        # mR += batch_mr
+        # mP += batch_mp
 
         log_loss += loss.item()
         log_n += 1
 
         if (i != 0 and i % (cfg.logging_freq) == 0) or i == len(data_loader) - 1:
+            mR = mr_metric(torch.cat(ouputs_list), torch.cat(labels_list)).item()
+            mP = mp_metric(torch.cat(ouputs_list),  torch.cat(labels_list)).item()
+            
             duration = (datetime.datetime.now() - start_time).total_seconds()
             start_time = datetime.datetime.now()
             annotations = ((i % cfg.logging_freq) or cfg.logging_freq) * cfg.train_batch_size
@@ -169,8 +177,8 @@ def train(model: Any,
             log_loss = 0
             log_n = 0
             mAP = 0
-            mR = 0
-            mP = 0
+            ouputs_list = []
+            labels_list = []
 
         if (i != 0 and i % (cfg.valid_freq) == 0):
             valid_start_time = datetime.datetime.now()
