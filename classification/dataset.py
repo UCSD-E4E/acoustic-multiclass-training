@@ -20,16 +20,17 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 import torchaudio
 from torchaudio import transforms as audtr
+from torchvision import transforms as vitr
+import pandas as pd
 
 # Math library imports
-import pandas as pd
 import numpy as np
 
 from utils import set_seed, print_verbose
 import utils
 from config import get_config
 from tqdm import tqdm
-from augmentations import Mixup, add_mixup
+from augmentations import Mixup, SyntheticNoise
         
 
 
@@ -236,9 +237,26 @@ class PyhaDF_Dataset(Dataset):
     def __len__(self):
         return self.samples.shape[0]
 
+    def to_image(self, audio):
+        # Mel spectrogram
+        mel = self.mel_spectogram(audio)
+        # Convert to Image
+        image = torch.stack([mel, mel, mel])
+        # Normalize Image
+        max_val = torch.abs(image).max() + 0.000001
+        image = image / max_val
+        return image
+
     def __getitem__(self, index): #-> Any:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
+        #TODO: don't initialize these every time
+        audio_augmentations = vitr.RandomApply(torch.nn.Sequential(
+                SyntheticNoise("white", 0.05)), p=0.4)
+        image_augmentations = vitr.RandomApply(torch.nn.Sequential(
+                audtr.FrequencyMasking(self.config.freq_mask_param),
+                audtr.TimeMasking(self.config.time_mask_param)), p=0.4)
+
 
         audio, target = utils.get_annotation(
                 df = self.samples,
@@ -249,20 +267,28 @@ class PyhaDF_Dataset(Dataset):
                 device = device,
                 config = self.config)
 
-        # Randomly shift audio
-        if self.train and torch.rand(1) < self.config.time_shift_p:
-            shift = torch.randint(0, self.num_samples, (1,))
-            audio = torch.roll(audio, shift, dims=1)
         
-        if self.transforms is not None:
-            mixup_idx = 0
-            audio, target = add_mixup(audio, 
-                                     target, 
-                                      self.mixup, 
-                                      self.transforms, 
-                                      mixup_idx) 
+        mixup = Mixup(
+                df = self.samples,
+                class_to_idx = self.class_to_idx,
+                sample_rate = self.target_sample_rate,
+                target_num_samples = self.num_samples,
+                config = self.config,
+                alpha_range = (0.1, 0.4),
+                p = 0.4)
+        
+        if self.train:
+            audio, target = mixup(audio, target)
+            audio = audio_augmentations(audio)
+        image = self.to_image(audio)
+        if self.train:
+            image = image_augmentations(image)
 
-        
+
+        # Randomly shift audio
+        #if self.train and torch.rand(1) < self.config.time_shift_p:
+        #    shift = torch.randint(0, self.num_samples, (1,))
+        #    audio = torch.roll(audio, shift, dims=1)
         # Add noise
         #if self.train and torch.randn(1) < self.config.noise_p:
         #    noise = torch.randn_like(audio) * self.config.noise_std
@@ -273,16 +299,6 @@ class PyhaDF_Dataset(Dataset):
         #    alpha = np.random.rand() * 0.3 + 0.1
         #    audio = audio * alpha + audio_2 * (1 - alpha)
         #    target = target * alpha + target_2 * (1 - alpha)
-
-        # Mel spectrogram
-        mel = self.mel_spectogram(audio)
-
-        # Convert to Image
-        image = torch.stack([mel, mel, mel])
-
-        # Normalize Image
-        max_val = torch.abs(image).max() + 0.000001
-        image = image / max_val
 
         # Frequency masking and time masking
         if self.train and torch.randn(1) < self.config.freq_mask_p:
@@ -336,9 +352,7 @@ class PyhaDF_Dataset(Dataset):
         return self.num_classes
 
 
-def get_datasets(
-        transforms = None, CONFIG=None
-        ):
+def get_datasets(CONFIG=None):
     """ Returns train and validation datasets, does random sampling for train/valid split, adds transforms to dataset
     """
 
@@ -364,15 +378,8 @@ def get_datasets(
     train = data[data[CONFIG.file_name_col].isin(train_files)]
 
     valid = data[~data.index.isin(train.index)]
-
     train_ds = PyhaDF_Dataset(train, csv_file="train.csv", CONFIG=CONFIG)
     species = train_ds.get_classes()
-
-    mixup_ds = PyhaDF_Dataset(train, csv_file="mixup.csv",train=False, CONFIG=CONFIG)
-    mixup = Mixup(mixup_ds)
-    if transforms is not None:
-        train_ds.set_transforms(transforms)
-        train_ds.set_mixup(mixup)
 
     valid_ds = PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, species=species, CONFIG=CONFIG)
     return train_ds, valid_ds
