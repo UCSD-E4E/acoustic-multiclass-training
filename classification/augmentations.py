@@ -20,6 +20,7 @@ class Mixup(torch.nn.Module):
         proportion of new audio in augmented clip
         p: Probability of mixing
     """
+    # pylint: disable-next=too-many-arguments
     def __init__(
             self, 
             df: pd.DataFrame, 
