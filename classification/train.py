@@ -119,40 +119,21 @@ def train(model: Any,
         running_loss += loss.item()
 
         map_metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
-        mr_metric = MultilabelRecall(num_labels=model.num_classes, average="macro")
-        mp_metric = MultilabelPrecision(num_labels=model.num_classes, average="macro")
         out_for_score = outputs.detach().cpu()
         labels_for_score = labels.detach().cpu().long()
         batch_mAP = map_metric(out_for_score, labels_for_score).item()
-
-        ouputs_list.append(out_for_score)
-        labels_list.append((labels.detach().cpu() > 0).long())
-        print(labels_list[0][0]) 
-
-
-        #batch_mr = mr_metric(out_for_score, labels_for_score).item()
-        #batch_mp = mp_metric(out_for_score, labels_for_score).item()
 
         # https://forums.fast.ai/t/nan-values-when-using-precision-in-multi-classification/59767/2
         # Could be possible when model is untrained so we only have FNs
         if np.isnan(batch_mAP):
             batch_mAP = 0
-        # if np.isnan(batch_mr):
-        #     batch_mr = 0
-        # if np.isnan(batch_mp):
-        #     batch_mp = 0
         
         mAP += batch_mAP
-        # mR += batch_mr
-        # mP += batch_mp
 
         log_loss += loss.item()
         log_n += 1
 
         if (i != 0 and i % (cfg.logging_freq) == 0) or i == len(data_loader) - 1:
-            mR = mr_metric(torch.cat(ouputs_list), torch.cat(labels_list)).item()
-            mP = mp_metric(torch.cat(ouputs_list), torch.cat(labels_list)).item()
-            
             duration = (datetime.datetime.now() - start_time).total_seconds()
             start_time = datetime.datetime.now()
             annotations = ((i % cfg.logging_freq) or cfg.logging_freq) * cfg.train_batch_size
@@ -162,8 +143,6 @@ def train(model: Any,
             wandb.log({
                 "train/loss": log_loss / log_n,
                 "train/mAP": mAP / log_n,
-                "train/mR": mR,
-                "train/mP": mP,
                 "i": i,
                 "epoch": epoch,
                 "clips/sec": annotations_per_sec,
@@ -173,14 +152,10 @@ def train(model: Any,
                   "clips/s:", str(round(annotations_per_sec,3)).ljust(7), 
                   "Loss:", str(round(log_loss / log_n,3)).ljust(5), 
                   "mAP:", str(round(mAP / log_n,3)).ljust(5),
-                  "mR:", str(round(mR,3)).ljust(5),
-                  "mP:", str(round(mP,3)).ljust(5)
             )
             log_loss = 0
             log_n = 0
             mAP = 0
-            ouputs_list = []
-            labels_list = []
 
         if (i != 0 and i % (cfg.valid_freq) == 0):
             valid_start_time = datetime.datetime.now()
@@ -262,20 +237,14 @@ def valid(model: Any,
     #valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
 
     map_metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
-    mr_metric = MultilabelRecall(num_labels=model.num_classes, average="macro")
-    mp_metric = MultilabelPrecision(num_labels=model.num_classes, average="macro")
     out_for_score = pred.detach().cpu()
     labels_for_score = label.detach().cpu().long()
     valid_map = map_metric(out_for_score, labels_for_score).item()
-    valid_mr = mr_metric(out_for_score, labels_for_score).item()
-    valid_mp = mp_metric(out_for_score, labels_for_score).item()
 
     # Log to Weights and Biases
     wandb.log({
         "valid/loss": running_loss/num_valid_samples,
         "valid/map": valid_map,
-        "valid/mr": valid_mr,
-        "valid/mp": valid_mp,
         "epoch_progress": epoch_progress,
     })
 
