@@ -153,11 +153,11 @@ def train(model: Any,
                 "clips/sec": annotations_per_sec,
                 "epoch_progress": epoch_progress,
             })
-            print("i:", i, "epoch:", epoch_progress,
-                  "clips/s:", annotations_per_sec, 
-                  "Loss:", log_loss / log_n, 
-                  "mAP", mAP / log_n,
-                  "mAR", mAR / log_n,
+            print("i:", str(i).zfill(5), "epoch:", round(epoch_progress,3),
+                  "clips/s:", str(round(annotations_per_sec,3)).ljust(7), 
+                  "Loss:", str(round(log_loss / log_n,3)).ljust(5), 
+                  "mAP:", str(round(mAP / log_n,3)).ljust(5),
+                  "mAR:", str(round(mAR / log_n,3)).ljust(5),
                   "mAR no adverage", mAR)
             log_loss = 0
             log_n = 0
@@ -267,7 +267,7 @@ def valid(model: Any,
         torch.save(model.state_dict(), path)
         print("Model saved in:", path)
         print(f"Validation mAP Improved - {best_valid_map} ---> {valid_map}")
-        best_valid_map = valid_map.item()
+        best_valid_map = valid_map
 
     
     return running_loss/len(data_loader), valid_map, best_valid_map
