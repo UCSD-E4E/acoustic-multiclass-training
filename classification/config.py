@@ -7,8 +7,10 @@ import argparse
 import os
 import shutil
 import sys
-
+# "Repo" is not exported from module "git" Import from "git.repo" instead
+# https://gitpython.readthedocs.io/en/stable/tutorial.html?highlight=repo#meet-the-repo-type
 import git
+from git import Repo # pyright: ignore [reportPrivateImportUsage]
 import yaml
 
 
@@ -141,14 +143,15 @@ class Config():
 
         #Add git hash to config so wand logging can track vrs used for reproduciblity
         try:
-            repo = git.Repo(search_parent_directories=True)
+            #
+            repo = Repo(search_parent_directories=True)
             sha = repo.head.object.hexsha
             self.config_dict["git_hash"] = sha
 
         #I want to catch this specific error, and it doesn't extend from base exception
-        #¯\(ツ)/¯
+        #becuase of this, this leads to a lot of linting issues ¯\(ツ)/¯
         # pylint: disable=no-member
-        except git.exc.InvalidGitRepositoryError:
+        except git.exc.InvalidGitRepositoryError: # pyright: ignore [reportGeneralTypeIssues]
             print("InvalidGitRepositoryError found, this means we cannot save git hash :(")
             print("You are likely calling a python file outside of this repo") 
             print("if from command line, cd into acoustic-mutliclass-training")
@@ -173,11 +176,9 @@ def testing():
     # So I want to change one instance var and see that var in a new class
     # in practice, I never want to change a config setting outside of config
     # pylint: disable=attribute-defined-outside-init
-    config.change = " hah"
+    
     config2 = Config()
-    print(config == config2, "Expect True")
-    print(config.change, "Expect hah")
-    print(config2.change, "Expect hah")
+    assert config == config2
     print(config.dataframe_csv)
     print(config.logging)
     get_config()

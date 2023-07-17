@@ -58,7 +58,7 @@ class PyhaDF_Dataset(Dataset):
         self.mel_spectogram = audtr.MelSpectrogram(sample_rate=self.target_sample_rate,
                                         n_mels=cfg.n_mels,
                                         n_fft=cfg.n_fft)
-        self.mel_spectogram.cuda(device)
+        self.mel_spectogram.to(device) #was cuda (?)
         self.freq_mask = audtr.FrequencyMasking(freq_mask_param=cfg.freq_mask_param)
         self.time_mask = audtr.TimeMasking(time_mask_param=cfg.time_mask_param)
         self.transforms = None
@@ -111,7 +111,12 @@ class PyhaDF_Dataset(Dataset):
 
 
         try:
-            audio, sample_rate = torchaudio.load(os.path.join(cfg.data_path, file_name))
+            # old error: "load" is not a known member of module "torchaudio"
+            # Load is a known member of torchaudio:
+            # https://pytorch.org/audio/stable/tutorials/audio_io_tutorial.html#loading-audio-data
+            audio, sample_rate = torchaudio.load(       #pyright: ignore [reportGeneralTypeIssues ]
+                os.path.join(cfg.data_path, file_name)
+            ) 
 
             if len(audio.shape) > 1:
                 audio = self.to_mono(audio)
@@ -242,16 +247,18 @@ class PyhaDF_Dataset(Dataset):
         
         # Randomly shift audio
         if self.train and torch.rand(1) < cfg.time_shift_p:
-            shift = torch.randint(0, self.num_samples, (1,))
+            shift = int(torch.randint(0, self.num_samples, (1,)))
             audio = torch.roll(audio, shift, dims=1)
         
-        if self.transforms is not None:
+        if self.transforms is not None and self.mixup is not None:
             mixup_idx = 0
             audio, target = add_mixup(audio, 
                                      target, 
                                       self.mixup, 
                                       self.transforms, 
-                                      mixup_idx) 
+                                      mixup_idx)
+        elif  self.transforms is not None:
+            audio = self.transforms(audio)
 
         
         # Add noise
@@ -314,7 +321,7 @@ class PyhaDF_Dataset(Dataset):
     def to_mono(self, audio: torch.Tensor) -> torch.Tensor:
         """ Converts audio to mono by averaging the channels
         """
-        return torch.mean(audio, axis=0)
+        return torch.mean(audio, dim=0)
 
     def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
         """ Returns tuple of class list and class to index dictionary

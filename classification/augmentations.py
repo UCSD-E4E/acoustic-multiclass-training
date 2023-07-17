@@ -250,7 +250,9 @@ class BackgroundNoise(torch.nn.Module):
         rand_idx = utils.randint(0, len(noise_clips))
         noise_file = self.noise_path/noise_clips[rand_idx]
         clip_len = self.sample_rate*self.length
-        waveform, sr = torchaudio.load(noise_file)
+
+        # pryright complains that load isn't called from torchaudio. It is.
+        waveform, sr = torchaudio.load(noise_file) #pyright: ignore
         if sr != self.sample_rate:
             waveform = torchaudio.functional.resample(
                     waveform, orig_freq=sr, new_freq=self.sample_rate)
