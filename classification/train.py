@@ -256,8 +256,8 @@ def init_wandb():
     Initialize the weights and biases logging
     """
     run = wandb.init(
-        project="acoustic-species-reu2023",
-        entity="acoustic-species-identification",
+        entity=cfg.wandb_entity,
+        project=cfg.wandb_project,
         config=cfg.config_dict,
         mode="online" if cfg.logging else "disabled"
     )
