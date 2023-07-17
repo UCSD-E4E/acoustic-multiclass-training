@@ -18,7 +18,7 @@
 from typing import Any, Tuple
 import os
 import datetime
-from torchmetrics.classification import MultilabelAveragePrecision, MultilabelRecall, MultilabelPrecision
+from torchmetrics.classification import MultilabelAveragePrecision
 
 import torch
 from torch.utils.data import DataLoader
@@ -81,8 +81,6 @@ def train(model: Any,
     log_n = 0
     log_loss = 0
     mAP = 0
-    ouputs_list = []
-    labels_list = []
     
     #scaler = torch.cuda.amp.GradScaler()
 
