@@ -18,7 +18,7 @@
 from typing import Any, Tuple
 import os
 import datetime
-from torchmetrics.classification import MultilabelAveragePrecision, MultilabelRecall
+from torchmetrics.classification import MultilabelAveragePrecision, MultilabelRecall, MultilabelPrecision
 
 import torch
 from torch.utils.data import DataLoader
@@ -81,7 +81,8 @@ def train(model: Any,
     log_n = 0
     log_loss = 0
     mAP = 0
-    mAR = 0
+    ouputs_list = []
+    labels_list = []
     
     #scaler = torch.cuda.amp.GradScaler()
 
@@ -118,20 +119,16 @@ def train(model: Any,
         running_loss += loss.item()
 
         map_metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
-        mar_metric = MultilabelRecall(num_labels=model.num_classes, average="macro")
         out_for_score = outputs.detach().cpu()
         labels_for_score = labels.detach().cpu().long()
         batch_mAP = map_metric(out_for_score, labels_for_score).item()
-        batch_mar = mar_metric(out_for_score, labels_for_score).item()
 
         # https://forums.fast.ai/t/nan-values-when-using-precision-in-multi-classification/59767/2
         # Could be possible when model is untrained so we only have FNs
         if np.isnan(batch_mAP):
             batch_mAP = 0
-        if np.isnan(batch_mar):
-            batch_mar = 0
+        
         mAP += batch_mAP
-        mAP += batch_mar
 
         log_loss += loss.item()
         log_n += 1
@@ -146,16 +143,16 @@ def train(model: Any,
             wandb.log({
                 "train/loss": log_loss / log_n,
                 "train/mAP": mAP / log_n,
-                "train/mAR": mAR / log_n,
                 "i": i,
                 "epoch": epoch,
                 "clips/sec": annotations_per_sec,
                 "epoch_progress": epoch_progress,
             })
-            print("i:", i, "epoch:", epoch_progress,
-                  "clips/s:", annotations_per_sec, 
-                  "Loss:", log_loss / log_n, 
-                  "mAP", mAP / log_n)
+            print("i:", str(i).zfill(5), "epoch:", round(epoch_progress,3),
+                  "clips/s:", str(round(annotations_per_sec,3)).ljust(7), 
+                  "Loss:", str(round(log_loss / log_n,3)).ljust(5), 
+                  "mAP:", str(round(mAP / log_n,3)).ljust(5),
+            )
             log_loss = 0
             log_n = 0
             mAP = 0
@@ -240,17 +237,14 @@ def valid(model: Any,
     #valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
 
     map_metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
-    mar_metric = MultilabelRecall(num_labels=model.num_classes, average="macro")
     out_for_score = pred.detach().cpu()
     labels_for_score = label.detach().cpu().long()
     valid_map = map_metric(out_for_score, labels_for_score).item()
-    valid_mar = mar_metric(out_for_score, labels_for_score).item()
 
     # Log to Weights and Biases
     wandb.log({
         "valid/loss": running_loss/num_valid_samples,
         "valid/map": valid_map,
-        "valid/mar": valid_mar,
         "epoch_progress": epoch_progress,
     })
 
@@ -263,7 +257,7 @@ def valid(model: Any,
         torch.save(model.state_dict(), path)
         print("Model saved in:", path)
         print(f"Validation mAP Improved - {best_valid_map} ---> {valid_map}")
-        best_valid_map = valid_map.item()
+        best_valid_map = valid_map
 
     
     return running_loss/len(data_loader), valid_map, best_valid_map
