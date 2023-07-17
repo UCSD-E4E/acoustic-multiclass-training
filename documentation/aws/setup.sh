@@ -5,8 +5,8 @@
 
 # Ensure system is up to date
 echo "Updating system"
-sudo apt update -y
-sudo apt upgrade -y
+sudo apt-get update
+sudo apt-get upgrade -y
 
 # Install miniconda
 echo "Installing miniconda"
@@ -30,7 +30,7 @@ conda activate asid
 
 # Install s3fs
 echo "Installing AWS and s3fs"
-sudo apt install awscli
-sudo apt install s3fs
+sudo apt-get install awscli
+sudo apt-get install s3fs
 
 echo "System setup done. Please run documentation/aws/mount.sh to mount your s3 bucket."

@@ -3,7 +3,8 @@
 
 """
 
-import config 
+import config
+
 # timm is a library of premade models
 
 

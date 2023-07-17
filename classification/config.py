@@ -7,11 +7,12 @@ import argparse
 import os
 import shutil
 import sys
+
 # "Repo" is not exported from module "git" Import from "git.repo" instead
 # https://gitpython.readthedocs.io/en/stable/tutorial.html?highlight=repo#meet-the-repo-type
 import git
-from git import Repo # pyright: ignore [reportPrivateImportUsage]
 import yaml
+from git import Repo  # pyright: ignore [reportPrivateImportUsage]
 
 
 class Config():

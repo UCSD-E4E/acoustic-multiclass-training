@@ -9,8 +9,11 @@ from typing import Callable, Tuple
 import numpy as np
 import torch
 import torchaudio
+
 import utils
-from config import cfg
+import config
+
+cfg = config.cfg
 
 
 class Mixup(torch.nn.Module):
@@ -25,7 +28,7 @@ class Mixup(torch.nn.Module):
         super().__init__()
         self.dataset = dataset
         self.alpha_range = alpha_range
-        self.p = p
+        self.prob = p
 
     def forward(
         self, clip: torch.Tensor, target: torch.Tensor
@@ -40,7 +43,7 @@ class Mixup(torch.nn.Module):
         target of the randomly chosen file
         """
         alpha = utils.rand(*self.alpha_range)
-        if utils.rand(0,1) < self.p:
+        if utils.rand(0,1) < self.prob:
             return clip, target
 
         # Generate random index in dataset
@@ -79,7 +82,7 @@ def add_mixup(
     clip = tail(clip)
     return clip, target
 
-def gen_noise(num_samples: int, psd_shape_func:Callable)-> torch.Tensor:
+def gen_noise(num_samples: int, psd_shape_func: Callable) -> torch.Tensor:
     """
     Args:
         num_samples: length of noise Tensor to generate
@@ -99,37 +102,37 @@ def gen_noise(num_samples: int, psd_shape_func:Callable)-> torch.Tensor:
     noise = white_signal * shape_signal
     return torch.fft.irfft(noise).to('cuda')
 
-def gen_noise_func(f):
+def gen_noise_func(func: Callable):
     """
     Given PSD shape function, returns a new function that takes in parameter N
     and generates noise Tensor of length N
     """
-    return lambda N: gen_noise(N, f)
+    return lambda N: gen_noise(N, func)
 
 @gen_noise_func
-def white_noise(_):
+def white_noise(_: torch.Tensor):
     """White noise PSD shape"""
     return 1
 
 @gen_noise_func
-def blue_noise(f):
+def blue_noise(vec: torch.Tensor):
     """Blue noise PSD shape"""
-    return torch.sqrt(f)
+    return torch.sqrt(vec)
 
 @gen_noise_func
-def violet_noise(f):
+def violet_noise(vec: torch.Tensor):
     """Violet noise PSD shape"""
-    return f
+    return vec
 
 @gen_noise_func
-def brown_noise(f):
+def brown_noise(vec: torch.Tensor):
     """Brown noise PSD shape"""
-    return 1/torch.where(f == 0, float('inf'), f)
+    return 1/torch.where(vec == 0, float('inf'), vec)
 
 @gen_noise_func
-def pink_noise(f):
+def pink_noise(vec: torch.Tensor):
     """Pink noise PSD shape"""
-    return 1/torch.where(f == 0, float('inf'), torch.sqrt(f))
+    return 1/torch.where(vec == 0, float('inf'), torch.sqrt(vec))
 
 # For some reason this class can't be printed in the repl,
 # but works fine in scripts?
@@ -195,9 +198,9 @@ class RandomEQ(torch.nn.Module):
         for _ in range(self.num_applications):
             frequency = utils.rand(*self.f_range)
             gain = utils.rand(*self.g_range)
-            q = utils.rand(*self.q_range)
+            q_val = utils.rand(*self.q_range)
             clip = torchaudio.functional.equalizer_biquad(
-                clip, self.sample_rate, frequency, gain, q)
+                clip, self.sample_rate, frequency, gain, q_val)
         return clip
 
 class BackgroundNoise(torch.nn.Module):
@@ -252,10 +255,10 @@ class BackgroundNoise(torch.nn.Module):
         clip_len = self.sample_rate*self.length
 
         # pryright complains that load isn't called from torchaudio. It is.
-        waveform, sr = torchaudio.load(noise_file) #pyright: ignore
-        if sr != self.sample_rate:
+        waveform, sample_rate = torchaudio.load(noise_file) #pyright: ignore
+        if sample_rate != self.sample_rate:
             waveform = torchaudio.functional.resample(
-                    waveform, orig_freq=sr, new_freq=self.sample_rate)
+                    waveform, orig_freq=sample_rate, new_freq=self.sample_rate)
         if self.norm:
             waveform = utils.norm(waveform)
         start_idx = utils.randint(0, len(waveform))
@@ -270,13 +273,13 @@ class LowpassFilter(torch.nn.Module):
     Attributes:
         sample_rate: sample_rate of audio clip
         cutoff: cutoff frequency
-        Q: Q value for lowpass filter
+        q_val: Q value for lowpass filter
     """
-    def __init__(self, cutoff: int, Q: float):
+    def __init__(self, cutoff: int, q_val: float):
         super().__init__()
         self.sample_rate = cfg.sample_rate
         self.cutoff = cutoff
-        self.Q = Q
+        self.q_val = q_val
 
     def forward(self, clip: torch.Tensor) -> torch.Tensor:
         """
@@ -289,4 +292,4 @@ class LowpassFilter(torch.nn.Module):
         return torchaudio.functional.lowpass_biquad(clip,
                                                     self.sample_rate,
                                                     self.cutoff,
-                                                    self.Q)
+                                                    self.q_val)
