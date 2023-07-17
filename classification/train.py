@@ -264,7 +264,8 @@ def init_wandb():
 
     assert run is not None
     if cfg.wandb_run_name == "auto":
-        cfg.wandb_run_name = cfg.model
+        # This variable is always defined
+        cfg.wandb_run_name = cfg.model # type: ignore
     run.name = f"{cfg.wandb_run_name}-{time_now}"
 
     return run
