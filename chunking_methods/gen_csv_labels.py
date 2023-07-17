@@ -7,14 +7,14 @@ Output:    A csv with chunked, strongly-labeled annotations
 import sys
 from math import ceil
 from pathlib import Path
+
 import pandas as pd
+from chunks_config import get_config
 from pydub import AudioSegment, exceptions
-from config import get_config
-from sliding_chunks import dynamic_yan_chunking
 # pylint: disable=import-error #this file gets put into PyHa
 # pylint: disable=no-name-in-module
-from PyHa.IsoAutio import generate_automated_labels #pyright: ignore
-
+from PyHa.IsoAutio import generate_automated_labels  # pyright: ignore
+from sliding_chunks import dynamic_yan_chunking
 
 # This could be changed to use Microfaune or BirdNET, but the parameters are
 # somewhat different and TweetyNet should be the default.

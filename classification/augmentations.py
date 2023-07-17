@@ -9,8 +9,11 @@ from typing import Callable, Tuple
 import numpy as np
 import torch
 import torchaudio
+
 import utils
-from config import cfg
+import config
+
+cfg = config.cfg
 
 
 class Mixup(torch.nn.Module):
@@ -25,7 +28,7 @@ class Mixup(torch.nn.Module):
         super().__init__()
         self.dataset = dataset
         self.alpha_range = alpha_range
-        self.p = p
+        self.prob = p
 
     def forward(
         self, clip: torch.Tensor, target: torch.Tensor
@@ -40,7 +43,7 @@ class Mixup(torch.nn.Module):
         target of the randomly chosen file
         """
         alpha = utils.rand(*self.alpha_range)
-        if utils.rand(0,1) < self.p:
+        if utils.rand(0,1) < self.prob:
             return clip, target
 
         # Generate random index in dataset
@@ -252,10 +255,10 @@ class BackgroundNoise(torch.nn.Module):
         clip_len = self.sample_rate*self.length
 
         # pryright complains that load isn't called from torchaudio. It is.
-        waveform, sr = torchaudio.load(noise_file) #pyright: ignore
-        if sr != self.sample_rate:
+        waveform, sample_rate = torchaudio.load(noise_file) #pyright: ignore
+        if sample_rate != self.sample_rate:
             waveform = torchaudio.functional.resample(
-                    waveform, orig_freq=sr, new_freq=self.sample_rate)
+                    waveform, orig_freq=sample_rate, new_freq=self.sample_rate)
         if self.norm:
             waveform = utils.norm(waveform)
         start_idx = utils.randint(0, len(waveform))

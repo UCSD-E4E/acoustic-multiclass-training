@@ -1,7 +1,10 @@
 """Chunking script from PyHa to convert weak labels to strong labels.
 """
-from typing import List, Dict
+from typing import Dict, List
+
 import pandas as pd
+
+
 def convolving_chunk(row:dict, 
                      chunk_length_s=3, 
                      min_length_s=0.4, 

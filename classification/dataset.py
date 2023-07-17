@@ -10,28 +10,25 @@
 import os
 from typing import Dict, List, Tuple
 
-import config
 import numpy as np
-# Math library imports
-# Math library imports
 import pandas as pd
 import torch
 import torch.nn.functional as F
-import torchaudio
-from augmentations import Mixup, add_mixup
-from config import get_config
 from torch.utils.data import Dataset
+import torchaudio
 from torchaudio import transforms as audtr
 from tqdm import tqdm
-from utils import print_verbose, set_seed
 
+from utils import print_verbose, set_seed
+import config
+from augmentations import Mixup, add_mixup
 cfg = config.cfg
 
 tqdm.pandas()
 if torch.cuda.is_available():
-    DEVICE = torch.device("cuda")
+    DEVICE = "cuda"
 else:
-    DEVICE = torch.device("cpu")
+    DEVICE = "cpu"
 
 # pylint: disable=too-many-instance-attributes
 class PyhaDFDataset(Dataset):
@@ -55,7 +52,7 @@ class PyhaDFDataset(Dataset):
         self.mel_spectogram = audtr.MelSpectrogram(sample_rate=self.target_sample_rate,
                                         n_mels=cfg.n_mels,
                                         n_fft=cfg.n_fft)
-        self.mel_spectogram.to(device) #was cuda (?)
+        self.mel_spectogram.to(DEVICE) #was cuda (?)
         self.freq_mask = audtr.FrequencyMasking(freq_mask_param=cfg.freq_mask_param)
         self.time_mask = audtr.TimeMasking(time_mask_param=cfg.time_mask_param)
         self.transforms = None
@@ -121,7 +118,6 @@ class PyhaDFDataset(Dataset):
             # Resample
             if sample_rate != self.target_sample_rate:
                 resample = audtr.Resample(sample_rate, self.target_sample_rate)
-                #resample.cuda(DEVICE)
                 audio = resample(audio)
 
             torch.save(audio, os.path.join(cfg.data_path,new_name))
@@ -185,7 +181,7 @@ class PyhaDFDataset(Dataset):
         annotation = self.samples.iloc[index]
         file_name = annotation[cfg.file_name_col]
 
-        # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+        # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0]
         class_name = annotation[cfg.manual_id_col]
 
         def one_hot(x, num_classes, on_value=1., off_value=0.):
@@ -333,9 +329,10 @@ class PyhaDFDataset(Dataset):
 
 
 def get_datasets(transforms = None):
-    """ Returns train and validation datasets, does random sampling for train/valid split, adds transforms to dataset
+    """ Returns train and validation datasets
+    Does random sampling for train/valid split
+    Adds transforms to dataset
     """
-
 
     train_p = cfg.train_test_split
     path = cfg.dataframe_csv
@@ -359,17 +356,17 @@ def get_datasets(transforms = None):
 
     valid = data[~data.index.isin(train.index)]
 
-    train_ds = PyhaDF_Dataset(train, csv_file="train.csv")
+    train_ds = PyhaDFDataset(train, csv_file="train.csv")
     species = train_ds.get_classes()
 
-    mixup_ds = PyhaDF_Dataset(train, csv_file="mixup.csv",train=False)
+    mixup_ds = PyhaDFDataset(train, csv_file="mixup.csv",train=False)
     mixup = Mixup(mixup_ds)
 
     if transforms is not None:
         train_ds.set_transforms(transforms)
         train_ds.set_mixup(mixup)
 
-    valid_ds = PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, species=species)
+    valid_ds = PyhaDFDataset(valid, csv_file="valid.csv",train=False, species=species)
     return train_ds, valid_ds
 
 def main():

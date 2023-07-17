@@ -10,27 +10,32 @@
 """
 import datetime
 import os
-from typing import Any, Dict, Tuple
+from typing import Any, Tuple
 
 import config
-import numpy as np
-import torch
-import torch.nn.functional as F
 from augmentations import SyntheticNoise
 from dataset import get_datasets
-from models.early_stopper import EarlyStopper
-from models.timm_model import TimmModel
+from utils import print_verbose, set_seed
+
 from torch.amp.autocast_mode import autocast
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from utils import print_verbose, set_seed
-
+import numpy as np
+import torch
+import torch.nn.functional as F
+from torchmetrics.classification import MultilabelAveragePrecision
 import wandb
+
+from models.early_stopper import EarlyStopper
+from models.timm_model import TimmModel
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+if torch.cuda.is_available():
+    DEVICE = "cuda"
+else:
+    DEVICE = "cpu"
 cfg = config.cfg
 
 def check_shape(outputs, labels):
@@ -67,7 +72,7 @@ def train(model: Any,
     running_loss = 0
     log_n = 0
     log_loss = 0
-    mAP = 0
+    log_map = 0
     
     #scaler = torch.cuda.amp.GradScaler()
     start_time = datetime.datetime.now()
@@ -78,7 +83,7 @@ def train(model: Any,
         mels = mels.to(DEVICE)
         labels = labels.to(DEVICE)
         
-        with autocast(device_type=device, dtype=torch.float16, enabled=cfg.mixed_precision):
+        with autocast(device_type=DEVICE, dtype=torch.float16, enabled=cfg.mixed_precision):
             outputs = model(mels)
             check_shape(outputs, labels)
             loss = model.loss_fn(outputs, labels)
@@ -87,7 +92,7 @@ def train(model: Any,
 
         if cfg.mixed_precision:
             # Pyright complains about scaler.scale(loss) returning iterable of unknown types
-            # This is a problem in the pytorch typing, documentation says it returns iterables of Tensors
+            # Problem in the pytorch typing, documentation says it returns iterables of Tensors
             #  keep if needed - noqa: reportGeneralTypeIssues 
             scaler.scale(loss).backward()  # type: ignore
             scaler.step(optimizer)
@@ -104,14 +109,14 @@ def train(model: Any,
         map_metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
         out_for_score = outputs.detach().cpu()
         labels_for_score = labels.detach().cpu().long()
-        batch_mAP = map_metric(out_for_score, labels_for_score).item()
+        batch_map = map_metric(out_for_score, labels_for_score).item()
 
         # https://forums.fast.ai/t/nan-values-when-using-precision-in-multi-classification/59767/2
         # Could be possible when model is untrained so we only have FNs
-        if np.isnan(batch_mAP):
-            batch_mAP = 0
+        if np.isnan(batch_map):
+            batch_map = 0
         
-        mAP += batch_mAP
+        log_map += batch_map
 
         log_loss += loss.item()
         log_n += 1
@@ -125,7 +130,7 @@ def train(model: Any,
             #Log to Weights and Biases
             wandb.log({
                 "train/loss": log_loss / log_n,
-                "train/mAP": mAP / log_n,
+                "train/mAP": log_map / log_n,
                 "i": i,
                 "epoch": epoch,
                 "clips/sec": annotations_per_sec,
@@ -134,11 +139,11 @@ def train(model: Any,
             print("i:", str(i).zfill(5), "epoch:", round(epoch_progress,3),
                   "clips/s:", str(round(annotations_per_sec,3)).ljust(7), 
                   "Loss:", str(round(log_loss / log_n,3)).ljust(5), 
-                  "mAP:", str(round(mAP / log_n,3)).ljust(5),
+                  "mAP:", str(round(log_map / log_n,3)).ljust(5),
             )
             log_loss = 0
             log_n = 0
-            mAP = 0
+            log_map = 0
 
         if (i != 0 and i % (cfg.valid_freq) == 0):
             valid_start_time = datetime.datetime.now()
@@ -181,19 +186,19 @@ def valid(model: Any,
     num_valid_samples = int(len(data_loader)*dataset_ratio)
 
     # tqdm is a progress bar
-    dl = tqdm(data_loader, position=5, total=num_valid_samples)
+    dl_iter = tqdm(data_loader, position=5, total=num_valid_samples)
 
     if cfg.map_debug and cfg.model_checkpoint is not None:
         pred = torch.load("/".join(cfg.model_checkpoint.split('/')[:-1]) + '/pred.pt')
         label = torch.load("/".join(cfg.model_checkpoint.split('/')[:-1]) + '/label.pt')
     else:
         with torch.no_grad():
-            for index, (mels, labels) in enumerate(dl):
-                if index > len(dl) * dataset_ratio:
+            for index, (mels, labels) in enumerate(dl_iter):
+                if index > len(dl_iter) * dataset_ratio:
                     # Stop early if not doing full validation
                     break
-                mels = mels.to(device)
-                labels = labels.to(device)
+                mels = mels.to(DEVICE)
+                labels = labels.to(DEVICE)
                 
                 # argmax
                 outputs = model(mels)
@@ -214,7 +219,7 @@ def valid(model: Any,
                 torch.save(label, "/".join(cfg.model_checkpoint.split('/')[:-1]) + '/label.pt')
 
     # softmax predictions
-    pred = F.softmax(pred).to(device)
+    pred = F.softmax(pred).to(DEVICE)
 
     #metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
     #valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
@@ -289,7 +294,7 @@ def main():
     """ Main function
     """
     torch.multiprocessing.set_start_method('spawn')
-    print("Device is: ",device)
+    print("Device is: ",DEVICE)
     init_wandb()
     assert wandb.run is not None
     set_seed(cfg.seed)
@@ -303,7 +308,7 @@ def main():
 
     print("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
-                              model_name=cfg.model).to(device)
+                              model_name=cfg.model).to(DEVICE)
     model_for_run.create_loss_fn(train_dataset)
     if cfg.model_checkpoint != "":
         model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))
