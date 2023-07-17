@@ -140,7 +140,8 @@ def train(model: Any,
         #     batch_mr = 0
         # if np.isnan(batch_mp):
         #     batch_mp = 0
-        # mAP += batch_mAP
+        
+        mAP += batch_mAP
         # mR += batch_mr
         # mP += batch_mp
 
