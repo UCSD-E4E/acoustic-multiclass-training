@@ -257,8 +257,8 @@ def valid(model: Any,
     out_for_score = pred.detach().cpu()
     labels_for_score = label.detach().cpu().long()
     valid_map = map_metric(out_for_score, labels_for_score).item()
-    valid_mr = mar_metric(out_for_score, labels_for_score).item()
-    valid_mp = mar_metric(out_for_score, labels_for_score).item()
+    valid_mr = mr_metric(out_for_score, labels_for_score).item()
+    valid_mp = mp_metric(out_for_score, labels_for_score).item()
 
     # Log to Weights and Biases
     wandb.log({
