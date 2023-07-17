@@ -1,6 +1,6 @@
 """ Contains methods for loading the dataset and creates dataloaders for training and validation
 
-    BirdCLEFDataset is a generic loader with a given root directory.
+    PyHaDataset is a generic loader with a given root directory.
     It loads the audio files and converts them to mel spectrograms.
     get_datasets returns the train and validation datasets as BirdCLEFDataset objects.
 
@@ -8,7 +8,7 @@
 
 """
 import os
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -37,17 +37,18 @@ class PyhaDFDataset(Dataset):
         Save unchunked data
     """
 
-    # df, csv_file, train, and species decided outside of config, so those cannot be added in there
+    # df, train, and species decided outside of config, so those cannot be added in there
     # pylint: disable-next=too-many-arguments
-    def __init__(self, df, csv_file="test.csv", train=True, species=None):
+    def __init__(self, 
+                 df: pd.DataFrame,
+                 train: bool=True,
+                 species: Optional[Tuple[List[str], Dict[str, int]]]=None
+                 ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
-        self.csv_file = csv_file
-        self.formatted_csv_file = "not yet formatted"
         self.target_sample_rate = cfg.sample_rate
         num_samples = self.target_sample_rate * cfg.max_time
         self.num_samples = num_samples
         self.train = train
-
 
         self.mel_spectogram = audtr.MelSpectrogram(sample_rate=self.target_sample_rate,
                                         n_mels=cfg.n_mels,
@@ -77,7 +78,7 @@ class PyhaDFDataset(Dataset):
         self.num_classes = len(self.classes)
         self.serialize_data()
 
-    def verify_audio(self):
+    def verify_audio(self) -> None:
         """
         Checks to make sure files exist that are referenced in input df
         """
@@ -89,7 +90,7 @@ class PyhaDFDataset(Dataset):
             ~self.samples[cfg.file_name_col].isin(missing_files)
         ]
 
-    def process_audio_file(self, file_name):
+    def process_audio_file(self, file_name: str) -> pd.Series:
         """
         Save waveform of audio file as a tensor and save that tensor to .pt
         """
@@ -140,7 +141,7 @@ class PyhaDFDataset(Dataset):
             }).T
 
 
-    def serialize_data(self):
+    def serialize_data(self) -> None:
         """
         For each file, check to see if the file is already a presaved tensor
         If the files is not a presaved tensor and is an audio file, convert to tensor to make
@@ -171,9 +172,6 @@ class PyhaDFDataset(Dataset):
             self.samples[cfg.file_name_col] = self.samples["files_y"].copy()
         
         self.samples["original_file_path"] = self.samples[cfg.file_name_col]
-
-        self.formatted_csv_file = ".".join(self.csv_file.split(".")[:-1]) + "formatted.csv"
-        self.samples.to_csv(self.formatted_csv_file)
 
     def get_annotation(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Returns tuple of audio waveform and its one-hot label
@@ -233,7 +231,7 @@ class PyhaDFDataset(Dataset):
     def __len__(self):
         return self.samples.shape[0]
 
-    def __getitem__(self, index): #-> Any:
+    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
 
@@ -328,7 +326,8 @@ class PyhaDFDataset(Dataset):
         return self.num_classes
 
 
-def get_datasets(transforms = None):
+def get_datasets(transforms: Optional[torch.nn.Sequential] = None
+                 ) -> Tuple[PyhaDFDataset, PyhaDFDataset]:
     """ Returns train and validation datasets
     Does random sampling for train/valid split
     Adds transforms to dataset
@@ -356,20 +355,20 @@ def get_datasets(transforms = None):
 
     valid = data[~data.index.isin(train.index)]
 
-    train_ds = PyhaDFDataset(train, csv_file="train.csv")
+    train_ds = PyhaDFDataset(train)
     species = train_ds.get_classes()
 
-    mixup_ds = PyhaDFDataset(train, csv_file="mixup.csv",train=False)
+    mixup_ds = PyhaDFDataset(train, train=False)
     mixup = Mixup(mixup_ds)
 
     if transforms is not None:
         train_ds.set_transforms(transforms)
         train_ds.set_mixup(mixup)
 
-    valid_ds = PyhaDFDataset(valid, csv_file="valid.csv",train=False, species=species)
+    valid_ds = PyhaDFDataset(valid, train=False, species=species)
     return train_ds, valid_ds
 
-def main():
+def main() -> None:
     """
     testing function.
     """

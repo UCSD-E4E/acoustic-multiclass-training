@@ -38,7 +38,7 @@ else:
     DEVICE = "cpu"
 cfg = config.cfg
 
-def check_shape(outputs, labels):
+def check_shape(outputs: torch.Tensor, labels: torch.Tensor) -> None:
     """
     Checks to make sure the output is the same
     """
@@ -251,7 +251,7 @@ def valid(model: Any,
     return running_loss/len(data_loader), valid_map, best_valid_map
 
 
-def init_wandb():
+def init_wandb() -> Any:
     """
     Initialize the weights and biases logging
     """
@@ -290,7 +290,7 @@ def load_datasets(train_dataset, val_dataset
     )
     return train_dataloader, val_dataloader
 
-def main():
+def main() -> None:
     """ Main function
     """
     torch.multiprocessing.set_start_method('spawn')
