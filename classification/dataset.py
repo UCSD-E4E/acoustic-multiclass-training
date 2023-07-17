@@ -26,6 +26,7 @@ import pandas as pd
 import numpy as np
 
 from utils import set_seed, print_verbose
+import utils
 from config import get_config
 from tqdm import tqdm
 from augmentations import Mixup, add_mixup
@@ -239,8 +240,15 @@ class PyhaDF_Dataset(Dataset):
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
 
-        audio, target = self.get_annotation(index)
-        
+        audio, target = utils.get_annotation(
+                df = self.samples,
+                index = index,
+                class_to_idx = self.class_to_idx,
+                sample_rate = self.target_sample_rate,
+                target_num_samples = self.num_samples,
+                device = device,
+                config = self.config)
+
         # Randomly shift audio
         if self.train and torch.rand(1) < self.config.time_shift_p:
             shift = torch.randint(0, self.num_samples, (1,))
