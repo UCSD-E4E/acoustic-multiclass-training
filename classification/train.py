@@ -133,6 +133,7 @@ def train(model: Any,
             batch_mar = 0
         mAP += batch_mAP
         mAR += batch_mar
+        print(mAR, batch_mAR)
 
         log_loss += loss.item()
         log_n += 1
@@ -267,7 +268,7 @@ def valid(model: Any,
         torch.save(model.state_dict(), path)
         print("Model saved in:", path)
         print(f"Validation mAP Improved - {best_valid_map} ---> {valid_map}")
-        best_valid_map = valid_map.item()
+        best_valid_map = valid_map
 
     
     return running_loss/len(data_loader), valid_map, best_valid_map
