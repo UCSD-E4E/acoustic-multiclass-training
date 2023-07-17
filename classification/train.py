@@ -139,10 +139,11 @@ def train(model: Any,
                 "clips/sec": annotations_per_sec,
                 "epoch_progress": epoch_progress,
             })
-            print("i:", str(i).zfill(5), "epoch:", round(epoch_progress,3),
-                  "clips/s:", str(round(annotations_per_sec,3)).ljust(7), 
-                  "Loss:", str(round(log_loss / log_n,3)).ljust(5), 
-                  "mAP:", str(round(mAP / log_n,3)).ljust(5),
+            print("i:", str(i).zfill(5), "  ",
+                  "epoch:", str(round(epoch_progress,3)).ljust(7), "  ",
+                  "clips/s:", str(round(annotations_per_sec,3)).ljust(7), "  ", 
+                  "Loss:", str(round(log_loss / log_n,3)).ljust(5), "  ",
+                  "mAP:", str(round(mAP / log_n,3)).ljust(5), "  ",
             )
             log_loss = 0
             log_n = 0
