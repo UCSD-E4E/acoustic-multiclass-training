@@ -149,7 +149,7 @@ def train(model: Any,
 
         if (i != 0 and i % (cfg.logging_freq) == 0) or i == len(data_loader) - 1:
             mR = mr_metric(torch.cat(ouputs_list), torch.cat(labels_list)).item()
-            mP = mp_metric(torch.cat(ouputs_list),  torch.cat(labels_list)).item()
+            mP = mp_metric(torch.cat(ouputs_list), torch.cat(labels_list)).item()
             
             duration = (datetime.datetime.now() - start_time).total_seconds()
             start_time = datetime.datetime.now()
@@ -160,8 +160,8 @@ def train(model: Any,
             wandb.log({
                 "train/loss": log_loss / log_n,
                 "train/mAP": mAP / log_n,
-                "train/mR": mR / log_n,
-                "train/mP": mP / log_n,
+                "train/mR": mR,
+                "train/mP": mP,
                 "i": i,
                 "epoch": epoch,
                 "clips/sec": annotations_per_sec,
@@ -171,8 +171,8 @@ def train(model: Any,
                   "clips/s:", str(round(annotations_per_sec,3)).ljust(7), 
                   "Loss:", str(round(log_loss / log_n,3)).ljust(5), 
                   "mAP:", str(round(mAP / log_n,3)).ljust(5),
-                  "mR:", str(round(mR / log_n,3)).ljust(5),
-                  "mP:", str(round(mP / log_n,3)).ljust(5)
+                  "mR:", str(round(mR,3)).ljust(5),
+                  "mP:", str(round(mP,3)).ljust(5)
             )
             log_loss = 0
             log_n = 0
