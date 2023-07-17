@@ -76,6 +76,7 @@ def train(model: Any,
     log_loss = 0
     mAP = 0
 
+
     start_time = datetime.datetime.now()
     
     scaler = torch.cuda.amp.grad_scaler.GradScaler()
