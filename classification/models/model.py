@@ -34,7 +34,7 @@ def bce_loss_fn(self, without_logits=False):
     BCEwithLogitsLoss
     """
     if not without_logits:
-        self.loss_fn = nn.BCEWithLogitsLoss(reduction='sum')
+        self.loss_fn = nn.BCEWithLogitsLoss(reduction='mean')
         print_verbose("BCEWL", cfg.loss_fnc, verbose=cfg.verbose)
     else:
         self.loss_fn = nn.BCELoss()
