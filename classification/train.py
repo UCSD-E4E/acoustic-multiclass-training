@@ -219,7 +219,7 @@ def valid(model: Any,
                 torch.save(label, "/".join(cfg.model_checkpoint.split('/')[:-1]) + '/label.pt')
 
     # softmax predictions
-    pred = F.softmax(pred).to(DEVICE)
+    pred = F.sigmoid(pred).to(DEVICE)
 
     #metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
     #valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
