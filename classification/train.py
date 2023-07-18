@@ -240,7 +240,9 @@ def valid(model: Any,
         "epoch_progress": epoch_progress,
     })
 
-    logger.info(f"Validation Loss:\t{running_loss/len(data_loader)} \n Validation mAP:\t{valid_map}" )
+    logger.info("Validation Loss:\t%f\nValidation mAP:\t%f", 
+                running_loss/len(data_loader),
+                valid_map)
 
     if valid_map > best_valid_map:
         path = os.path.join("models", f"{cfg.model}-{time_now}.pt")
@@ -295,6 +297,9 @@ def load_datasets(train_dataset, val_dataset
     return train_dataloader, val_dataloader
 
 def logging_setup() -> None:
+    """ Setup logging on the main process
+    Display config information
+    """
     file_handler = logging.FileHandler("recent.log", mode='w')
     file_handler.setLevel(logging.DEBUG)
     logger.addHandler(file_handler)
@@ -333,7 +338,7 @@ def main() -> None:
     best_valid_map = 0
     early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
     for epoch in range(cfg.epochs):
-        logger.info("Epoch " + str(epoch))
+        logger.info("Epoch %d", epoch)
 
         _, best_valid_map = train(
             model_for_run,
@@ -351,7 +356,7 @@ def main() -> None:
 
         logger.info("Best validation map: %f", best_valid_map)
         if cfg.early_stopping and early_stopper.early_stop(valid_map):
-            logger.info("Early stopping has triggered on epoch", epoch)
+            logger.info("Early stopping has triggered on epoch %d", epoch)
             break
 
         
