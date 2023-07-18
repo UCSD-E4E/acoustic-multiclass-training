@@ -128,9 +128,9 @@ def noise_generator(func: Callable):
     return lambda N: gen_noise(N, func)
 
 @noise_generator
-def white_noise(_: torch.Tensor):
+def white_noise(vec: torch.Tensor):
     """White noise PSD shape"""
-    return 1
+    return torch.ones(vec.shape) 
 
 @noise_generator
 def blue_noise(vec: torch.Tensor):
