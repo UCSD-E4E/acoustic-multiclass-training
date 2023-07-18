@@ -14,7 +14,6 @@ manual_id_col: "MANUAL ID"
 train_batch_size: 4
 validation_batch_size: 4
 jobs: 2
-verbose: false
 valid_freq: 2000
 mixed_precision: true
 valid_dataset_ratio: 0.3
