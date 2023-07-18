@@ -71,12 +71,12 @@ def one_hot(tensor, num_classes, on_value=1., off_value=0.):
 def get_annotation(df: pd.DataFrame, 
         index: int,
         class_to_idx: Dict[str, Any], 
-        sample_rate: int,
-        target_num_samples: int,
         device) -> Tuple[torch.Tensor, torch.Tensor]:
     """ Returns tuple of audio waveform and its one-hot label
     """
     #annotation = self.samples.iloc[index]
+    sample_rate = cfg.sample_rate
+    target_num_samples = cfg.sample_rate * cfg.max_time
     annotation = df.iloc[index]
     file_name = annotation[cfg.file_name_col]
 

@@ -29,16 +29,12 @@ class Mixup(torch.nn.Module):
             self, 
             df: pd.DataFrame, 
             class_to_idx: Dict[str, Any],
-            sample_rate: int,
-            target_num_samples: int,
-            alpha_range: Tuple[float,float]=(0.1, 0.4), 
-            p: float=0.4,
+            alpha_range: Tuple[float,float] = cfg.mixup_alpha_range,
+            p: float=cfg.mixup_p,
             ):
         super().__init__()
         self.df = df
         self.class_to_idx = class_to_idx
-        self.sample_rate = sample_rate
-        self.target_num_samples = target_num_samples
         self.alpha_range = alpha_range
         self.prob = p
 
@@ -65,8 +61,6 @@ class Mixup(torch.nn.Module):
                     df = self.df,
                     index = other_idx, 
                     class_to_idx = self.class_to_idx, 
-                    sample_rate = self.sample_rate, 
-                    target_num_samples = self.target_num_samples, 
                     device = clip.device)
         except RuntimeError:
             print('Error loading other clip, mixup not performed')
@@ -75,30 +69,6 @@ class Mixup(torch.nn.Module):
         mixed_target = (1 - alpha) * target + alpha * other_target
         return mixed_clip, mixed_target
 
-
-def add_mixup(
-        clip: torch.Tensor, 
-        target: torch.Tensor, 
-        mixup: Mixup, 
-        sequential: torch.nn.Sequential, 
-        idx:int
-        ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Args:
-        clip: Tensor of audio data
-        target: Tensor representing label
-        sequential: Object containing all other data augmentations to
-        be performed
-        idx: Index at which to perform mixup
-
-    Returns: clip, target with all transforms and mixup applied
-    """
-    head = sequential[:idx]
-    tail = sequential[idx:]
-    clip = head(clip)
-    clip, target = mixup(clip, target)
-    clip = tail(clip)
-    return clip, target
 
 def gen_noise(num_samples: int, psd_shape_func: Callable) -> torch.Tensor:
     """
@@ -165,7 +135,7 @@ class SyntheticNoise(torch.nn.Module):
                    'violet': violet_noise,
                    'blue': blue_noise,
                    'white': white_noise}
-    def __init__(self, noise_type: str, alpha: float):
+    def __init__(self, noise_type: str = cfg.noise_type, alpha: float = cfg.noise_alpha):
         super().__init__()
         self.noise_type = noise_type
         self.alpha = alpha
@@ -193,10 +163,10 @@ class RandomEQ(torch.nn.Module):
         sample_rate: sampling rate of audio
     """
     def __init__(self,
-                 f_range: Tuple[int, int] = (100, 6000),
-                 g_range: Tuple[float, float] = (-8, 8),
-                 q_range: Tuple[float, float] = (1, 9),
-                 num_applications: int = 1):
+                 f_range: Tuple[int, int] = cfg.rand_eq_f_range,
+                 g_range: Tuple[float, float] = cfg.rand_eq_g_range,
+                 q_range: Tuple[float, float] = cfg.rand_eq_q_range,
+                 iters: int = cfg.rand_eq_iters):
         super().__init__()
         self.f_range = f_range
         self.g_range = g_range

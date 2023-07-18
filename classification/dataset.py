@@ -46,12 +46,10 @@ class PyhaDFDataset(Dataset):
                  species: Optional[Tuple[List[str], Dict[str, int]]]=None
                  ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
-        self.target_sample_rate = cfg.sample_rate
-        num_samples = self.target_sample_rate * cfg.max_time
-        self.num_samples = num_samples
+        self.num_samples = cfg.sample_rate * cfg.max_time
         self.train = train
 
-        self.mel_spectogram = audtr.MelSpectrogram(sample_rate=self.target_sample_rate,
+        self.mel_spectogram = audtr.MelSpectrogram(sample_rate=cfg.sample_rate,
                                         n_mels=cfg.n_mels,
                                         n_fft=cfg.n_fft)
         self.mel_spectogram.to(DEVICE) #was cuda (?)
@@ -118,8 +116,8 @@ class PyhaDFDataset(Dataset):
                 audio = self.to_mono(audio)
 
             # Resample
-            if sample_rate != self.target_sample_rate:
-                resample = audtr.Resample(sample_rate, self.target_sample_rate)
+            if sample_rate != cfg.sample_rate:
+                resample = audtr.Resample(sample_rate, cfg.sample_rate)
                 audio = resample(audio)
 
             torch.save(audio, os.path.join(cfg.data_path,new_name))
@@ -174,61 +172,6 @@ class PyhaDFDataset(Dataset):
         
         self.samples["original_file_path"] = self.samples[cfg.file_name_col]
 
-    def get_annotation(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        """ Returns tuple of audio waveform and its one-hot label
-        """
-        annotation = self.samples.iloc[index]
-        file_name = annotation[cfg.file_name_col]
-
-        # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0]
-        class_name = annotation[cfg.manual_id_col]
-
-        def one_hot(x, num_classes, on_value=1., off_value=0.):
-            x = x.long().view(-1, 1)
-            return torch.full((x.size()[0], num_classes), off_value, device=x.device) \
-                .scatter_(1, x, on_value)
-
-        target = one_hot(
-                torch.tensor(self.class_to_idx[class_name]),
-                self.num_classes)[0]
-        target = target.float()
-
-        try:
-            # Get necessary variables from annotation
-            annotation = self.samples.iloc[index]
-            file_name = annotation[cfg.file_name_col]
-            sample_per_sec = self.target_sample_rate
-            frame_offset = int(annotation[cfg.offset_col] * sample_per_sec)
-            num_frames = int(annotation[cfg.duration_col] * sample_per_sec)
-
-            # Load audio
-            audio = torch.load(os.path.join(cfg.data_path,file_name))
-        
-            if audio.shape[0] > num_frames:
-                audio = audio[frame_offset:frame_offset+num_frames]
-            else:
-                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=cfg.verbose)
-
-            # Crop if too long
-            if audio.shape[0] > self.num_samples:
-                audio = self.crop_audio(audio)
-            # Pad if too short
-            if audio.shape[0] < self.num_samples:
-                audio = self.pad_audio(audio)
-        except Exception as exc:
-            print(exc)
-            print(file_name, index)
-            raise RuntimeError("Bad Audio") from exc
-
-        #Assume audio is all mono and at target sample rate
-        #assert audio.shape[0] == 1
-        #assert sample_rate == self.target_sample_rate
-        #audio = self.to_mono(audio) #basically reshapes to col vect
-
-        audio = audio.to(DEVICE)
-        target = target.to(DEVICE)
-        return audio, target
-
     def __len__(self):
         return self.samples.shape[0]
 
@@ -259,18 +202,10 @@ class PyhaDFDataset(Dataset):
                 df = self.samples,
                 index = index,
                 class_to_idx = self.class_to_idx,
-                sample_rate = self.target_sample_rate,
-                target_num_samples = self.num_samples,
                 device = DEVICE)
 
         
-        mixup = Mixup(
-                df = self.samples,
-                class_to_idx = self.class_to_idx,
-                sample_rate = self.target_sample_rate,
-                target_num_samples = self.num_samples,
-                alpha_range = (0.1, 0.4),
-                p = 0.4)
+        mixup = Mixup(self.samples, self.class_to_idx)
         
         if self.train:
             audio, target = mixup(audio, target)
