@@ -60,12 +60,11 @@ def crop_audio(audio: torch.Tensor, num_samples:int) -> torch.Tensor:
     """
     return audio[:num_samples]
 
-def one_hot(tensor, num_classes, on_value=1., off_value=0.):
+def one_hot(t, num_classes, on_value=1., off_value=0.):
     """Return one hot tensor of length num_classes
     """
-    tensor = tensor.long().view(-1, 1)
-    return torch.full((tensor.size()[0], num_classes), off_value, device=tensor.device) \
-                .scatter_(1, tensor, on_value)
+    t = t.long().view(-1, 1)
+    return torch.full((t.size()[0], num_classes), off_value, device=t.device).scatter_(1, t, on_value)
 
 #pylint: disable-next = too-many-arguments
 def get_annotation(df: pd.DataFrame, 

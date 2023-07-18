@@ -261,9 +261,7 @@ class PyhaDFDataset(Dataset):
 
 
 def get_datasets():
-    """ Returns train and validation datasets
-    does random sampling for train/valid split
-    adds transforms to dataset
+    """ Returns train and validation datasets, does random sampling for train/valid split, adds transforms to dataset
     """
     train_p = cfg.train_test_split
     path = cfg.dataframe_csv
@@ -286,10 +284,10 @@ def get_datasets():
     train = data[data[cfg.file_name_col].isin(train_files)]
 
     valid = data[~data.index.isin(train.index)]
-    train_ds = PyhaDFDataset(train)
+    train_ds = PyhaDFDataset(train, csv_file="train.csv")
     species = train_ds.get_classes()
 
-    valid_ds = PyhaDFDataset(valid,train=False, species=species)
+    valid_ds = PyhaDFDataset(valid, csv_file="valid.csv",train=False, species=species)
     return train_ds, valid_ds
 
 def main() -> None:

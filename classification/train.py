@@ -13,6 +13,7 @@ import os
 from typing import Any, Tuple
 
 import config
+from augmentations import SyntheticNoise
 from dataset import get_datasets
 from utils import print_verbose, set_seed
 
