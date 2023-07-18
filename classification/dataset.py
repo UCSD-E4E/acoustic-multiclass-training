@@ -17,12 +17,13 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 import torchaudio
 from torchaudio import transforms as audtr
-from torchvision import transforms as vitr
+from torchvision.transforms import RandomApply
+import torchvision.transforms as vitr
 from tqdm import tqdm
 
 from utils import print_verbose, set_seed, get_annotation
 import config
-from augmentations import Mixup, SyntheticNoise
+from augmentations import Mixup, SyntheticNoise, RandomEQ
 cfg = config.cfg
 
 tqdm.pandas()
@@ -191,11 +192,13 @@ class PyhaDFDataset(Dataset):
     def __getitem__(self, index): #-> Any:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
-        audio_augmentations = vitr.RandomApply(torch.nn.Sequential(
-                SyntheticNoise("white", 0.05)), p=1)
-        image_augmentations = vitr.RandomApply(torch.nn.Sequential(
-                audtr.FrequencyMasking(cfg.freq_mask_param),
-                audtr.TimeMasking(cfg.time_mask_param)), p=0.4)
+        audio_augmentations = torch.nn.Sequential(
+                vitr.RandomApply([SyntheticNoise()], p = cfg.noise_p),
+                vitr.RandomApply([RandomEQ()], p = cfg.rand_eq_p))
+        image_augmentations = torch.nn.Sequential(
+                vitr.RandomApply([audtr.FrequencyMasking(cfg.freq_mask_param)], p=cfg.freq_mask_p),
+                vitr.RandomApply([audtr.TimeMasking(cfg.time_mask_param)], p=cfg.time_mask_p))
+                
 
 
         audio, target = get_annotation(

@@ -139,6 +139,7 @@ class SyntheticNoise(torch.nn.Module):
         super().__init__()
         self.noise_type = noise_type
         self.alpha = alpha
+
     def forward(self, clip: torch.Tensor)->torch.Tensor:
         """
         Args:
@@ -159,19 +160,19 @@ class RandomEQ(torch.nn.Module):
         f_range: tuple of upper and lower bounds for the frequency, in Hz
         g_range: tuple of upper and lower bounds for the gain, in dB
         q_range: tuple of upper and lower bounds for the Q factor
-        num_applications: number of times to randomly EQ a part of the clip
+        iters: number of times to randomly EQ a part of the clip
         sample_rate: sampling rate of audio
     """
     def __init__(self,
                  f_range: Tuple[int, int] = cfg.rand_eq_f_range,
                  g_range: Tuple[float, float] = cfg.rand_eq_g_range,
                  q_range: Tuple[float, float] = cfg.rand_eq_q_range,
-                 iters: int = cfg.rand_eq_iters):
+                 iterationss: int = cfg.rand_eq_iters):
         super().__init__()
         self.f_range = f_range
         self.g_range = g_range
         self.q_range = q_range
-        self.num_applications = num_applications
+        self.iterationss = iterationss
         self.sample_rate = cfg.sample_rate
 
     def forward(self, clip: torch.Tensor) -> torch.Tensor:
@@ -183,7 +184,7 @@ class RandomEQ(torch.nn.Module):
         Returns: Tensor of audio data with equalizations randomly applied
         according to object parameters
         """
-        for _ in range(self.num_applications):
+        for _ in range(self.iterations):
             frequency = utils.rand(*self.f_range)
             gain = utils.rand(*self.g_range)
             q_val = utils.rand(*self.q_range)
