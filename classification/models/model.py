@@ -8,6 +8,7 @@ import config
 import torch
 from torch import nn
 from utils import print_verbose
+from torchvision.ops import focal_loss
 
 # timm is a library of premade models
 
@@ -40,3 +41,29 @@ def bce_loss_fn(self, without_logits=False):
         self.loss_fn = nn.BCELoss(reduction='mean')
         print_verbose("BCE", cfg.loss_fnc, verbose=cfg.verbose)
     return self.loss_fn
+
+
+def focal_loss_fn(self, alpha: float = 0.25, gamma: float = 2, reduction: str = "sum"):
+    """ Loss used in https://arxiv.org/abs/1708.02002. and 1st place winner of birdclef 2023
+    Code implementation based heavily on https://pytorch.org/vision/main/_modules/torchvision/ops/focal_loss.html
+
+    Focal loss takes BCE loss and uses weight schemes to balance weight between
+    - Easier vs harder examples to classify
+    - Positive or negative examples
+    """
+    def focal_loss_temp(
+            inputs: torch.Tensor,
+            targets: torch.Tensor
+    ) -> callable:
+        
+        return focal_loss(
+            input=inputs,
+            targets=targets,
+            alpha=alpha,
+            gamma=gamma,
+            reduction=reduction
+        )
+    
+    self.loss_fn = focal_loss_temp
+    return self.loss_fn
+
