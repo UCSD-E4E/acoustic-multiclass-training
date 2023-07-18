@@ -133,7 +133,7 @@ class PyhaDFDataset(Dataset):
         # Hence broad exception
         # pylint: disable-next=W0718
         except Exception as exc:
-            logger.warning("%s is bad %s", file_name, exc)
+            logger.debug("%s is bad %s", file_name, exc)
             return pd.Series({
                 "FILE NAME": file_name,    
                 "files": "bad"
