@@ -1,7 +1,6 @@
 """ 
     Stores useful functions for the classification module 
     Methods:
-        print_verbose: prints the arguments if verbose is set to True
 
 """
 

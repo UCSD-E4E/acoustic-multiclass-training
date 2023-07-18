@@ -87,7 +87,8 @@ class PyhaDFDataset(Dataset):
         missing_files = pd.Series(self.samples[cfg.file_name_col].unique()) \
             .progress_apply(lambda file: "good" if file in self.data_dir else file)
         missing_files = missing_files[missing_files != "good"].unique()
-        print("ignoring", missing_files.shape[0], "missing files")
+        if missing_files.shape[0] > 0:
+            logger.info("ignoring %d missing files", missing_files.shape[0])
         self.samples = self.samples[
             ~self.samples[cfg.file_name_col].isin(missing_files)
         ]
@@ -155,7 +156,7 @@ class PyhaDFDataset(Dataset):
         )
         files = files["files"].progress_apply(self.process_audio_file)
 
-        print(files.shape, flush=True)
+        logger.debug("%s", str(files.shape))
 
         num_files = files.shape[0]
         if num_files == 0:
@@ -207,8 +208,6 @@ class PyhaDFDataset(Dataset):
         
             if audio.shape[0] > num_frames:
                 audio = audio[frame_offset:frame_offset+num_frames]
-            else:
-                logger.debug("SHOULD BE SMALL DELETE LATER: %s", str(audio.shape))
 
             # Crop if too long
             if audio.shape[0] > self.num_samples:
@@ -217,8 +216,8 @@ class PyhaDFDataset(Dataset):
             if audio.shape[0] < self.num_samples:
                 audio = self.pad_audio(audio)
         except Exception as exc:
-            print(exc)
-            print(file_name, index)
+            logger.error("%s", str(exc))
+            logger.error("%s %d", file_name, index)
             raise RuntimeError("Bad Audio") from exc
 
         #Assume audio is all mono and at target sample rate
@@ -283,7 +282,7 @@ class PyhaDFDataset(Dataset):
             image = self.time_mask(image)
 
         if image.isnan().any():
-            print("ERROR IN ANNOTATION #", index)
+            logger.error("ERROR IN ANNOTATION #%s", index)
             self.bad_files.append(index)
             #try again with a diff annotation to avoid training breaking
             image, target = self[self.samples.sample(1).index[0]]

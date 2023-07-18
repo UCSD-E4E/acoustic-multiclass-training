@@ -45,8 +45,8 @@ def check_shape(outputs: torch.Tensor, labels: torch.Tensor) -> None:
     Checks to make sure the output is the same
     """
     if outputs.shape != labels.shape:
-        print(outputs.shape)
-        print(labels.shape)
+        logger.info(outputs.shape)
+        logger.info(labels.shape)
         raise RuntimeError("Shape diff between output of models and labels, see above and debug")
 
 
@@ -138,10 +138,12 @@ def train(model: Any,
                 "clips/sec": annotations_per_sec,
                 "epoch_progress": epoch_progress,
             })
-            print("i:", str(i).zfill(5), "epoch:", round(epoch_progress,3),
-                  "clips/s:", str(round(annotations_per_sec,3)).ljust(7), 
-                  "Loss:", str(round(log_loss / log_n,3)).ljust(5), 
-                  "mAP:", str(round(log_map / log_n,3)).ljust(5),
+            logger.info("i: %s   epoch: %s   clips/s: %s   Loss: %s   mAP: %s",
+                str(i).zfill(5),
+                round(epoch_progress,3),
+                str(round(annotations_per_sec,3)).ljust(7), 
+                str(round(log_loss / log_n,3)).ljust(5), 
+                str(round(log_map / log_n,3)).ljust(5)
             )
             log_loss = 0
             log_n = 0
@@ -238,15 +240,15 @@ def valid(model: Any,
         "epoch_progress": epoch_progress,
     })
 
-    print(f"Validation Loss:\t{running_loss/len(data_loader)} \n Validation mAP:\t{valid_map}" )
+    logger.info(f"Validation Loss:\t{running_loss/len(data_loader)} \n Validation mAP:\t{valid_map}" )
 
     if valid_map > best_valid_map:
         path = os.path.join("models", f"{cfg.model}-{time_now}.pt")
         if not os.path.exists("models"):
             os.mkdir("models")
         torch.save(model.state_dict(), path)
-        print("Model saved in:", path)
-        print(f"Validation mAP Improved - {best_valid_map} ---> {valid_map}")
+        logger.info("Model saved in: %s", path)
+        logger.info("Validation mAP Improved - %f ---> %f", best_valid_map, valid_map)
         best_valid_map = valid_map
 
     
@@ -292,23 +294,32 @@ def load_datasets(train_dataset, val_dataset
     )
     return train_dataloader, val_dataloader
 
+def logging_setup() -> None:
+    file_handler = logging.FileHandler("recent.log", mode='w')
+    file_handler.setLevel(logging.DEBUG)
+    logger.addHandler(file_handler)
+    logger.debug("Debug logging enabled")
+    logger.debug("Config: %s", cfg.config_dict)
+    logger.debug("Git hash: %s", cfg.git_hash)
+
 def main() -> None:
     """ Main function
     """
     torch.multiprocessing.set_start_method('spawn')
-    print("Device is: ",DEVICE)
+    logger.info("Device is: %s",DEVICE)
     init_wandb()
+    logging_setup()
     assert wandb.run is not None
     set_seed(cfg.seed)
 
     # Load in dataset
-    print("Loading Dataset")
+    logger.info("Loading Dataset")
     # for future can use torchvision.transforms.RandomApply here
     transforms = torch.nn.Sequential(SyntheticNoise("white", 0.05))
     train_dataset, val_dataset = get_datasets(transforms=transforms)
     train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset)
 
-    print("Loading Model...")
+    logger.info("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
                               model_name=cfg.model).to(DEVICE)
     model_for_run.create_loss_fn(train_dataset)
@@ -316,13 +327,13 @@ def main() -> None:
         model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))
     optimizer = Adam(model_for_run.parameters(), lr=cfg.learning_rate)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
-    print("Model / Optimizer Loading Successful :P")
+    logger.info("Model / Optimizer Loading Successful :P")
     
-    print("Training")
+    logger.info("Training")
     best_valid_map = 0
     early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
     for epoch in range(cfg.epochs):
-        print("Epoch " + str(epoch))
+        logger.info("Epoch " + str(epoch))
 
         _, best_valid_map = train(
             model_for_run,
@@ -338,9 +349,9 @@ def main() -> None:
                                              epoch + 1.0, 
                                              best_valid_map)
 
-        print("Best validation map:", best_valid_map)
+        logger.info("Best validation map: %f", best_valid_map)
         if cfg.early_stopping and early_stopper.early_stop(valid_map):
-            print("Early stopping has triggered on epoch", epoch)
+            logger.info("Early stopping has triggered on epoch", epoch)
             break
 
         
