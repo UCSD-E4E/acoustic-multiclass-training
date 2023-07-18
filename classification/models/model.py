@@ -4,10 +4,11 @@
 
     note: Models have been moved to thier own python folder
 """
+import config
 import torch
 from torch import nn
 from utils import print_verbose
-import config 
+
 # timm is a library of premade models
 
 

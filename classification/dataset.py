@@ -1,66 +1,60 @@
-# pylint: disable=R0902
-# Disables number of instance attributes
-# Could be simplifed in future and more put into config
-# but for MVP ignore this for now
+""" Contains methods for loading the dataset and creates dataloaders for training and validation
 
-""" Contains methods for loading the dataset and also creates dataloaders for training and validation
-
-    BirdCLEFDataset is a generic loader with a given root directory.
+    PyHaDataset is a generic loader with a given root directory.
     It loads the audio files and converts them to mel spectrograms.
     get_datasets returns the train and validation datasets as BirdCLEFDataset objects.
 
-    If this module is run directly, it tests that the dataloader works and prints the shape of the first batch.
+    If this module is run directly, it tests that the dataloader works
 
 """
 import os
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 import torchaudio
 from torchaudio import transforms as audtr
 from torchvision import transforms as vitr
-import pandas as pd
-
-# Math library imports
-import numpy as np
-
-from utils import set_seed, print_verbose
-import utils
-import config
 from tqdm import tqdm
+
+from utils import print_verbose, set_seed, get_annotation
+import config
 from augmentations import Mixup, SyntheticNoise
-        
 cfg = config.cfg
 
 tqdm.pandas()
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+if torch.cuda.is_available():
+    DEVICE = "cuda"
+else:
+    DEVICE = "cpu"
 
-#https://www.kaggle.com/code/debarshichanda/pytorch-w-b-birdclef-22-starter
-class PyhaDF_Dataset(Dataset):
+# pylint: disable=too-many-instance-attributes
+class PyhaDFDataset(Dataset):
     """
         Dataset designed to work with pyha output
         Save unchunked data
     """
 
-    # df, csv_file, train, and species decided outside of config, so those cannot be added in there
-    # pylint: disable-next=too-many-instance-attributes
+    # df, train, and species decided outside of config, so those cannot be added in there
     # pylint: disable-next=too-many-arguments
-    def __init__(self, df, csv_file="test.csv", train=True, species=None):
+    def __init__(self, 
+                 df: pd.DataFrame,
+                 train: bool=True,
+                 species: Optional[Tuple[List[str], Dict[str, int]]]=None
+                 ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
-        self.csv_file = csv_file
-        self.formatted_csv_file = "not yet formatted"
         self.target_sample_rate = cfg.sample_rate
         num_samples = self.target_sample_rate * cfg.max_time
         self.num_samples = num_samples
         self.train = train
 
-
         self.mel_spectogram = audtr.MelSpectrogram(sample_rate=self.target_sample_rate,
                                         n_mels=cfg.n_mels,
                                         n_fft=cfg.n_fft)
-        self.mel_spectogram.to(device) #was cuda (?)
+        self.mel_spectogram.to(DEVICE) #was cuda (?)
         self.freq_mask = audtr.FrequencyMasking(freq_mask_param=cfg.freq_mask_param)
         self.time_mask = audtr.TimeMasking(time_mask_param=cfg.time_mask_param)
         self.transforms = None
@@ -85,7 +79,7 @@ class PyhaDF_Dataset(Dataset):
         self.num_classes = len(self.classes)
         self.serialize_data()
 
-    def verify_audio(self):
+    def verify_audio(self) -> None:
         """
         Checks to make sure files exist that are referenced in input df
         """
@@ -97,7 +91,7 @@ class PyhaDF_Dataset(Dataset):
             ~self.samples[cfg.file_name_col].isin(missing_files)
         ]
 
-    def process_audio_file(self, file_name):
+    def process_audio_file(self, file_name: str) -> pd.Series:
         """
         Save waveform of audio file as a tensor and save that tensor to .pt
         """
@@ -126,7 +120,6 @@ class PyhaDF_Dataset(Dataset):
             # Resample
             if sample_rate != self.target_sample_rate:
                 resample = audtr.Resample(sample_rate, self.target_sample_rate)
-                #resample.cuda(device)
                 audio = resample(audio)
 
             torch.save(audio, os.path.join(cfg.data_path,new_name))
@@ -149,7 +142,7 @@ class PyhaDF_Dataset(Dataset):
             }).T
 
 
-    def serialize_data(self):
+    def serialize_data(self) -> None:
         """
         For each file, check to see if the file is already a presaved tensor
         If the files is not a presaved tensor and is an audio file, convert to tensor to make
@@ -181,9 +174,60 @@ class PyhaDF_Dataset(Dataset):
         
         self.samples["original_file_path"] = self.samples[cfg.file_name_col]
 
-        self.formatted_csv_file = ".".join(self.csv_file.split(".")[:-1]) + "formatted.csv"
-        self.samples.to_csv(self.formatted_csv_file)
+    def get_annotation(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """ Returns tuple of audio waveform and its one-hot label
+        """
+        annotation = self.samples.iloc[index]
+        file_name = annotation[cfg.file_name_col]
 
+        # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0]
+        class_name = annotation[cfg.manual_id_col]
+
+        def one_hot(x, num_classes, on_value=1., off_value=0.):
+            x = x.long().view(-1, 1)
+            return torch.full((x.size()[0], num_classes), off_value, device=x.device) \
+                .scatter_(1, x, on_value)
+
+        target = one_hot(
+                torch.tensor(self.class_to_idx[class_name]),
+                self.num_classes)[0]
+        target = target.float()
+
+        try:
+            # Get necessary variables from annotation
+            annotation = self.samples.iloc[index]
+            file_name = annotation[cfg.file_name_col]
+            sample_per_sec = self.target_sample_rate
+            frame_offset = int(annotation[cfg.offset_col] * sample_per_sec)
+            num_frames = int(annotation[cfg.duration_col] * sample_per_sec)
+
+            # Load audio
+            audio = torch.load(os.path.join(cfg.data_path,file_name))
+        
+            if audio.shape[0] > num_frames:
+                audio = audio[frame_offset:frame_offset+num_frames]
+            else:
+                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=cfg.verbose)
+
+            # Crop if too long
+            if audio.shape[0] > self.num_samples:
+                audio = self.crop_audio(audio)
+            # Pad if too short
+            if audio.shape[0] < self.num_samples:
+                audio = self.pad_audio(audio)
+        except Exception as exc:
+            print(exc)
+            print(file_name, index)
+            raise RuntimeError("Bad Audio") from exc
+
+        #Assume audio is all mono and at target sample rate
+        #assert audio.shape[0] == 1
+        #assert sample_rate == self.target_sample_rate
+        #audio = self.to_mono(audio) #basically reshapes to col vect
+
+        audio = audio.to(DEVICE)
+        target = target.to(DEVICE)
+        return audio, target
 
     def __len__(self):
         return self.samples.shape[0]
@@ -211,13 +255,13 @@ class PyhaDF_Dataset(Dataset):
                 audtr.TimeMasking(cfg.time_mask_param)), p=0.4)
 
 
-        audio, target = utils.get_annotation(
+        audio, target = get_annotation(
                 df = self.samples,
                 index = index,
                 class_to_idx = self.class_to_idx,
                 sample_rate = self.target_sample_rate,
                 target_num_samples = self.num_samples,
-                device = device)
+                device = DEVICE)
 
         
         mixup = Mixup(
@@ -305,14 +349,13 @@ def get_datasets():
     train = data[data[cfg.file_name_col].isin(train_files)]
 
     valid = data[~data.index.isin(train.index)]
-    train_ds = PyhaDF_Dataset(train, csv_file="train.csv")
+    train_ds = PyhaDFDataset(train, csv_file="train.csv")
     species = train_ds.get_classes()
 
-    valid_ds = PyhaDF_Dataset(valid, csv_file="valid.csv",train=False, species=species)
+    valid_ds = PyhaDFDataset(valid, csv_file="valid.csv",train=False, species=species)
     return train_ds, valid_ds
 
-
-def main():
+def main() -> None:
     """
     testing function.
     """
