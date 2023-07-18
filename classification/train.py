@@ -11,11 +11,12 @@
 import datetime
 import os
 from typing import Any, Tuple
+import logging
 
 import config
 from augmentations import SyntheticNoise
 from dataset import get_datasets
-from utils import print_verbose, set_seed
+from utils import set_seed
 
 from torch.amp.autocast_mode import autocast
 from torch.optim import Adam
@@ -37,6 +38,7 @@ if torch.cuda.is_available():
 else:
     DEVICE = "cpu"
 cfg = config.cfg
+logger = logging.getLogger("acoustic_multiclass_training")
 
 def check_shape(outputs: torch.Tensor, labels: torch.Tensor) -> None:
     """
@@ -66,7 +68,7 @@ def train(model: Any,
             loss: the average loss over the epoch
             best_valid_map: the best validation mAP
     """
-    print_verbose('size of data loader:', len(data_loader),verbose=cfg.verbose)
+    logger.debug('size of data loader: %d', len(data_loader))
     model.train()
 
     running_loss = 0

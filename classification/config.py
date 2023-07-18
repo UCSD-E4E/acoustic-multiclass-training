@@ -4,6 +4,7 @@
         get_config: returns an ArgumentParser with the default arguments
 """
 import argparse
+import logging
 import os
 import shutil
 import sys
@@ -14,6 +15,7 @@ import git
 import yaml
 from git import Repo  # pyright: ignore [reportPrivateImportUsage]
 
+logger = logging.getLogger("acoustic_multiclass_training")
 
 class Config():
     """
@@ -98,6 +100,7 @@ class Config():
         """
         parser = argparse.ArgumentParser()
         parser.add_argument('-l', '--logging', action='store_false')
+        parser.add_argument('-d', '--debug', action='store_true')
         
         arg_cfgs = parser.parse_args()
         
@@ -108,6 +111,13 @@ class Config():
         for key in arg_cfgs:
             if self.config_dict[key] == parser.get_default(key):
                 setattr(self, key, arg_cfgs[key])
+        
+        if self.debug:
+            logger.setLevel(logging.DEBUG)
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.DEBUG)
+            logger.addHandler(console_handler)
+            logger.debug("Debug logging enabled")
 
     def required_checks(self, parameter):
         """

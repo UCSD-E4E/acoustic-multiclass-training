@@ -9,6 +9,7 @@
 """
 import os
 from typing import Dict, List, Tuple, Optional
+import logging
 
 import numpy as np
 import pandas as pd
@@ -19,7 +20,7 @@ import torchaudio
 from torchaudio import transforms as audtr
 from tqdm import tqdm
 
-from utils import print_verbose, set_seed
+from utils import set_seed
 import config
 from augmentations import Mixup, add_mixup
 cfg = config.cfg
@@ -29,6 +30,7 @@ if torch.cuda.is_available():
     DEVICE = "cuda"
 else:
     DEVICE = "cpu"
+logger = logging.getLogger("acoustic_multiclass_training")
 
 # pylint: disable=too-many-instance-attributes
 class PyhaDFDataset(Dataset):
@@ -127,8 +129,8 @@ class PyhaDFDataset(Dataset):
         # removed from training so it isn't stopped after hours of time
         # Hence broad exception
         # pylint: disable-next=W0718
-        except Exception as e:
-            print_verbose(file_name, "is bad", e, verbose=cfg.verbose)
+        except Exception as exc:
+            logger.warning("%s is bad %s", file_name, exc)
             return pd.Series({
                 "FILE NAME": file_name,    
                 "files": "bad"
@@ -164,7 +166,7 @@ class PyhaDFDataset(Dataset):
                        left_on=cfg.file_name_col,
                        right_on="FILE NAME").dropna()
     
-        print_verbose("Serialized form, fixed size:", self.samples.shape, verbose=cfg.verbose)
+        logger.debug("Serialized form, fixed size: %s", str(self.samples.shape))
 
         if "files" in self.samples.columns:
             self.samples[cfg.file_name_col] = self.samples["files"].copy()
@@ -206,7 +208,7 @@ class PyhaDFDataset(Dataset):
             if audio.shape[0] > num_frames:
                 audio = audio[frame_offset:frame_offset+num_frames]
             else:
-                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=cfg.verbose)
+                logger.debug("SHOULD BE SMALL DELETE LATER: %s", str(audio.shape))
 
             # Crop if too long
             if audio.shape[0] > self.num_samples:
