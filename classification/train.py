@@ -13,7 +13,6 @@ import os
 from typing import Any, Tuple
 
 import config
-from augmentations import SyntheticNoise
 from dataset import get_datasets
 from utils import print_verbose, set_seed
 
@@ -301,9 +300,8 @@ def main() -> None:
 
     # Load in dataset
     print("Loading Dataset")
-    # for future can use torchvision.transforms.RandomApply here
-    transforms = torch.nn.Sequential(SyntheticNoise("white", 0.05))
-    train_dataset, val_dataset = get_datasets(transforms=transforms)
+    # pylint: disable=unused-variable
+    train_dataset, val_dataset = get_datasets()
     train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset)
 
     print("Loading Model...")
