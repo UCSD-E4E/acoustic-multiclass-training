@@ -5,9 +5,9 @@ to the mixup function in a torch.nn.Sequential object.
 import os
 import logging
 from pathlib import Path
-from typing import Callable, Tuple
-
+from typing import Tuple, Callable, Dict, Any
 import numpy as np
+import pandas as pd
 import torch
 import torchaudio
 
@@ -25,9 +25,21 @@ class Mixup(torch.nn.Module):
         proportion of new audio in augmented clip
         p: Probability of mixing
     """
-    def __init__(self, dataset, alpha_range: Tuple[float,float]=(0.1, 0.4), p: float=0.4):
+    # pylint: disable-next=too-many-arguments
+    def __init__(
+            self, 
+            df: pd.DataFrame, 
+            class_to_idx: Dict[str, Any],
+            sample_rate: int,
+            target_num_samples: int,
+            alpha_range: Tuple[float,float]=(0.1, 0.4), 
+            p: float=0.4,
+            ):
         super().__init__()
-        self.dataset = dataset
+        self.df = df
+        self.class_to_idx = class_to_idx
+        self.sample_rate = sample_rate
+        self.target_num_samples = target_num_samples
         self.alpha_range = alpha_range
         self.prob = p
 
@@ -48,9 +60,15 @@ class Mixup(torch.nn.Module):
             return clip, target
 
         # Generate random index in dataset
-        other_idx = utils.randint(0, len(self.dataset))
+        other_idx = utils.randint(0, len(self.df))
         try:
-            other_clip, other_target = self.dataset.get_annotation(other_idx)
+            other_clip, other_target = utils.get_annotation(
+                    df = self.df,
+                    index = other_idx, 
+                    class_to_idx = self.class_to_idx, 
+                    sample_rate = self.sample_rate, 
+                    target_num_samples = self.target_num_samples, 
+                    device = clip.device)
         except RuntimeError:
             logger.error('Error loading other clip, mixup not performed')
             return clip, target
@@ -103,34 +121,34 @@ def gen_noise(num_samples: int, psd_shape_func: Callable) -> torch.Tensor:
     noise = white_signal * shape_signal
     return torch.fft.irfft(noise).to('cuda')
 
-def gen_noise_func(func: Callable):
+def noise_generator(func: Callable):
     """
     Given PSD shape function, returns a new function that takes in parameter N
     and generates noise Tensor of length N
     """
     return lambda N: gen_noise(N, func)
 
-@gen_noise_func
+@noise_generator
 def white_noise(_: torch.Tensor):
     """White noise PSD shape"""
     return 1
 
-@gen_noise_func
+@noise_generator
 def blue_noise(vec: torch.Tensor):
     """Blue noise PSD shape"""
     return torch.sqrt(vec)
 
-@gen_noise_func
+@noise_generator
 def violet_noise(vec: torch.Tensor):
     """Violet noise PSD shape"""
     return vec
 
-@gen_noise_func
+@noise_generator
 def brown_noise(vec: torch.Tensor):
     """Brown noise PSD shape"""
     return 1/torch.where(vec == 0, float('inf'), vec)
 
-@gen_noise_func
+@noise_generator
 def pink_noise(vec: torch.Tensor):
     """Pink noise PSD shape"""
     return 1/torch.where(vec == 0, float('inf'), torch.sqrt(vec))
