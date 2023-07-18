@@ -113,7 +113,7 @@ def gen_noise(num_samples: int, psd_shape_func: Callable) -> torch.Tensor:
     white_signal = torch.fft.rfft(torch.rand(num_samples))
     # Adjust frequency amplitudes according to
     # function determining the psd shape
-    shape_signal = torch.from_numpy((np.vectorize(psd_shape_func)(torch.fft.rfftfreq(num_samples))))
+    shape_signal = psd_shape_func(torch.fft.rfftfreq(num_samples))
     # Normalize signal
     shape_signal = shape_signal / torch.sqrt(torch.mean(shape_signal.float()**2))
     # Adjust frequency amplitudes according to noise type
