@@ -140,7 +140,7 @@ def train(model: Any,
             })
             logger.info("i: %s   epoch: %s   clips/s: %s   Loss: %s   mAP: %s",
                 str(i).zfill(5),
-                round(epoch_progress,3),
+                str(round(epoch_progress,3)).ljust(5, '0'),
                 str(round(annotations_per_sec,3)).ljust(7), 
                 str(round(log_loss / log_n,3)).ljust(5), 
                 str(round(log_map / log_n,3)).ljust(5)
