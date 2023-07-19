@@ -25,7 +25,7 @@ from tqdm import tqdm
 from utils import set_seed, get_annotation
 
 import config
-from augmentations import Mixup, SyntheticNoise, RandomEQ, LowpassFilter
+from augmentations import Mixup, SyntheticNoise, RandomEQ, LowpassFilter, BackgroundNoise
 cfg = config.cfg
 
 tqdm.pandas()
@@ -44,7 +44,7 @@ class PyhaDFDataset(Dataset):
 
     # df, train, and species decided outside of config, so those cannot be added in there
     # pylint: disable-next=too-many-arguments
-    def __init__(self, 
+    def __init__(self,
                  df: pd.DataFrame,
                  train: bool=True,
                  species: Optional[Tuple[List[str], Dict[str, int]]]=None
@@ -66,7 +66,7 @@ class PyhaDFDataset(Dataset):
         if not os.path.exists(cfg.data_path):
             raise FileNotFoundError("Data path does not exist")
         self.data_dir = set(os.listdir(cfg.data_path))
-        
+
         #Log bad files
         self.bad_files = []
 
@@ -115,7 +115,7 @@ class PyhaDFDataset(Dataset):
             # https://pytorch.org/audio/stable/tutorials/audio_io_tutorial.html#loading-audio-data
             audio, sample_rate = torchaudio.load(       #pyright: ignore [reportGeneralTypeIssues ]
                 os.path.join(cfg.data_path, file_name)
-            ) 
+            )
 
             if len(audio.shape) > 1:
                 audio = self.to_mono(audio)
@@ -134,13 +134,13 @@ class PyhaDFDataset(Dataset):
         except Exception as exc:
             logger.debug("%s is bad %s", file_name, exc)
             return pd.Series({
-                "FILE NAME": file_name,    
+                "FILE NAME": file_name,
                 "files": "bad"
             }).T
 
 
         return pd.Series({
-                "FILE NAME": file_name,    
+                "FILE NAME": file_name,
                 "files": new_name
             }).T
 
@@ -164,17 +164,17 @@ class PyhaDFDataset(Dataset):
             raise FileNotFoundError("There were no valid filepaths found, check csv")
 
         files = files[files["files"] != "bad"]
-        self.samples = self.samples.merge(files, how="left", 
+        self.samples = self.samples.merge(files, how="left",
                        left_on=cfg.file_name_col,
                        right_on="FILE NAME").dropna()
-    
+
         logger.debug("Serialized form, fixed size: %s", str(self.samples.shape))
 
         if "files" in self.samples.columns:
             self.samples[cfg.file_name_col] = self.samples["files"].copy()
         if "files_y" in self.samples.columns:
             self.samples[cfg.file_name_col] = self.samples["files_y"].copy()
-        
+
         self.samples["original_file_path"] = self.samples[cfg.file_name_col]
 
     def __len__(self):
@@ -199,21 +199,21 @@ class PyhaDFDataset(Dataset):
         audio_augmentations = torch.nn.Sequential(
                 RandomApply([SyntheticNoise(cfg)],  p = cfg.noise_p),
                 RandomApply([RandomEQ(cfg)],        p = cfg.rand_eq_p),
-                RandomApply([LowpassFilter(cfg)],   p = cfg.lowpass_p))
-                RandomApply([BackgroundNoise(cfg)], p = cfg.lowpass_p))
+                RandomApply([LowpassFilter(cfg)],   p = cfg.lowpass_p),
+                RandomApply([BackgroundNoise(cfg)], p = cfg.bg_noise_p))
         image_augmentations = torch.nn.Sequential(
                 RandomApply([audtr.FrequencyMasking(cfg.freq_mask_param)], p=cfg.freq_mask_p),
                 RandomApply([audtr.TimeMasking(cfg.time_mask_param)],      p=cfg.time_mask_p))
-                
+
         audio, target = get_annotation(
                 df = self.samples,
                 index = index,
                 class_to_idx = self.class_to_idx,
                 device = DEVICE)
 
-        
+
         mixup = Mixup(self.samples, self.class_to_idx, cfg)
-        
+
         if self.train:
             audio, target = mixup(audio, target)
             audio = audio_augmentations(audio)
@@ -285,7 +285,7 @@ def get_datasets():
         cfg.manual_id_col: str,
         cfg.offset_col: float,
         cfg.duration_col: float})
-    
+
     #for each species, get a random sample of files for train/valid split
     train_files = data.groupby(cfg.manual_id_col, as_index=False).apply(
         lambda x: pd.Series(x[cfg.file_name_col].unique()).sample(frac=train_p)

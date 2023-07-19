@@ -80,9 +80,8 @@ bg_noise_p: 1
 # Example dataset: BirdVOX at https://dcase.community/challenge2018/task-bird-audio-detection
 # Make sure to delete all bird clips so it is only background noise
 # If path is blank and p=0, background noise will not be used
-background_path: ""
-background_p: 0.0
-background_intensity: 0.2
+bg_noise_path: ""
+bg_noise_alpha: 0.2
 
 # Data augmentation parameters
 noise_type: "white"
