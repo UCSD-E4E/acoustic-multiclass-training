@@ -30,7 +30,7 @@ from models.early_stopper import EarlyStopper
 from models.timm_model import TimmModel
 
 tqdm.pandas()
-time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 
+time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
 if torch.cuda.is_available():
     DEVICE = "cuda"
 else:
@@ -49,7 +49,7 @@ def check_shape(outputs: torch.Tensor, labels: torch.Tensor) -> None:
 
 
 # Splitting this up would be annoying!!!
-# pylint: disable=too-many-statements 
+# pylint: disable=too-many-statements
 # pylint: disable=too-many-locals
 # pylint: disable=too-many-arguments
 def train(model: Any,
@@ -72,7 +72,7 @@ def train(model: Any,
     log_n = 0
     log_loss = 0
     log_map = 0
-    
+
     #scaler = torch.cuda.amp.GradScaler()
     start_time = datetime.datetime.now()
     scaler = torch.cuda.amp.grad_scaler.GradScaler()
@@ -81,7 +81,7 @@ def train(model: Any,
         optimizer.zero_grad()
         mels = mels.to(DEVICE)
         labels = labels.to(DEVICE)
-        
+
         with autocast(device_type=DEVICE, dtype=torch.float16, enabled=cfg.mixed_precision):
             outputs = model(mels)
             check_shape(outputs, labels)
@@ -92,14 +92,14 @@ def train(model: Any,
         if cfg.mixed_precision:
             # Pyright complains about scaler.scale(loss) returning iterable of unknown types
             # Problem in the pytorch typing, documentation says it returns iterables of Tensors
-            #  keep if needed - noqa: reportGeneralTypeIssues 
+            #  keep if needed - noqa: reportGeneralTypeIssues
             scaler.scale(loss).backward()  # type: ignore
             scaler.step(optimizer)
             scaler.update()
         else:
             loss.backward()
             optimizer.step()
-        
+
         if scheduler is not None:
             scheduler.step()
 
@@ -114,7 +114,7 @@ def train(model: Any,
         # Could be possible when model is untrained so we only have FNs
         if np.isnan(batch_map):
             batch_map = 0
-        
+
         log_map += batch_map
 
         log_loss += loss.item()
@@ -136,8 +136,8 @@ def train(model: Any,
                 "epoch_progress": epoch_progress,
             })
             print("i:", str(i).zfill(5), "epoch:", round(epoch_progress,3),
-                  "clips/s:", str(round(annotations_per_sec,3)).ljust(7), 
-                  "Loss:", str(round(log_loss / log_n,3)).ljust(5), 
+                  "clips/s:", str(round(annotations_per_sec,3)).ljust(7),
+                  "Loss:", str(round(log_loss / log_n,3)).ljust(5),
                   "mAP:", str(round(log_map / log_n,3)).ljust(5),
             )
             log_loss = 0
@@ -146,9 +146,9 @@ def train(model: Any,
 
         if (i != 0 and i % (cfg.valid_freq) == 0):
             valid_start_time = datetime.datetime.now()
-            _, _, best_valid_map = valid(model, 
-                                         valid_loader, 
-                                         epoch + i / len(data_loader), 
+            _, _, best_valid_map = valid(model,
+                                         valid_loader,
+                                         epoch + i / len(data_loader),
                                          best_valid_map)
             model.train()
             # Ignore the time it takes to validate in annotations/sec
@@ -198,15 +198,15 @@ def valid(model: Any,
                     break
                 mels = mels.to(DEVICE)
                 labels = labels.to(DEVICE)
-                
+
                 # argmax
                 outputs = model(mels)
                 check_shape(outputs, labels)
-                
+
                 loss = model.loss_fn(outputs, labels)
-                    
+
                 running_loss += loss.item()
-                
+
                 pred.append(outputs.cpu().detach())
                 label.append(labels.cpu().detach())
 
@@ -246,28 +246,14 @@ def valid(model: Any,
         print(f"Validation mAP Improved - {best_valid_map} ---> {valid_map}")
         best_valid_map = valid_map
 
-    
+
     return running_loss/len(data_loader), valid_map, best_valid_map
 
-
-def init_wandb() -> Any:
-    """
-    Initialize the weights and biases logging
-    """
-    run = wandb.init(
-        entity=cfg.wandb_entity,
-        project=cfg.wandb_project,
-        config=cfg.config_dict,
-        mode="online" if cfg.logging else "disabled"
-    )
-
-    assert run is not None
+def set_name(run):
     if cfg.wandb_run_name == "auto":
         # This variable is always defined
         cfg.wandb_run_name = cfg.model # type: ignore
     run.name = f"{cfg.wandb_run_name}-{time_now}"
-
-    return run
 
 def load_datasets(train_dataset, val_dataset
         )-> Tuple[DataLoader, DataLoader]:
@@ -296,19 +282,18 @@ def main(in_sweep = True) -> None:
     print("Device is: ",DEVICE)
 
     set_seed(cfg.seed)
+
     if in_sweep:
+        run = wandb.init(mode="online" if cfg.logging else "disabled")
+        for key, val in dict(wandb.config).items():
+            setattr(cfg, key, val)
+    else:
         run = wandb.init(
             entity=cfg.wandb_entity,
             project=cfg.wandb_project,
-            mode="online" if cfg.logging else "disabled"
-        )
-        for key, val in dict(wandb.config).items():
-            setattr(cfg, key, val)
-        print(f"{cfg.mixup_p=}")
-    else:
-        run = init_wandb()
-        assert wandb.run is not None
-        set_seed(cfg.seed)
+            config=cfg.config_dict,
+            mode="online" if cfg.logging else "disabled")
+    set_name(run)
 
 
     # Load in dataset
@@ -318,7 +303,7 @@ def main(in_sweep = True) -> None:
     train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset)
 
     print("Loading Model...")
-    model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
+    model_for_run = TimmModel(num_classes=train_dataset.num_classes,
                               model_name=cfg.model).to(DEVICE)
     model_for_run.create_loss_fn(train_dataset)
     if cfg.model_checkpoint != "":
@@ -326,7 +311,7 @@ def main(in_sweep = True) -> None:
     optimizer = Adam(model_for_run.parameters(), lr=cfg.learning_rate)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
     print("Model / Optimizer Loading Successful :P")
-    
+
     print("Training")
     best_valid_map = 0
     early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
@@ -342,9 +327,9 @@ def main(in_sweep = True) -> None:
             epoch,
             best_valid_map
         )
-        _, valid_map, best_valid_map = valid(model_for_run, 
-                                             val_dataloader, 
-                                             epoch + 1.0, 
+        _, valid_map, best_valid_map = valid(model_for_run,
+                                             val_dataloader,
+                                             epoch + 1.0,
                                              best_valid_map)
 
         print("Best validation map:", best_valid_map)
@@ -352,6 +337,6 @@ def main(in_sweep = True) -> None:
             print("Early stopping has triggered on epoch", epoch)
             break
 
-        
+
 if __name__ == '__main__':
     main(in_sweep=False)
