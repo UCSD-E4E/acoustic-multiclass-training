@@ -1,8 +1,6 @@
 import wandb
-from train import sweep_main
+from train import main
 import config
-import multiprocessing as mp
-#mp.set_start_method('spawn')
 cfg = config.cfg
 
 
@@ -29,7 +27,4 @@ if __name__ == "__main__":
             sweep_config,
             entity=cfg.wandb_entity,
             project=cfg.wandb_project)
-    #controller = wandb.controller(sweep_id,
-    #        entity=cfg.wandb_entity,
-    #        project=cfg.wandb_project)
-    wandb.agent(sweep_id, function = sweep_main, count=1)
+    wandb.agent(sweep_id, function = main, count=1)
