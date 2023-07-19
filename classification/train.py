@@ -288,15 +288,76 @@ def load_datasets(train_dataset, val_dataset
         num_workers=cfg.jobs,
     )
     return train_dataloader, val_dataloader
+def sweep_main():
+    """ Sweep function
+    """
+    run = wandb.init(
+        entity=cfg.wandb_entity,
+        project=cfg.wandb_project,
+        mode="online" if cfg.logging else "disabled"
+    )
+    torch.multiprocessing.set_start_method('spawn')
+    print("Device is: ",DEVICE)
+    #assert wandb.run is not None
+    set_seed(cfg.seed)
+    print(cfg.mixup_p)
+    print(dir(cfg))
+    print(cfg.__dict__)
+    for key, val in dict(wandb.config).items():
+        setattr(cfg, key, val)
+    print(cfg.__dict__)
+    print(cfg.mixup_p)
 
+
+    # Load in dataset
+    print("Loading Dataset")
+    # pylint: disable=unused-variable
+    train_dataset, val_dataset = get_datasets()
+    train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset)
+
+    print("Loading Model...")
+    model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
+                              model_name=cfg.model).to(DEVICE)
+    model_for_run.create_loss_fn(train_dataset)
+    if cfg.model_checkpoint != "":
+        model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))
+    optimizer = Adam(model_for_run.parameters(), lr=cfg.learning_rate)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
+    print("Model / Optimizer Loading Successful :P")
+    
+    print("Training")
+    best_valid_map = 0
+    early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
+    for epoch in range(cfg.epochs):
+        print("Epoch " + str(epoch))
+
+        _, best_valid_map = train(
+            model_for_run,
+            train_dataloader,
+            val_dataloader,
+            optimizer,
+            scheduler,
+            epoch,
+            best_valid_map
+        )
+        _, valid_map, best_valid_map = valid(model_for_run, 
+                                             val_dataloader, 
+                                             epoch + 1.0, 
+                                             best_valid_map)
+
+        print("Best validation map:", best_valid_map)
+        if cfg.early_stopping and early_stopper.early_stop(valid_map):
+            print("Early stopping has triggered on epoch", epoch)
+            break
 def main() -> None:
     """ Main function
     """
     torch.multiprocessing.set_start_method('spawn')
     print("Device is: ",DEVICE)
-    init_wandb()
+    run = init_wandb()
     assert wandb.run is not None
     set_seed(cfg.seed)
+
 
     # Load in dataset
     print("Loading Dataset")

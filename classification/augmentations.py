@@ -167,12 +167,12 @@ class RandomEQ(torch.nn.Module):
                  f_range: Tuple[int, int] = cfg.rand_eq_f_range,
                  g_range: Tuple[float, float] = cfg.rand_eq_g_range,
                  q_range: Tuple[float, float] = cfg.rand_eq_q_range,
-                 iterationss: int = cfg.rand_eq_iters):
+                 iterations: int = cfg.rand_eq_iters):
         super().__init__()
         self.f_range = f_range
         self.g_range = g_range
         self.q_range = q_range
-        self.iterationss = iterationss
+        self.iterations = iterations
         self.sample_rate = cfg.sample_rate
 
     def forward(self, clip: torch.Tensor) -> torch.Tensor:
