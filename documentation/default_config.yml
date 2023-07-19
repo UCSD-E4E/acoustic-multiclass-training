@@ -1,14 +1,14 @@
 # Acoustic Multiclass Training config file
 
 # Required path related config
-dataframe_csv:
-data_path:
+dataframe_csv: "example_dataset/metadata.csv"
+data_path: "example_dataset/"
 
 # Dataframe column names
 offset_col: "OFFSET"
 duration_col: "DURATION"
 file_name_col: "FILE NAME"
-manual_id_col: "MANUAL ID"
+manual_id_col: "SCIENTIFIC"
 
 # Training params
 train_batch_size: 4
@@ -19,7 +19,7 @@ mixed_precision: true
 valid_dataset_ratio: 0.3
 
 # Logging
-logging: true
+logging: true # Do wandb logging
 logging_freq: 20 # Batches per log
 wandb_entity: "acoustic-species-identification"
 wandb_project: "acoustic-species-reu2023"
