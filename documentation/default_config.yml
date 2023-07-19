@@ -76,7 +76,7 @@ time_mask_p: 0.5
 # Example dataset: BirdVOX at https://dcase.community/challenge2018/task-bird-audio-detection
 # Make sure to delete all bird clips so it is only background noise
 # If the path is left blank, background noise will not be used
-background_folder: ""
+background_path: ""
 background_p: 0.3
 background_intensity: 0.2
 

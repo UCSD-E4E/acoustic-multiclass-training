@@ -16,6 +16,10 @@ import config
 
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
+if torch.cuda.is_available():
+    DEVICE = "cuda"
+else:
+    DEVICE = "cpu"
 
 class Mixup(torch.nn.Module):
     """
@@ -120,7 +124,7 @@ def gen_noise(num_samples: int, psd_shape_func: Callable) -> torch.Tensor:
     shape_signal = shape_signal / torch.sqrt(torch.mean(shape_signal.float()**2))
     # Adjust frequency amplitudes according to noise type
     noise = white_signal * shape_signal
-    return torch.fft.irfft(noise).to('cuda')
+    return torch.fft.irfft(noise).to(DEVICE)
 
 def noise_generator(func: Callable):
     """
@@ -248,7 +252,7 @@ class BackgroundNoise(torch.nn.Module):
             self.noise_clips = [f for f in files if f.endswith(audio_extensions)]
             
 
-    def forward(self, clip: torch.Tensor)->torch.Tensor:
+    def forward(self, clip: torch.Tensor) -> torch.Tensor:
         """
         Mixes clip with noise chosen from noise_path
         Args:
@@ -277,13 +281,14 @@ class BackgroundNoise(torch.nn.Module):
 
         # pryright complains that load isn't called from torchaudio. It is.
         waveform, sample_rate = torchaudio.load(noise_file) #pyright: ignore
+        waveform = waveform[0].to(DEVICE)
         if sample_rate != self.sample_rate:
             waveform = torchaudio.functional.resample(
                     waveform, orig_freq=sample_rate, new_freq=self.sample_rate)
         if self.norm:
             waveform = utils.norm(waveform)
         start_idx = utils.randint(0, len(waveform) - clip_len)
-        return waveform[start_idx, start_idx+clip_len]
+        return waveform[start_idx:start_idx+clip_len]
 
 
 class LowpassFilter(torch.nn.Module):
