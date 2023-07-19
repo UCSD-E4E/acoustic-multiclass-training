@@ -9,6 +9,7 @@
 """
 import os
 from typing import Dict, List, Tuple, Optional
+import logging
 
 import numpy as np
 import pandas as pd
@@ -21,7 +22,8 @@ from torchvision.transforms import RandomApply
 import torchvision.transforms as vitr
 from tqdm import tqdm
 
-from utils import print_verbose, set_seed, get_annotation
+from utils import set_seed, get_annotation
+
 import config
 from augmentations import Mixup, SyntheticNoise, RandomEQ, LowpassFilter
 cfg = config.cfg
@@ -31,6 +33,7 @@ if torch.cuda.is_available():
     DEVICE = "cuda"
 else:
     DEVICE = "cpu"
+logger = logging.getLogger("acoustic_multiclass_training")
 
 # pylint: disable=too-many-instance-attributes
 class PyhaDFDataset(Dataset):
@@ -85,7 +88,8 @@ class PyhaDFDataset(Dataset):
         missing_files = pd.Series(self.samples[cfg.file_name_col].unique()) \
             .progress_apply(lambda file: "good" if file in self.data_dir else file)
         missing_files = missing_files[missing_files != "good"].unique()
-        print("ignoring", missing_files.shape[0], "missing files")
+        if missing_files.shape[0] > 0:
+            logger.info("ignoring %d missing files", missing_files.shape[0])
         self.samples = self.samples[
             ~self.samples[cfg.file_name_col].isin(missing_files)
         ]
@@ -127,8 +131,8 @@ class PyhaDFDataset(Dataset):
         # removed from training so it isn't stopped after hours of time
         # Hence broad exception
         # pylint: disable-next=W0718
-        except Exception as e:
-            print_verbose(file_name, "is bad", e, verbose=cfg.verbose)
+        except Exception as exc:
+            logger.debug("%s is bad %s", file_name, exc)
             return pd.Series({
                 "FILE NAME": file_name,    
                 "files": "bad"
@@ -153,7 +157,7 @@ class PyhaDFDataset(Dataset):
         )
         files = files["files"].progress_apply(self.process_audio_file)
 
-        print(files.shape, flush=True)
+        logger.debug("%s", str(files.shape))
 
         num_files = files.shape[0]
         if num_files == 0:
@@ -164,7 +168,7 @@ class PyhaDFDataset(Dataset):
                        left_on=cfg.file_name_col,
                        right_on="FILE NAME").dropna()
     
-        print_verbose("Serialized form, fixed size:", self.samples.shape, verbose=cfg.verbose)
+        logger.debug("Serialized form, fixed size: %s", str(self.samples.shape))
 
         if "files" in self.samples.columns:
             self.samples[cfg.file_name_col] = self.samples["files"].copy()
@@ -193,15 +197,14 @@ class PyhaDFDataset(Dataset):
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
         audio_augmentations = torch.nn.Sequential(
-                RandomApply([SyntheticNoise(cfg)], p = cfg.noise_p),
-                RandomApply([RandomEQ(cfg)],       p = cfg.rand_eq_p),
-                RandomApply([LowpassFilter(cfg)],  p = cfg.lowpass_p))
+                RandomApply([SyntheticNoise(cfg)],  p = cfg.noise_p),
+                RandomApply([RandomEQ(cfg)],        p = cfg.rand_eq_p),
+                RandomApply([LowpassFilter(cfg)],   p = cfg.lowpass_p))
+                RandomApply([BackgroundNoise(cfg)], p = cfg.lowpass_p))
         image_augmentations = torch.nn.Sequential(
                 RandomApply([audtr.FrequencyMasking(cfg.freq_mask_param)], p=cfg.freq_mask_p),
                 RandomApply([audtr.TimeMasking(cfg.time_mask_param)],      p=cfg.time_mask_p))
                 
-
-
         audio, target = get_annotation(
                 df = self.samples,
                 index = index,
@@ -219,7 +222,7 @@ class PyhaDFDataset(Dataset):
             image = image_augmentations(image)
 
         if image.isnan().any():
-            print("ERROR IN ANNOTATION #", index)
+            logger.error("ERROR IN ANNOTATION #%s", index)
             self.bad_files.append(index)
             #try again with a diff annotation to avoid training breaking
             image, target = self[self.samples.sample(1).index[0]]

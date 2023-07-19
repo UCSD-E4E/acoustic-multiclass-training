@@ -14,17 +14,17 @@ manual_id_col: "MANUAL ID"
 train_batch_size: 4
 validation_batch_size: 4
 jobs: 2
-verbose: false
-logging_freq: 20
 valid_freq: 2000
 mixed_precision: true
 valid_dataset_ratio: 0.3
 
 # Logging
 logging: true
+logging_freq: 20 # Batches per log
 wandb_entity: "acoustic-species-identification"
 wandb_project: "acoustic-species-reu2023"
 wandb_run_name: "auto"
+debug: false
 
 # Functional settings
 seed: 0
@@ -74,6 +74,15 @@ rand_eq_p: 0
 noise_p: 1
 lowpass_p: 0
 bg_noise_p: 1
+
+# Background noise params
+# Expects background_path to lead to a directory with only audio files
+# Example dataset: BirdVOX at https://dcase.community/challenge2018/task-bird-audio-detection
+# Make sure to delete all bird clips so it is only background noise
+# If path is blank and p=0, background noise will not be used
+background_path: ""
+background_p: 0.0
+background_intensity: 0.2
 
 # Data augmentation parameters
 noise_type: "white"
