@@ -71,6 +71,15 @@ noise_p: 0.35
 freq_mask_p: 0.5
 time_mask_p: 0.5
 
+# Background noise params
+# Expects background_path to lead to a directory with only audio files
+# Example dataset: BirdVOX at https://dcase.community/challenge2018/task-bird-audio-detection
+# Make sure to delete all bird clips so it is only background noise
+# If path is blank and p=0, background noise will not be used
+background_path: ""
+background_p: 0.0
+background_intensity: 0.2
+
 # Data augmentation parameters
 noise_std: 0.005
 freq_mask_param: 10 # Number of frequencies masked

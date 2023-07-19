@@ -24,7 +24,7 @@ from tqdm import tqdm
 from utils import set_seed, get_annotation
 
 import config
-from augmentations import Mixup, SyntheticNoise
+from augmentations import Mixup, SyntheticNoise, BackgroundNoise
 cfg = config.cfg
 
 tqdm.pandas()
@@ -251,7 +251,8 @@ class PyhaDFDataset(Dataset):
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
         audio_augmentations = vitr.RandomApply(torch.nn.Sequential(
-                SyntheticNoise("pink", 0.05)), p=1)
+                SyntheticNoise("white", 0.05),
+                BackgroundNoise(cfg.background_intensity)), p=1)
         image_augmentations = vitr.RandomApply(torch.nn.Sequential(
                 audtr.FrequencyMasking(cfg.freq_mask_param),
                 audtr.TimeMasking(cfg.time_mask_param)), p=0.4)

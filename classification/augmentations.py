@@ -6,7 +6,6 @@ import os
 import logging
 from pathlib import Path
 from typing import Tuple, Callable, Dict, Any
-import numpy as np
 import pandas as pd
 import torch
 import torchaudio
@@ -16,6 +15,10 @@ import config
 
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
+if torch.cuda.is_available():
+    DEVICE = "cuda"
+else:
+    DEVICE = "cpu"
 
 class Mixup(torch.nn.Module):
     """
@@ -43,9 +46,10 @@ class Mixup(torch.nn.Module):
         self.alpha_range = alpha_range
         self.prob = p
 
-    def forward(
-        self, clip: torch.Tensor, target: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self,
+        clip: torch.Tensor,
+        target: torch.Tensor
+        ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
             clip: Tensor of audio data
@@ -119,7 +123,7 @@ def gen_noise(num_samples: int, psd_shape_func: Callable) -> torch.Tensor:
     shape_signal = shape_signal / torch.sqrt(torch.mean(shape_signal.float()**2))
     # Adjust frequency amplitudes according to noise type
     noise = white_signal * shape_signal
-    return torch.fft.irfft(noise).to('cuda')
+    return torch.fft.irfft(noise).to(DEVICE)
 
 def noise_generator(func: Callable):
     """
@@ -129,9 +133,9 @@ def noise_generator(func: Callable):
     return lambda N: gen_noise(N, func)
 
 @noise_generator
-def white_noise(_: torch.Tensor):
+def white_noise(vec: torch.Tensor):
     """White noise PSD shape"""
-    return 1
+    return torch.ones(vec.shape) 
 
 @noise_generator
 def blue_noise(vec: torch.Tensor):
@@ -230,22 +234,29 @@ class BackgroundNoise(torch.nn.Module):
         sample_rate: Sample rate (Hz)
         length: Length of audio clip (s)
     """
-    def __init__(
-            self, noise_path: Path, alpha: float, length=5, norm=True
+    def __init__(self,
+            alpha: float,
+            length=5,
+            norm=True
             ):
         super().__init__()
-        if isinstance(noise_path, str):
-            self.noise_path = Path(noise_path)
-        elif isinstance(noise_path, Path):
-            self.noise_path = noise_path
-        else:
-            raise TypeError('noise_path must be of type Path or str')
+        self.noise_path = Path(cfg.background_path)
         self.alpha = alpha
         self.sample_rate = cfg.sample_rate
         self.length = length
         self.norm = norm
+        if self.noise_path != "":
+            files = list(os.listdir(self.noise_path))
+            audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere",".pt")
+            self.noise_clips = [f for f in files if f.endswith(audio_extensions)]
+        elif cfg.background_p!=0.0:
+            raise RuntimeError("Background noise probability is non-zero, "
+            + "yet no background path was specified. Please update config.yml")
+        else:
+            pass # Background noise is disabled if p=0 and path=""
+            
 
-    def forward(self, clip: torch.Tensor)->torch.Tensor:
+    def forward(self, clip: torch.Tensor) -> torch.Tensor:
         """
         Mixes clip with noise chosen from noise_path
         Args:
@@ -253,6 +264,9 @@ class BackgroundNoise(torch.nn.Module):
 
         Returns: Tensor of original clip mixed with noise
         """
+        # Skip loading if no noise path
+        if self.noise_path == "":
+            return clip
         # If loading fails, skip for now
         try:
             noise_clip = self.choose_random_noise()
@@ -265,22 +279,28 @@ class BackgroundNoise(torch.nn.Module):
         """
         Returns: Tensor of random noise, loaded from self.noise_path
         """
-        audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere")
-        files = list(os.listdir(self.noise_path))
-        noise_clips = [f for f in files if f.endswith(audio_extensions)]
-        rand_idx = utils.randint(0, len(noise_clips))
-        noise_file = self.noise_path/noise_clips[rand_idx]
-        clip_len = self.sample_rate*self.length
+        rand_idx = utils.randint(0, len(self.noise_clips))
+        noise_file = self.noise_path / self.noise_clips[rand_idx]
+        clip_len = self.sample_rate * self.length
 
-        # pryright complains that load isn't called from torchaudio. It is.
-        waveform, sample_rate = torchaudio.load(noise_file) #pyright: ignore
-        if sample_rate != self.sample_rate:
-            waveform = torchaudio.functional.resample(
-                    waveform, orig_freq=sample_rate, new_freq=self.sample_rate)
+        if str(noise_file).endswith(".pt"):
+            waveform = torch.load(noise_file).to(DEVICE, dtype=torch.float32)/32767.0
+        else:
+            # pryright complains that load isn't called from torchaudio. It is.
+            waveform, sample_rate = torchaudio.load(noise_file, normalize=True) #pyright: ignore
+            waveform = waveform[0].to(DEVICE)
+            if sample_rate != self.sample_rate:
+                waveform = torchaudio.functional.resample(
+                        waveform, orig_freq=sample_rate, new_freq=self.sample_rate)
+                torch.save((waveform*32767).to(dtype=torch.int16), noise_file.with_suffix(".pt"))
+                os.remove(noise_file)
+                file_name = self.noise_clips[rand_idx]
+                self.noise_clips.remove(file_name)
+                self.noise_clips.append(str(Path(file_name).with_suffix(".pt").name))
         if self.norm:
             waveform = utils.norm(waveform)
-        start_idx = utils.randint(0, len(waveform))
-        return waveform[start_idx, start_idx+clip_len]
+        start_idx = utils.randint(0, len(waveform) - clip_len)
+        return waveform[start_idx:start_idx+clip_len]
 
 
 class LowpassFilter(torch.nn.Module):
