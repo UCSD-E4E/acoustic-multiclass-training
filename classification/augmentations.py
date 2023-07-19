@@ -248,7 +248,7 @@ class BackgroundNoise(torch.nn.Module):
         self.norm = norm
         if self.noise_path != "":
             files = list(os.listdir(self.noise_path))
-            audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere")
+            audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere",".pt")
             self.noise_clips = [f for f in files if f.endswith(audio_extensions)]
             
 
@@ -280,7 +280,7 @@ class BackgroundNoise(torch.nn.Module):
         clip_len = self.sample_rate * self.length
 
         if str(noise_file).endswith(".pt"):
-            waveform = torch.load(noise_file).to(DEVICE, dtype=torch.float32)/32767
+            waveform = torch.load(noise_file).to(DEVICE, dtype=torch.float32)/32767.0
         else:
             # pryright complains that load isn't called from torchaudio. It is.
             waveform, sample_rate = torchaudio.load(noise_file, normalize=True) #pyright: ignore
@@ -291,6 +291,9 @@ class BackgroundNoise(torch.nn.Module):
                 torch.save((waveform*32767).to(dtype=torch.int16), noise_file.with_suffix(".pt"))
                 os.remove(noise_file)
                 print("Overwriting ",noise_file)
+                file_name = self.noise_clips[rand_idx]
+                self.noise_clips.remove(file_name)
+                self.noise_clips.append(str(Path(file_name).with_suffix(".pt").name))
         if self.norm:
             waveform = utils.norm(waveform)
         start_idx = utils.randint(0, len(waveform) - clip_len)
