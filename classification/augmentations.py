@@ -9,7 +9,7 @@ from typing import Tuple, Callable, Dict, Any
 import pandas as pd
 import torch
 import torchaudio
-
+import matplotlib.pyplot as plt
 import utils
 import config
 
@@ -331,3 +331,62 @@ class LowpassFilter(torch.nn.Module):
                                                     self.sample_rate,
                                                     self.cutoff,
                                                     self.q_val)
+
+
+
+def plot_waveform(signal):
+    plt.figure()
+    plt.plot(signal.cpu().numpy())
+
+def plot_spectrogram(image):
+    plt.figure()
+    image = torch.permute(torch.clone(image),(1,2,0))
+    imgplot = plt.imshow(image.cpu().numpy(), cmap='gray')
+    
+
+def testing(index=10, aug=True):
+    from utils import set_seed, get_annotation
+    from dataset import get_datasets, vitr, audtr
+
+
+    tds, _ = get_datasets()
+
+    audio_augmentations = vitr.RandomApply(torch.nn.Sequential(
+                SyntheticNoise("white", 0.05),
+                BackgroundNoise(cfg.background_intensity)), p=1)
+    image_augmentations = vitr.RandomApply(torch.nn.Sequential(
+            audtr.FrequencyMasking(cfg.freq_mask_param),
+            audtr.TimeMasking(cfg.time_mask_param)), p=1)
+
+    audio, target = get_annotation(
+                df = tds.samples,
+                index = index,
+                class_to_idx = tds.class_to_idx,
+                sample_rate = tds.target_sample_rate,
+                target_num_samples = tds.num_samples,
+                device = DEVICE)
+    plot_waveform(audio)
+
+    mixup = Mixup(
+                df = tds.samples,
+                class_to_idx = tds.class_to_idx,
+                sample_rate = tds.target_sample_rate,
+                target_num_samples = tds.num_samples,
+                alpha_range = (0.1, 0.4),
+                p = 1)
+        
+    if (aug):
+        audio, target = mixup(audio, target)
+        plot_waveform(audio)
+        audio = audio_augmentations(audio)
+        plot_waveform(audio)
+
+    image = tds.to_image(audio)
+    plot_spectrogram(image)
+
+    if(aug):
+        image = image_augmentations(image)
+        plot_spectrogram(image)
+    plt.show()
+if __name__ == "__main__":
+    testing()
