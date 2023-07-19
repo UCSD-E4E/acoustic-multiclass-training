@@ -9,6 +9,7 @@
 """
 import os
 from typing import Dict, List, Tuple, Optional
+import logging
 
 import numpy as np
 import pandas as pd
@@ -20,7 +21,8 @@ from torchaudio import transforms as audtr
 from torchvision import transforms as vitr
 from tqdm import tqdm
 
-from utils import print_verbose, set_seed, get_annotation
+from utils import set_seed, get_annotation
+
 import config
 from augmentations import Mixup, SyntheticNoise
 cfg = config.cfg
@@ -30,6 +32,7 @@ if torch.cuda.is_available():
     DEVICE = "cuda"
 else:
     DEVICE = "cpu"
+logger = logging.getLogger("acoustic_multiclass_training")
 
 # pylint: disable=too-many-instance-attributes
 class PyhaDFDataset(Dataset):
@@ -86,7 +89,8 @@ class PyhaDFDataset(Dataset):
         missing_files = pd.Series(self.samples[cfg.file_name_col].unique()) \
             .progress_apply(lambda file: "good" if file in self.data_dir else file)
         missing_files = missing_files[missing_files != "good"].unique()
-        print("ignoring", missing_files.shape[0], "missing files")
+        if missing_files.shape[0] > 0:
+            logger.info("ignoring %d missing files", missing_files.shape[0])
         self.samples = self.samples[
             ~self.samples[cfg.file_name_col].isin(missing_files)
         ]
@@ -128,8 +132,8 @@ class PyhaDFDataset(Dataset):
         # removed from training so it isn't stopped after hours of time
         # Hence broad exception
         # pylint: disable-next=W0718
-        except Exception as e:
-            print_verbose(file_name, "is bad", e, verbose=cfg.verbose)
+        except Exception as exc:
+            logger.debug("%s is bad %s", file_name, exc)
             return pd.Series({
                 "FILE NAME": file_name,    
                 "files": "bad"
@@ -154,7 +158,7 @@ class PyhaDFDataset(Dataset):
         )
         files = files["files"].progress_apply(self.process_audio_file)
 
-        print(files.shape, flush=True)
+        logger.debug("%s", str(files.shape))
 
         num_files = files.shape[0]
         if num_files == 0:
@@ -165,7 +169,7 @@ class PyhaDFDataset(Dataset):
                        left_on=cfg.file_name_col,
                        right_on="FILE NAME").dropna()
     
-        print_verbose("Serialized form, fixed size:", self.samples.shape, verbose=cfg.verbose)
+        logger.debug("Serialized form, fixed size: %s", str(self.samples.shape))
 
         if "files" in self.samples.columns:
             self.samples[cfg.file_name_col] = self.samples["files"].copy()
@@ -206,8 +210,6 @@ class PyhaDFDataset(Dataset):
         
             if audio.shape[0] > num_frames:
                 audio = audio[frame_offset:frame_offset+num_frames]
-            else:
-                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=cfg.verbose)
 
             # Crop if too long
             if audio.shape[0] > self.num_samples:
@@ -216,8 +218,8 @@ class PyhaDFDataset(Dataset):
             if audio.shape[0] < self.num_samples:
                 audio = self.pad_audio(audio)
         except Exception as exc:
-            print(exc)
-            print(file_name, index)
+            logger.error("%s", str(exc))
+            logger.error("%s %d", file_name, index)
             raise RuntimeError("Bad Audio") from exc
 
         #Assume audio is all mono and at target sample rate
@@ -280,7 +282,7 @@ class PyhaDFDataset(Dataset):
             image = image_augmentations(image)
 
         if image.isnan().any():
-            print("ERROR IN ANNOTATION #", index)
+            logger.error("ERROR IN ANNOTATION #%s", index)
             self.bad_files.append(index)
             #try again with a diff annotation to avoid training breaking
             image, target = self[self.samples.sample(1).index[0]]

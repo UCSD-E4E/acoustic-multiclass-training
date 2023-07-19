@@ -14,17 +14,17 @@ manual_id_col: "MANUAL ID"
 train_batch_size: 4
 validation_batch_size: 4
 jobs: 2
-verbose: false
-logging_freq: 20
 valid_freq: 2000
 mixed_precision: true
 valid_dataset_ratio: 0.3
 
 # Logging
 logging: true
+logging_freq: 20 # Batches per log
 wandb_entity: "acoustic-species-identification"
 wandb_project: "acoustic-species-reu2023"
 wandb_run_name: "auto"
+debug: false
 
 # Functional settings
 seed: 0
