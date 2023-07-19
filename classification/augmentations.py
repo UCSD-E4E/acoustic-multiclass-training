@@ -6,7 +6,6 @@ import os
 import logging
 from pathlib import Path
 from typing import Tuple, Callable, Dict, Any
-import numpy as np
 import pandas as pd
 import torch
 import torchaudio
@@ -290,7 +289,6 @@ class BackgroundNoise(torch.nn.Module):
                         waveform, orig_freq=sample_rate, new_freq=self.sample_rate)
                 torch.save((waveform*32767).to(dtype=torch.int16), noise_file.with_suffix(".pt"))
                 os.remove(noise_file)
-                print("Overwriting ",noise_file)
                 file_name = self.noise_clips[rand_idx]
                 self.noise_clips.remove(file_name)
                 self.noise_clips.append(str(Path(file_name).with_suffix(".pt").name))
