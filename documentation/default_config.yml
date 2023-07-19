@@ -95,7 +95,7 @@ rand_eq_g_range: [-8, 8]
 rand_eq_iters: 3
 lowpass_cutoff: 15000
 lowpass_q_val: 0.7
-bg_noise_alpha: 0.1
+bg_noise_alpha: [0.05, 0.2]
 
 # Transforms settings
 imbalance_sampler: false
