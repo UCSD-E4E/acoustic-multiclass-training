@@ -9,6 +9,7 @@
 """
 import os
 from typing import Dict, List, Tuple, Optional
+import logging
 
 import numpy as np
 import pandas as pd
@@ -17,11 +18,13 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 import torchaudio
 from torchaudio import transforms as audtr
+from torchvision import transforms as vitr
 from tqdm import tqdm
 
-from utils import print_verbose, set_seed
+from utils import set_seed, get_annotation
+
 import config
-from augmentations import Mixup, add_mixup
+from augmentations import Mixup, SyntheticNoise
 cfg = config.cfg
 
 tqdm.pandas()
@@ -29,6 +32,7 @@ if torch.cuda.is_available():
     DEVICE = "cuda"
 else:
     DEVICE = "cpu"
+logger = logging.getLogger("acoustic_multiclass_training")
 
 # pylint: disable=too-many-instance-attributes
 class PyhaDFDataset(Dataset):
@@ -85,7 +89,8 @@ class PyhaDFDataset(Dataset):
         missing_files = pd.Series(self.samples[cfg.file_name_col].unique()) \
             .progress_apply(lambda file: "good" if file in self.data_dir else file)
         missing_files = missing_files[missing_files != "good"].unique()
-        print("ignoring", missing_files.shape[0], "missing files")
+        if missing_files.shape[0] > 0:
+            logger.info("ignoring %d missing files", missing_files.shape[0])
         self.samples = self.samples[
             ~self.samples[cfg.file_name_col].isin(missing_files)
         ]
@@ -127,8 +132,8 @@ class PyhaDFDataset(Dataset):
         # removed from training so it isn't stopped after hours of time
         # Hence broad exception
         # pylint: disable-next=W0718
-        except Exception as e:
-            print_verbose(file_name, "is bad", e, verbose=cfg.verbose)
+        except Exception as exc:
+            logger.debug("%s is bad %s", file_name, exc)
             return pd.Series({
                 "FILE NAME": file_name,    
                 "files": "bad"
@@ -148,12 +153,12 @@ class PyhaDFDataset(Dataset):
         Future training faster
         """
         self.verify_audio()
-        files = pd.DataFrame( self.samples[cfg.file_name_col].unique(),
+        files = pd.DataFrame(self.samples[cfg.file_name_col].unique(),
             columns=["files"]
         )
         files = files["files"].progress_apply(self.process_audio_file)
 
-        print(files.shape, flush=True)
+        logger.debug("%s", str(files.shape))
 
         num_files = files.shape[0]
         if num_files == 0:
@@ -164,7 +169,7 @@ class PyhaDFDataset(Dataset):
                        left_on=cfg.file_name_col,
                        right_on="FILE NAME").dropna()
     
-        print_verbose("Serialized form, fixed size:", self.samples.shape, verbose=cfg.verbose)
+        logger.debug("Serialized form, fixed size: %s", str(self.samples.shape))
 
         if "files" in self.samples.columns:
             self.samples[cfg.file_name_col] = self.samples["files"].copy()
@@ -205,8 +210,6 @@ class PyhaDFDataset(Dataset):
         
             if audio.shape[0] > num_frames:
                 audio = audio[frame_offset:frame_offset+num_frames]
-            else:
-                print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=cfg.verbose)
 
             # Crop if too long
             if audio.shape[0] > self.num_samples:
@@ -215,8 +218,8 @@ class PyhaDFDataset(Dataset):
             if audio.shape[0] < self.num_samples:
                 audio = self.pad_audio(audio)
         except Exception as exc:
-            print(exc)
-            print(file_name, index)
+            logger.error("%s", str(exc))
+            logger.error("%s %d", file_name, index)
             raise RuntimeError("Bad Audio") from exc
 
         #Assume audio is all mono and at target sample rate
@@ -231,57 +234,55 @@ class PyhaDFDataset(Dataset):
     def __len__(self):
         return self.samples.shape[0]
 
-    def __getitem__(self, index: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        """ Takes an index and returns tuple of spectrogram image with corresponding label
+    def to_image(self, audio):
         """
-
-        audio, target = self.get_annotation(index)
-        
-        # Randomly shift audio
-        if self.train and torch.rand(1) < cfg.time_shift_p:
-            shift = int(torch.randint(0, self.num_samples, (1,)))
-            audio = torch.roll(audio, shift, dims=1)
-        
-        if self.transforms is not None and self.mixup is not None:
-            mixup_idx = 0
-            audio, target = add_mixup(audio, 
-                                     target, 
-                                      self.mixup, 
-                                      self.transforms, 
-                                      mixup_idx)
-        elif  self.transforms is not None:
-            audio = self.transforms(audio)
-
-        
-        # Add noise
-        #if self.train and torch.randn(1) < cfg.noise_p:
-        #    noise = torch.randn_like(audio) * cfg.noise_std
-        #    audio = audio + noise
-        # Mixup
-        #if self.train and torch.randn(1) < cfg.mix_p:
-        #    audio_2, target_2 = self.get_annotation(np.random.randint(0, self.__len__()))
-        #    alpha = np.random.rand() * 0.3 + 0.1
-        #    audio = audio * alpha + audio_2 * (1 - alpha)
-        #    target = target * alpha + target_2 * (1 - alpha)
-
+        Convert audio clip to 3-channel spectrogram image
+        """
         # Mel spectrogram
         mel = self.mel_spectogram(audio)
-
         # Convert to Image
         image = torch.stack([mel, mel, mel])
-
         # Normalize Image
         max_val = torch.abs(image).max() + 0.000001
         image = image / max_val
+        return image
 
-        # Frequency masking and time masking
-        if self.train and torch.randn(1) < cfg.freq_mask_p:
-            image = self.freq_mask(image)
-        if self.train and torch.randn(1) < cfg.time_mask_p:
-            image = self.time_mask(image)
+    def __getitem__(self, index): #-> Any:
+        """ Takes an index and returns tuple of spectrogram image with corresponding label
+        """
+        audio_augmentations = vitr.RandomApply(torch.nn.Sequential(
+                SyntheticNoise("white", 0.05)), p=1)
+        image_augmentations = vitr.RandomApply(torch.nn.Sequential(
+                audtr.FrequencyMasking(cfg.freq_mask_param),
+                audtr.TimeMasking(cfg.time_mask_param)), p=0.4)
+
+
+        audio, target = get_annotation(
+                df = self.samples,
+                index = index,
+                class_to_idx = self.class_to_idx,
+                sample_rate = self.target_sample_rate,
+                target_num_samples = self.num_samples,
+                device = DEVICE)
+
+        
+        mixup = Mixup(
+                df = self.samples,
+                class_to_idx = self.class_to_idx,
+                sample_rate = self.target_sample_rate,
+                target_num_samples = self.num_samples,
+                alpha_range = (0.1, 0.4),
+                p = 0.4)
+        
+        if self.train:
+            audio, target = mixup(audio, target)
+            audio = audio_augmentations(audio)
+        image = self.to_image(audio)
+        if self.train:
+            image = image_augmentations(image)
 
         if image.isnan().any():
-            print("ERROR IN ANNOTATION #", index)
+            logger.error("ERROR IN ANNOTATION #%s", index)
             self.bad_files.append(index)
             #try again with a diff annotation to avoid training breaking
             image, target = self[self.samples.sample(1).index[0]]
@@ -326,13 +327,11 @@ class PyhaDFDataset(Dataset):
         return self.num_classes
 
 
-def get_datasets(transforms: Optional[torch.nn.Sequential] = None
-                 ) -> Tuple[PyhaDFDataset, PyhaDFDataset]:
+def get_datasets():
     """ Returns train and validation datasets
-    Does random sampling for train/valid split
-    Adds transforms to dataset
+    does random sampling for train/valid split
+    adds transforms to dataset
     """
-
     train_p = cfg.train_test_split
     path = cfg.dataframe_csv
     # Load the dataset
@@ -354,18 +353,10 @@ def get_datasets(transforms: Optional[torch.nn.Sequential] = None
     train = data[data[cfg.file_name_col].isin(train_files)]
 
     valid = data[~data.index.isin(train.index)]
-
     train_ds = PyhaDFDataset(train)
     species = train_ds.get_classes()
 
-    mixup_ds = PyhaDFDataset(train, train=False)
-    mixup = Mixup(mixup_ds)
-
-    if transforms is not None:
-        train_ds.set_transforms(transforms)
-        train_ds.set_mixup(mixup)
-
-    valid_ds = PyhaDFDataset(valid, train=False, species=species)
+    valid_ds = PyhaDFDataset(valid,train=False, species=species)
     return train_ds, valid_ds
 
 def main() -> None:

@@ -4,6 +4,7 @@
         get_config: returns an ArgumentParser with the default arguments
 """
 import argparse
+import logging
 import os
 import shutil
 import sys
@@ -14,6 +15,7 @@ import git
 import yaml
 from git import Repo  # pyright: ignore [reportPrivateImportUsage]
 
+logger = logging.getLogger("acoustic_multiclass_training")
 
 class Config():
     """
@@ -24,8 +26,8 @@ class Config():
         """Constructor that runs after creating the singleton class
         Post processing after reading config file
         """
-        self.required_checks( "dataframe_csv")
-        self.required_checks( "data_path")
+        self.required_checks("dataframe_csv")
+        self.required_checks("data_path")
         self.get_git_hash()
         self.cli_values()
 
@@ -82,9 +84,9 @@ class Config():
 
 
             if len(attrs_to_append) != 0:
-                print("There are new updates in default config")
-                print("please manually update these keys from the new config")
-                print(attrs_to_append)
+                logger.info("There are new updates in default config")
+                logger.info("please manually update these keys from the new config")
+                logger.info("%s", str(attrs_to_append))
         else:
             shutil.copy(os.path.join("documentation","default_config.yml"), "config.yml")
 
@@ -98,6 +100,7 @@ class Config():
         """
         parser = argparse.ArgumentParser()
         parser.add_argument('-l', '--logging', action='store_false')
+        parser.add_argument('-d', '--debug', action='store_true')
         
         arg_cfgs = parser.parse_args()
         
@@ -108,6 +111,14 @@ class Config():
         for key in arg_cfgs:
             if self.config_dict[key] == parser.get_default(key):
                 setattr(self, key, arg_cfgs[key])
+        
+        logger.setLevel(logging.DEBUG)
+        console_handler = logging.StreamHandler()
+        if self.debug:
+            console_handler.setLevel(logging.DEBUG)
+        else: 
+            console_handler.setLevel(logging.INFO)
+        logger.addHandler(console_handler)
 
     def required_checks(self, parameter):
         """
@@ -153,10 +164,10 @@ class Config():
         #becuase of this, this leads to a lot of linting issues ¯\(ツ)/¯
         # pylint: disable=no-member
         except git.exc.InvalidGitRepositoryError: # pyright: ignore [reportGeneralTypeIssues]
-            print("InvalidGitRepositoryError found, this means we cannot save git hash :(")
-            print("You are likely calling a python file outside of this repo") 
-            print("if from command line, cd into acoustic-mutliclass-training")
-            print("then you can run the script again")
+            logger.error("InvalidGitRepositoryError found, this means we cannot save git hash :(")
+            logger.error("You are likely calling a python file outside of this repo") 
+            logger.error("if from command line, cd into acoustic-mutliclass-training")
+            logger.error("then you can run the script again")
             sys.exit(1)
         return sha
 
@@ -180,8 +191,8 @@ def testing():
     
     config2 = Config()
     assert config == config2
-    print(config.dataframe_csv)
-    print(config.logging)
+    logger.info("%s", str(config.dataframe_csv))
+    logger.info("%s", str(config.logging))
     get_config()
     #cfg.generate_config_file()
 
