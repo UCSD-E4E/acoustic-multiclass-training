@@ -55,7 +55,7 @@ def focal_loss_fn(self, alpha: float = 0.25, gamma: float = 2, reduction: str = 
     def focal_loss_temp(
             inputs: torch.Tensor,
             targets: torch.Tensor
-    ) -> callable:
+    ):
         
         return focal_loss(
             inputs,
