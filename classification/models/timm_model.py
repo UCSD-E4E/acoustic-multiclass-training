@@ -4,16 +4,17 @@
     Model: model with forward pass method. Generated automatically from a timm model
 
 """
+import logging
 import config
 # timm is a library of premade models
 import timm
 import torch
 from torch import nn
-from utils import print_verbose
 
 from .model import bce_loss_fn, cross_entropy_loss_fn
 
 cfg = config.cfg
+logger = logging.getLogger("acoustic_multiclass_training")
 
 # pylint: disable=too-many-instance-attributes
 class TimmModel(nn.Module):
@@ -33,7 +34,7 @@ class TimmModel(nn.Module):
         self.loss_fn = None
         self.without_logits = cfg.loss_fnc == "BCE"
 
-        print_verbose("add sigmod: ", self.without_logits, verbose=cfg.verbose)
+        logger.debug("add sigmod: %s", str(self.without_logits))
     
     def forward(self, images):
         """ Forward pass of the model

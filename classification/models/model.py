@@ -7,17 +7,14 @@
 import config
 import torch
 from torch import nn
-from utils import print_verbose
 
 # timm is a library of premade models
-
 
 cfg = config.cfg
 
 def cross_entropy_loss_fn(self,train_dataset):
     """ Returns the cross entropy loss function and sets self.loss_fn
     """
-    print_verbose("CE", cfg.loss_fnc, verbose=cfg.verbose)
     if not cfg.imb: # normal loss
         self.loss_fn = nn.CrossEntropyLoss()
     else: # weighted loss
@@ -35,8 +32,6 @@ def bce_loss_fn(self, without_logits=False):
     """
     if not without_logits:
         self.loss_fn = nn.BCEWithLogitsLoss()
-        print_verbose("BCEWL", cfg.loss_fnc, verbose=cfg.verbose)
     else:
         self.loss_fn = nn.BCELoss()
-        print_verbose("BCE", cfg.loss_fnc, verbose=cfg.verbose)
     return self.loss_fn

@@ -11,10 +11,11 @@
 import datetime
 import os
 from typing import Any, Tuple
+import logging
 
 import config
 from dataset import get_datasets
-from utils import print_verbose, set_seed
+from utils import set_seed
 
 from torch.amp.autocast_mode import autocast
 from torch.optim import Adam
@@ -36,14 +37,15 @@ if torch.cuda.is_available():
 else:
     DEVICE = "cpu"
 cfg = config.cfg
+logger = logging.getLogger("acoustic_multiclass_training")
 
 def check_shape(outputs: torch.Tensor, labels: torch.Tensor) -> None:
     """
     Checks to make sure the output is the same
     """
     if outputs.shape != labels.shape:
-        print(outputs.shape)
-        print(labels.shape)
+        logger.info(outputs.shape)
+        logger.info(labels.shape)
         raise RuntimeError("Shape diff between output of models and labels, see above and debug")
 
 
@@ -65,7 +67,7 @@ def train(model: Any,
             loss: the average loss over the epoch
             best_valid_map: the best validation mAP
     """
-    print_verbose('size of data loader:', len(data_loader),verbose=cfg.verbose)
+    logger.debug('size of data loader: %d', len(data_loader))
     model.train()
 
     running_loss = 0
@@ -135,10 +137,12 @@ def train(model: Any,
                 "clips/sec": annotations_per_sec,
                 "epoch_progress": epoch_progress,
             })
-            print("i:", str(i).zfill(5), "epoch:", round(epoch_progress,3),
-                  "clips/s:", str(round(annotations_per_sec,3)).ljust(7), 
-                  "Loss:", str(round(log_loss / log_n,3)).ljust(5), 
-                  "mAP:", str(round(log_map / log_n,3)).ljust(5),
+            logger.info("i: %s   epoch: %s   clips/s: %s   Loss: %s   mAP: %s",
+                str(i).zfill(5),
+                str(round(epoch_progress,3)).ljust(5, '0'),
+                str(round(annotations_per_sec,3)).ljust(7), 
+                str(round(log_loss / log_n,3)).ljust(5), 
+                str(round(log_map / log_n,3)).ljust(5)
             )
             log_loss = 0
             log_n = 0
@@ -235,15 +239,17 @@ def valid(model: Any,
         "epoch_progress": epoch_progress,
     })
 
-    print(f"Validation Loss:\t{running_loss/len(data_loader)} \n Validation mAP:\t{valid_map}" )
+    logger.info("Validation Loss:\t%f\nValidation mAP:\t%f", 
+                running_loss/len(data_loader),
+                valid_map)
 
     if valid_map > best_valid_map:
         path = os.path.join("models", f"{cfg.model}-{time_now}.pt")
         if not os.path.exists("models"):
             os.mkdir("models")
         torch.save(model.state_dict(), path)
-        print("Model saved in:", path)
-        print(f"Validation mAP Improved - {best_valid_map} ---> {valid_map}")
+        logger.info("Model saved in: %s", path)
+        logger.info("Validation mAP Improved - %f ---> %f", best_valid_map, valid_map)
         best_valid_map = valid_map
 
     
@@ -289,22 +295,34 @@ def load_datasets(train_dataset, val_dataset
     )
     return train_dataloader, val_dataloader
 
+def logging_setup() -> None:
+    """ Setup logging on the main process
+    Display config information
+    """
+    file_handler = logging.FileHandler("recent.log", mode='w')
+    file_handler.setLevel(logging.DEBUG)
+    logger.addHandler(file_handler)
+    logger.debug("Debug logging enabled")
+    logger.debug("Config: %s", cfg.config_dict)
+    logger.debug("Git hash: %s", cfg.git_hash)
+
 def main() -> None:
     """ Main function
     """
     torch.multiprocessing.set_start_method('spawn')
-    print("Device is: ",DEVICE)
+    logger.info("Device is: %s",DEVICE)
     init_wandb()
+    logging_setup()
     assert wandb.run is not None
     set_seed(cfg.seed)
 
     # Load in dataset
-    print("Loading Dataset")
+    logger.info("Loading Dataset")
     # pylint: disable=unused-variable
     train_dataset, val_dataset = get_datasets()
     train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset)
 
-    print("Loading Model...")
+    logger.info("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
                               model_name=cfg.model).to(DEVICE)
     model_for_run.create_loss_fn(train_dataset)
@@ -312,13 +330,13 @@ def main() -> None:
         model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))
     optimizer = Adam(model_for_run.parameters(), lr=cfg.learning_rate)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
-    print("Model / Optimizer Loading Successful :P")
+    logger.info("Model / Optimizer Loading Successful :P")
     
-    print("Training")
+    logger.info("Training")
     best_valid_map = 0
     early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
     for epoch in range(cfg.epochs):
-        print("Epoch " + str(epoch))
+        logger.info("Epoch %d", epoch)
 
         _, best_valid_map = train(
             model_for_run,
@@ -334,9 +352,9 @@ def main() -> None:
                                              epoch + 1.0, 
                                              best_valid_map)
 
-        print("Best validation map:", best_valid_map)
+        logger.info("Best validation map: %f", best_valid_map)
         if cfg.early_stopping and early_stopper.early_stop(valid_map):
-            print("Early stopping has triggered on epoch", epoch)
+            logger.info("Early stopping has triggered on epoch %d", epoch)
             break
 
         

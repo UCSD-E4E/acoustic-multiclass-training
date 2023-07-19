@@ -3,6 +3,7 @@ Instead, use the mixup function as a wrapper, passing the other augmentations
 to the mixup function in a torch.nn.Sequential object.
 """
 import os
+import logging
 from pathlib import Path
 from typing import Tuple, Callable, Dict, Any
 import numpy as np
@@ -14,7 +15,7 @@ import utils
 import config
 
 cfg = config.cfg
-
+logger = logging.getLogger("acoustic_multiclass_training")
 
 class Mixup(torch.nn.Module):
     """
@@ -69,7 +70,7 @@ class Mixup(torch.nn.Module):
                     target_num_samples = self.target_num_samples, 
                     device = clip.device)
         except RuntimeError:
-            print('Error loading other clip, mixup not performed')
+            logger.error('Error loading other clip, mixup not performed')
             return clip, target
         mixed_clip = (1 - alpha) * clip + alpha * other_clip
         mixed_target = (1 - alpha) * target + alpha * other_target
@@ -256,8 +257,7 @@ class BackgroundNoise(torch.nn.Module):
         try:
             noise_clip = self.choose_random_noise()
         except RuntimeError:
-            print('Error loading noise clip, '
-                  + 'background noise augmentation not performed')
+            logger.warning('Error loading noise clip, background noise augmentation not performed')
             return clip
         return self.alpha*clip + (1-self.alpha)*noise_clip
 

@@ -1,7 +1,6 @@
 """ 
     Stores useful functions for the classification module 
     Methods:
-        print_verbose: prints the arguments if verbose is set to True
 
 """
 
@@ -14,14 +13,6 @@ import torch.nn.functional as F
 import config
 
 cfg = config.cfg
-
-def print_verbose(*args, **kwargs):
-    """ 
-        Prints the arguments if verbose is set to True
-    """
-    if("verbose" in kwargs and kwargs["verbose"]):
-        del kwargs["verbose"]
-        print(*args, **kwargs)
 
 def set_seed(seed: int):
     """ Sets numpy and pytorch seeds to the CONFIG.seed
@@ -102,8 +93,6 @@ def get_annotation(df: pd.DataFrame,
     
         if audio.shape[0] > num_frames:
             audio = audio[frame_offset:frame_offset+num_frames]
-        else:
-            print_verbose("SHOULD BE SMALL DELETE LATER:", audio.shape, verbose=cfg.verbose)
 
         # Crop if too long
         if audio.shape[0] > target_num_samples:
