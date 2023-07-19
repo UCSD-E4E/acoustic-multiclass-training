@@ -23,7 +23,7 @@ from tqdm import tqdm
 
 from utils import print_verbose, set_seed, get_annotation
 import config
-from augmentations import Mixup, SyntheticNoise, RandomEQ
+from augmentations import Mixup, SyntheticNoise, RandomEQ, LowpassFilter
 cfg = config.cfg
 
 tqdm.pandas()
@@ -193,11 +193,12 @@ class PyhaDFDataset(Dataset):
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
         audio_augmentations = torch.nn.Sequential(
-                vitr.RandomApply([SyntheticNoise()], p = cfg.noise_p),
-                vitr.RandomApply([RandomEQ()], p = cfg.rand_eq_p))
+                RandomApply([SyntheticNoise(cfg)], p = cfg.noise_p),
+                RandomApply([RandomEQ(cfg)],       p = cfg.rand_eq_p),
+                RandomApply([LowpassFilter(cfg)],  p = cfg.lowpass_p))
         image_augmentations = torch.nn.Sequential(
-                vitr.RandomApply([audtr.FrequencyMasking(cfg.freq_mask_param)], p=cfg.freq_mask_p),
-                vitr.RandomApply([audtr.TimeMasking(cfg.time_mask_param)], p=cfg.time_mask_p))
+                RandomApply([audtr.FrequencyMasking(cfg.freq_mask_param)], p=cfg.freq_mask_p),
+                RandomApply([audtr.TimeMasking(cfg.time_mask_param)],      p=cfg.time_mask_p))
                 
 
 
@@ -208,7 +209,7 @@ class PyhaDFDataset(Dataset):
                 device = DEVICE)
 
         
-        mixup = Mixup(self.samples, self.class_to_idx)
+        mixup = Mixup(self.samples, self.class_to_idx, cfg)
         
         if self.train:
             audio, target = mixup(audio, target)

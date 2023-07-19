@@ -29,14 +29,13 @@ class Mixup(torch.nn.Module):
             self, 
             df: pd.DataFrame, 
             class_to_idx: Dict[str, Any],
-            alpha_range: Tuple[float,float] = cfg.mixup_alpha_range,
-            p: float=cfg.mixup_p,
+            cfg: config.Config
             ):
         super().__init__()
         self.df = df
         self.class_to_idx = class_to_idx
-        self.alpha_range = alpha_range
-        self.prob = p
+        self.alpha_range = cfg.mixup_alpha_range
+        self.prob = cfg.mixup_p
 
     def forward(
         self, clip: torch.Tensor, target: torch.Tensor
@@ -135,10 +134,10 @@ class SyntheticNoise(torch.nn.Module):
                    'violet': violet_noise,
                    'blue': blue_noise,
                    'white': white_noise}
-    def __init__(self, noise_type: str = cfg.noise_type, alpha: float = cfg.noise_alpha):
+    def __init__(self, cfg: config.Config):
         super().__init__()
-        self.noise_type = noise_type
-        self.alpha = alpha
+        self.noise_type = cfg.noise_type
+        self.alpha = cfg.noise_alpha
 
     def forward(self, clip: torch.Tensor)->torch.Tensor:
         """
@@ -163,16 +162,12 @@ class RandomEQ(torch.nn.Module):
         iters: number of times to randomly EQ a part of the clip
         sample_rate: sampling rate of audio
     """
-    def __init__(self,
-                 f_range: Tuple[int, int] = cfg.rand_eq_f_range,
-                 g_range: Tuple[float, float] = cfg.rand_eq_g_range,
-                 q_range: Tuple[float, float] = cfg.rand_eq_q_range,
-                 iterations: int = cfg.rand_eq_iters):
+    def __init__(self, cfg: config.Config):
         super().__init__()
-        self.f_range = f_range
-        self.g_range = g_range
-        self.q_range = q_range
-        self.iterations = iterations
+        self.f_range = cfg.rand_eq_f_range
+        self.g_range = cfg.rand_eq_g_range
+        self.q_range = cfg.rand_eq_q_range
+        self.iterations = cfg.rand_eq_iters
         self.sample_rate = cfg.sample_rate
 
     def forward(self, clip: torch.Tensor) -> torch.Tensor:
@@ -200,19 +195,12 @@ class BackgroundNoise(torch.nn.Module):
         sample_rate: Sample rate (Hz)
         length: Length of audio clip (s)
     """
-    def __init__(
-            self, noise_path: Path, alpha: float, length=5, norm=True
-            ):
+    def __init__(self, cfg: config.Config, norm=True):
         super().__init__()
-        if isinstance(noise_path, str):
-            self.noise_path = Path(noise_path)
-        elif isinstance(noise_path, Path):
-            self.noise_path = noise_path
-        else:
-            raise TypeError('noise_path must be of type Path or str')
-        self.alpha = alpha
+        self.noise_path = cfg.bg_noise_path
+        self.alpha = cfg.bg_noise_alpha
         self.sample_rate = cfg.sample_rate
-        self.length = length
+        self.length = cfg.max_time
         self.norm = norm
 
     def forward(self, clip: torch.Tensor)->torch.Tensor:
@@ -264,11 +252,11 @@ class LowpassFilter(torch.nn.Module):
         cutoff: cutoff frequency
         q_val: Q value for lowpass filter
     """
-    def __init__(self, cutoff: int, q_val: float):
+    def __init__(self, cfg: config.Config):
         super().__init__()
         self.sample_rate = cfg.sample_rate
-        self.cutoff = cutoff
-        self.q_val = q_val
+        self.cutoff = cfg.lowpass_cutoff
+        self.q_val = cfg.lowpass_q_val
 
     def forward(self, clip: torch.Tensor) -> torch.Tensor:
         """

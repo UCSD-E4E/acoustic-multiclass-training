@@ -72,6 +72,8 @@ freq_mask_p: 0.5
 time_mask_p: 0.5
 rand_eq_p: 0
 noise_p: 1
+lowpass_p: 0
+bg_noise_p: 1
 
 # Data augmentation parameters
 noise_type: "white"
@@ -83,6 +85,9 @@ rand_eq_f_range: [100, 8000]
 rand_eq_q_range: [1, 9]
 rand_eq_g_range: [-8, 8]
 rand_eq_iters: 3
+lowpass_cutoff: 15000
+lowpass_q_val: 0.7
+bg_noise_alpha: 0.1
 
 # Transforms settings
 imbalance_sampler: false
