@@ -8,7 +8,7 @@ import config
 import torch
 from torch import nn
 from utils import print_verbose
-from torchvision.ops import focal_loss
+from torchvision.ops.focal_loss import sigmoid_focal_loss as focal_loss
 
 # timm is a library of premade models
 
@@ -57,8 +57,8 @@ def focal_loss_fn(self, alpha: float = 0.25, gamma: float = 2, reduction: str = 
     ) -> callable:
         
         return focal_loss(
-            input=inputs,
-            targets=targets,
+            inputs,
+            targets,
             alpha=alpha,
             gamma=gamma,
             reduction=reduction
