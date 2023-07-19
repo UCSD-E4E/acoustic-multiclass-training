@@ -43,9 +43,10 @@ class Mixup(torch.nn.Module):
         self.alpha_range = alpha_range
         self.prob = p
 
-    def forward(
-        self, clip: torch.Tensor, target: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self,
+        clip: torch.Tensor,
+        target: torch.Tensor
+        ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
             clip: Tensor of audio data
@@ -230,20 +231,22 @@ class BackgroundNoise(torch.nn.Module):
         sample_rate: Sample rate (Hz)
         length: Length of audio clip (s)
     """
-    def __init__(
-            self, noise_path: Path, alpha: float, length=5, norm=True
+    def __init__(self,
+            alpha: float,
+            length=5,
+            norm=True
             ):
         super().__init__()
-        if isinstance(noise_path, str):
-            self.noise_path = Path(noise_path)
-        elif isinstance(noise_path, Path):
-            self.noise_path = noise_path
-        else:
-            raise TypeError('noise_path must be of type Path or str')
+        self.noise_path = Path(cfg.background_path)
         self.alpha = alpha
         self.sample_rate = cfg.sample_rate
         self.length = length
         self.norm = norm
+        if self.noise_path != "":
+            files = list(os.listdir(self.noise_path))
+            audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere")
+            self.noise_clips = [f for f in files if f.endswith(audio_extensions)]
+            
 
     def forward(self, clip: torch.Tensor)->torch.Tensor:
         """
@@ -253,6 +256,9 @@ class BackgroundNoise(torch.nn.Module):
 
         Returns: Tensor of original clip mixed with noise
         """
+        # Skip loading if no noise path
+        if self.noise_path == "":
+            return clip
         # If loading fails, skip for now
         try:
             noise_clip = self.choose_random_noise()
@@ -265,12 +271,9 @@ class BackgroundNoise(torch.nn.Module):
         """
         Returns: Tensor of random noise, loaded from self.noise_path
         """
-        audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere")
-        files = list(os.listdir(self.noise_path))
-        noise_clips = [f for f in files if f.endswith(audio_extensions)]
-        rand_idx = utils.randint(0, len(noise_clips))
-        noise_file = self.noise_path/noise_clips[rand_idx]
-        clip_len = self.sample_rate*self.length
+        rand_idx = utils.randint(0, len(self.noise_clips))
+        noise_file = self.noise_path / self.noise_clips[rand_idx]
+        clip_len = self.sample_rate * self.length
 
         # pryright complains that load isn't called from torchaudio. It is.
         waveform, sample_rate = torchaudio.load(noise_file) #pyright: ignore
@@ -279,7 +282,7 @@ class BackgroundNoise(torch.nn.Module):
                     waveform, orig_freq=sample_rate, new_freq=self.sample_rate)
         if self.norm:
             waveform = utils.norm(waveform)
-        start_idx = utils.randint(0, len(waveform))
+        start_idx = utils.randint(0, len(waveform) - clip_len)
         return waveform[start_idx, start_idx+clip_len]
 
 
