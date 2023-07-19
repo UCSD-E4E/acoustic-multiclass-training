@@ -203,7 +203,7 @@ class BackgroundNoise(torch.nn.Module):
     def __init__(self, cfg: config.Config, norm=True):
         super().__init__()
         self.noise_path = Path(cfg.bg_noise_path)
-        self.alpha = cfg.bg_noise_alpha
+        self.alpha_range = cfg.bg_noise_alpha_range
         self.sample_rate = cfg.sample_rate
         self.length = cfg.max_time
         self.norm = norm
@@ -227,6 +227,7 @@ class BackgroundNoise(torch.nn.Module):
         Returns: Tensor of original clip mixed with noise
         """
         # Skip loading if no noise path
+        alpha = utils.rand(*self.alpha_range)
         if self.noise_path == "":
             return clip
         # If loading fails, skip for now
@@ -235,7 +236,7 @@ class BackgroundNoise(torch.nn.Module):
         except RuntimeError:
             logger.warning('Error loading noise clip, background noise augmentation not performed')
             return clip
-        return self.alpha*clip + (1-self.alpha)*noise_clip
+        return (1 - alpha*clip) + alpha*noise_clip
 
     def choose_random_noise(self):
         """
