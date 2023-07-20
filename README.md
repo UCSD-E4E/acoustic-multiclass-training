@@ -39,7 +39,7 @@ conda env create -f environment.yml
 To recreate our results, [PyHa](https://github.com/UCSD-E3E/PyHa) needs to be installed and set up. Furthermore, our results are based on the [BirdCLEF2023 dataset](https://www.kaggle.com/competitions/birdclef-2023). You may also find it useful to use a  [no-call dataset](https://www.kaggle.com/code/sprestrelski/birdclef23-uniform-no-call-sound-chunks) compiled from previous competitions.
 
 ### Quick Start Dataset
-You can download a sample dataset and labels .csv here: [http://gofile.me/4PtL7/Fb5kvnC8c](http://gofile.me/4PtL7/Fb5kvnC8c). This contains 18 `.mp3` files for 3 Amazonian species and a metadata `.csv` with 531 annotations. These files can be directly fed into the [classification pipeline]((#classification))
+You can download a sample dataset and labels .csv here: https://drive.google.com/file/d/1DrFlOGmlbXaStgDn2tFTklfpbBM4uim4/view?usp=sharing. This contains 18 `.mp3` files for 3 Amazonian species and a metadata `.csv` with 531 annotations. These files can be directly fed into the [classification pipeline]((#classification))
 
 ## Data Setup
 The data processing pipeline assumes a folder directory structure as follows
