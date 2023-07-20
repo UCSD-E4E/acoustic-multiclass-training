@@ -56,6 +56,9 @@ learning_rate: 0.001
 loss_fnc: "CE"
 imb: false
 
+# Hyperparameter sweep settings
+sweep_id: 
+
 # Specify path to load a checkpoint
 model_checkpoint: ""
 

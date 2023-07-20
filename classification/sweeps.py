@@ -75,7 +75,7 @@ sweep_config = {
 }
 
 if __name__ == "__main__":
-    sweep_id = None
+    sweep_id = cfg.sweep_id
     wandb.login()
     if not sweep_id:
         print("Starting a new sweep")
