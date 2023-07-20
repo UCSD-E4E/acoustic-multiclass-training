@@ -57,9 +57,18 @@ class PyhaDFDataset(Dataset):
                                         n_mels=cfg.n_mels,
                                         n_fft=cfg.n_fft)
         self.mel_spectogram.to(DEVICE) #was cuda (?)
-        self.freq_mask = audtr.FrequencyMasking(freq_mask_param=cfg.freq_mask_param)
-        self.time_mask = audtr.TimeMasking(time_mask_param=cfg.time_mask_param)
-        self.transforms = None
+
+
+        mixup = Mixup(self.samples, self.class_to_idx, cfg)
+        self.audio_augmentations = torch.nn.Sequential(
+                RandomApply([SyntheticNoise(cfg)],  p = cfg.noise_p),
+                RandomApply([RandomEQ(cfg)],        p = cfg.rand_eq_p),
+                RandomApply([LowpassFilter(cfg)],   p = cfg.lowpass_p),
+                RandomApply([BackgroundNoise(cfg)], p = cfg.bg_noise_p))
+        self.image_augmentations = torch.nn.Sequential(
+                RandomApply([audtr.FrequencyMasking(cfg.freq_mask_param)], p=cfg.freq_mask_p),
+                RandomApply([audtr.TimeMasking(cfg.time_mask_param)],      p=cfg.time_mask_p))
+
         self.mixup = None
 
         # List data directory and confirm it exists
@@ -196,14 +205,6 @@ class PyhaDFDataset(Dataset):
     def __getitem__(self, index): #-> Any:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
-        audio_augmentations = torch.nn.Sequential(
-                RandomApply([SyntheticNoise(cfg)],  p = cfg.noise_p),
-                RandomApply([RandomEQ(cfg)],        p = cfg.rand_eq_p),
-                RandomApply([LowpassFilter(cfg)],   p = cfg.lowpass_p),
-                RandomApply([BackgroundNoise(cfg)], p = cfg.bg_noise_p))
-        image_augmentations = torch.nn.Sequential(
-                RandomApply([audtr.FrequencyMasking(cfg.freq_mask_param)], p=cfg.freq_mask_p),
-                RandomApply([audtr.TimeMasking(cfg.time_mask_param)],      p=cfg.time_mask_p))
 
         audio, target = get_annotation(
                 df = self.samples,
@@ -211,15 +212,12 @@ class PyhaDFDataset(Dataset):
                 class_to_idx = self.class_to_idx,
                 device = DEVICE)
 
-
-        mixup = Mixup(self.samples, self.class_to_idx, cfg)
-
         if self.train:
-            audio, target = mixup(audio, target)
-            audio = audio_augmentations(audio)
+            audio, target = self.mixup(audio, target)
+            audio = self.audio_augmentations(audio)
         image = self.to_image(audio)
         if self.train:
-            image = image_augmentations(image)
+            image = self.image_augmentations(image)
 
         if image.isnan().any():
             logger.error("ERROR IN ANNOTATION #%s", index)
