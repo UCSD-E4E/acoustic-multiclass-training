@@ -261,7 +261,7 @@ class PyhaDFDataset(Dataset):
         #print(image.max(), image.min(), torch.quantile(image, 0.75),torch.quantile(image, 0.25))
         #max_val = torch.abs(image).max() + 0.000001
         #image = image / max_val
-        return spec_scaled
+        return image
 
     def __getitem__(self, index): #-> Any:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
