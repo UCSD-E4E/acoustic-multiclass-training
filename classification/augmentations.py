@@ -387,6 +387,18 @@ def testing(index=10, aug=True):
     if(aug):
         image = image_augmentations(image)
         plot_spectrogram(image)
-    plt.show()
+    #plt.show()
+    return image.max(), image.min()
+
 if __name__ == "__main__":
-    testing()
+    max_value = []
+    min_value = []
+    for i in range(1000):
+        max_, min_ = testing(index=i)
+        max_value.append(max_)
+        min_value.append(min_)
+    plt.figure()
+    plt.plot(max_value)
+    plt.figure()
+    plt.plot(min_value)
+    plt.show()
