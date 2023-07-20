@@ -53,23 +53,6 @@ class PyhaDFDataset(Dataset):
         self.num_samples = cfg.sample_rate * cfg.max_time
         self.train = train
 
-        self.mel_spectogram = audtr.MelSpectrogram(sample_rate=cfg.sample_rate,
-                                        n_mels=cfg.n_mels,
-                                        n_fft=cfg.n_fft)
-        self.mel_spectogram.to(DEVICE) #was cuda (?)
-
-
-        mixup = Mixup(self.samples, self.class_to_idx, cfg)
-        self.audio_augmentations = torch.nn.Sequential(
-                RandomApply([SyntheticNoise(cfg)],  p = cfg.noise_p),
-                RandomApply([RandomEQ(cfg)],        p = cfg.rand_eq_p),
-                RandomApply([LowpassFilter(cfg)],   p = cfg.lowpass_p),
-                RandomApply([BackgroundNoise(cfg)], p = cfg.bg_noise_p))
-        self.image_augmentations = torch.nn.Sequential(
-                RandomApply([audtr.FrequencyMasking(cfg.freq_mask_param)], p=cfg.freq_mask_p),
-                RandomApply([audtr.TimeMasking(cfg.time_mask_param)],      p=cfg.time_mask_p))
-
-        self.mixup = None
 
         # List data directory and confirm it exists
         if not os.path.exists(cfg.data_path):
@@ -89,6 +72,24 @@ class PyhaDFDataset(Dataset):
 
         self.num_classes = len(self.classes)
         self.serialize_data()
+
+
+        self.mixup = Mixup(self.samples, self.class_to_idx, cfg)
+        audio_augs = {
+                SyntheticNoise  : cfg.noise_p,
+                RandomEQ        : cfg.rand_eq_p,
+                LowpassFilter   : cfg.lowpass_p,
+                BackgroundNoise : cfg.bg_noise_p
+            }.items()
+        # List around aug(cfg) is necessary
+        # because RandomApply expects an iterable
+        self.audio_augmentations = torch.nn.Sequential(
+                *[RandomApply([aug(cfg)], p=p) for aug, p in audio_augs]
+            )
+
+        self.image_augmentations = torch.nn.Sequential(
+                RandomApply([audtr.FrequencyMasking(cfg.freq_mask_param)], p=cfg.freq_mask_p),
+                RandomApply([audtr.TimeMasking(cfg.time_mask_param)],      p=cfg.time_mask_p))
 
     def verify_audio(self) -> None:
         """
@@ -193,8 +194,13 @@ class PyhaDFDataset(Dataset):
         """
         Convert audio clip to 3-channel spectrogram image
         """
+        convert_to_mel = audtr.MelSpectrogram(
+                sample_rate=cfg.sample_rate,
+                n_mels=cfg.n_mels,
+                n_fft=cfg.n_fft)
+        convert_to_mel = convert_to_mel.to(DEVICE)
         # Mel spectrogram
-        mel = self.mel_spectogram(audio)
+        mel = convert_to_mel(audio)
         # Convert to Image
         image = torch.stack([mel, mel, mel])
         # Normalize Image
