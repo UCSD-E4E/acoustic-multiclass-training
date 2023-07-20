@@ -253,7 +253,7 @@ class PyhaDFDataset(Dataset):
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
         audio_augmentations = vitr.RandomApply(torch.nn.Sequential(
-                SyntheticNoise("white", 0.05),
+                SyntheticNoise("pink", 0.05),
                 BackgroundNoise(cfg.background_intensity)), p=0)
         image_augmentations = vitr.RandomApply(torch.nn.Sequential(
                 audtr.FrequencyMasking(cfg.freq_mask_param),
