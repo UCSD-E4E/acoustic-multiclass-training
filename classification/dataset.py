@@ -254,7 +254,7 @@ class PyhaDFDataset(Dataset):
         """
         audio_augmentations = vitr.RandomApply(torch.nn.Sequential(
                 SyntheticNoise("white", 0.05),
-                BackgroundNoise(cfg.background_intensity)), p=1)
+                BackgroundNoise(cfg.background_intensity)), p=0)
         image_augmentations = vitr.RandomApply(torch.nn.Sequential(
                 audtr.FrequencyMasking(cfg.freq_mask_param),
                 audtr.TimeMasking(cfg.time_mask_param)), p=0.4)
