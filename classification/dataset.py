@@ -243,14 +243,23 @@ class PyhaDFDataset(Dataset):
         # Convert to Image
         image = torch.stack([mel, mel, mel])
         # Normalize Image
+        # https://medium.com/@hasithsura/audio-classification-d37a82d6715
+        mean = image.mean()
+        std = image.std()
+        spec_norm = (image - mean) / (std + eps)
+        spec_min, spec_max = spec_norm.min(), spec_norm.max()
+        spec_scaled = (spec_norm - spec_min) / (spec_max - spec_min)
+        
+        
+        
         #image = torch.log(image)
         #print(image.max(), image.min())
-        image = 2*(torch.sigmoid(image)) - 1
+        #image = 2*(torch.sigmoid(image)) - 1
         #image[image > 1] = 1
         #print(image.max(), image.min(), torch.quantile(image, 0.75),torch.quantile(image, 0.25))
         #max_val = torch.abs(image).max() + 0.000001
         #image = image / max_val
-        return image
+        return spec_scaled
 
     def __getitem__(self, index): #-> Any:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
