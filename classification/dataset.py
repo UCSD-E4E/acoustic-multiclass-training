@@ -246,9 +246,11 @@ class PyhaDFDataset(Dataset):
         # https://medium.com/@hasithsura/audio-classification-d37a82d6715
         mean = image.mean()
         std = image.std()
-        spec_norm = (image - mean) / (std + eps)
-        spec_min, spec_max = spec_norm.min(), spec_norm.max()
-        spec_scaled = (spec_norm - spec_min) / (spec_max - spec_min)
+        image = (image - mean) / (std + eps)
+        image = torch.sigmoid(image)
+        
+        #spec_min, spec_max = spec_norm.min(), spec_norm.max()
+        #spec_scaled = (spec_norm - spec_min) / (spec_max - spec_min)
         
         
         
