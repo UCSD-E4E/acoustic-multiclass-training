@@ -53,6 +53,11 @@ def crop_audio(audio: torch.Tensor, num_samples:int) -> torch.Tensor:
     """
     return audio[:num_samples]
 
+def to_mono(audio: torch.Tensor) -> torch.Tensor:
+    """Converts audio to mono
+    """
+    return torch.mean(audio, dim=0)
+
 def one_hot(tensor, num_classes, on_value=1., off_value=0.):
     """Return one hot tensor of length num_classes
     """

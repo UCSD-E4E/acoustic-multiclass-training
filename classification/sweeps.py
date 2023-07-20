@@ -1,6 +1,11 @@
+"""
+Sweeps file: 
+    Run it to start a new sweep or start another agent for an existing
+sweep. If the former, set the sweep_id option in config
+"""
 import config
 import wandb
-from train import main
+from train import main as train_main
 
 cfg = config.cfg
 
@@ -75,6 +80,9 @@ sweep_config = {
 }
 
 def main():
+    """
+    Main function
+    """
     sweep_id = cfg.sweep_id
     wandb.login()
     if not sweep_id:
@@ -83,7 +91,7 @@ def main():
             sweep_config,
             entity=cfg.wandb_entity,
             project=cfg.wandb_project)
-    wandb.agent(sweep_id, function = main, count=1)
+    wandb.agent(sweep_id, function = train_main, count=1)
 
 if __name__ == "__main__":
     main()
