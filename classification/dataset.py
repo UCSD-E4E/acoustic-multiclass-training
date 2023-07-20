@@ -244,7 +244,10 @@ class PyhaDFDataset(Dataset):
         image = torch.stack([mel, mel, mel])
         # Normalize Image
         #image = torch.log(image)
-        image = 2 * torch.sigmoid(image) - 1
+        #print(image.max(), image.min())
+        #image = 2*(torch.sigmoid(image)) - 1
+        image[image > 1] = 1
+        #print(image.max(), image.min(), torch.quantile(image, 0.75),torch.quantile(image, 0.25))
         #max_val = torch.abs(image).max() + 0.000001
         #image = image / max_val
         return image
