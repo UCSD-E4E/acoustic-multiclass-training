@@ -71,6 +71,7 @@ def main():
     df = df.reset_index(drop=True)
     df = df[ARGUMENTS["cols_to_save"]]
     df.to_csv(ARGUMENTS["output_path"])
+    print(f"Wrote {len(df)} annotations to {ARGUMENTS['output_path']}")
 
 if __name__ == "__main__":
     main()
