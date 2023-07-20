@@ -74,9 +74,18 @@ sweep_config = {
 }
 
 if __name__ == "__main__":
+    #Parser for sweep id
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', '--sweep_id', default=None)
+    args = parser.parse_args()
+
     wandb.login()
-    sweep_id = wandb.sweep(
+    if args.sweep_id:
+        wandb.agent(args.sweep_id, function = main, count=1)
+    else:
+        print("Starting a new sweep")
+        sweep_id = wandb.sweep(
             sweep_config,
             entity=cfg.wandb_entity,
             project=cfg.wandb_project)
-    wandb.agent(sweep_id, function = main, count=1)
+        wandb.agent(sweep_id, function = main, count=1)
