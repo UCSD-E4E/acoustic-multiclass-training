@@ -7,25 +7,25 @@
     If this module is run directly, it tests that the dataloader works
 
 """
-import os
-from typing import Dict, List, Tuple, Optional
 import logging
+import os
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn.functional as F
-from torch.utils.data import Dataset
 import torchaudio
+from torch.utils.data import Dataset
 from torchaudio import transforms as audtr
 from torchvision.transforms import RandomApply
-import torchvision.transforms as vitr
 from tqdm import tqdm
 
-from utils import set_seed, get_annotation
-
 import config
-from augmentations import Mixup, SyntheticNoise, RandomEQ, LowpassFilter, BackgroundNoise
+import utils
+from augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
+                           SyntheticNoise)
+from utils import get_annotation, set_seed
+
 cfg = config.cfg
 
 tqdm.pandas()
@@ -128,7 +128,7 @@ class PyhaDFDataset(Dataset):
             )
 
             if len(audio.shape) > 1:
-                audio = self.to_mono(audio)
+                audio = utils.to_mono(audio)
 
             # Resample
             if sample_rate != cfg.sample_rate:
@@ -200,6 +200,8 @@ class PyhaDFDataset(Dataset):
                 n_fft=cfg.n_fft)
         convert_to_mel = convert_to_mel.to(DEVICE)
         # Mel spectrogram
+        # Pylint complains this is not callable, but it is a torch.nn.Module
+        # pylint: disable-next=not-callable
         mel = convert_to_mel(audio)
         # Convert to Image
         image = torch.stack([mel, mel, mel])
@@ -232,33 +234,6 @@ class PyhaDFDataset(Dataset):
             image, target = self[self.samples.sample(1).index[0]]
 
         return image, target
-
-    def set_transforms(self, transforms):
-        """ Sets the transforms for the dataset
-        """
-        self.transforms = transforms
-    def set_mixup(self, mixup):
-        """ Sets the mixup object for the dataset
-        """
-        self.mixup = mixup
-
-    def pad_audio(self, audio: torch.Tensor) -> torch.Tensor:
-        """Fills the last dimension of the input audio with zeroes until it is num_samples long
-        """
-        pad_length = self.num_samples - audio.shape[0]
-        last_dim_padding = (0, pad_length)
-        audio = F.pad(audio, last_dim_padding)
-        return audio
-
-    def crop_audio(self, audio: torch.Tensor) -> torch.Tensor:
-        """Cuts audio to num_samples long
-        """
-        return audio[:self.num_samples]
-
-    def to_mono(self, audio: torch.Tensor) -> torch.Tensor:
-        """ Converts audio to mono by averaging the channels
-        """
-        return torch.mean(audio, dim=0)
 
     def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
         """ Returns tuple of class list and class to index dictionary

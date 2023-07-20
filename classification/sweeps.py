@@ -1,7 +1,7 @@
+import config
 import wandb
 from train import main
-import argparse
-import config
+
 cfg = config.cfg
 
 
@@ -74,7 +74,7 @@ sweep_config = {
     }
 }
 
-if __name__ == "__main__":
+def main():
     sweep_id = cfg.sweep_id
     wandb.login()
     if not sweep_id:
@@ -84,3 +84,6 @@ if __name__ == "__main__":
             entity=cfg.wandb_entity,
             project=cfg.wandb_project)
     wandb.agent(sweep_id, function = main, count=1)
+
+if __name__ == "__main__":
+    main()

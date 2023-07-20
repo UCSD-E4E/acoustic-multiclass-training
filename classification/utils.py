@@ -5,11 +5,13 @@
 """
 
 from pathlib import Path
-from typing import Dict, Any, Tuple
+from typing import Any, Dict, Tuple
+
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
+
 import config
 
 cfg = config.cfg

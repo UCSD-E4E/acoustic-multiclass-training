@@ -2,18 +2,18 @@
 Instead, use the mixup function as a wrapper, passing the other augmentations
 to the mixup function in a torch.nn.Sequential object.
 """
-import os
 import logging
+import os
 from pathlib import Path
-from typing import Tuple, Callable, Dict, Any
+from typing import Any, Callable, Dict, Tuple
+
 import pandas as pd
 import torch
 import torchaudio
 
-import utils
 import config
+import utils
 
-cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
 if torch.cuda.is_available():
     DEVICE = "cuda"

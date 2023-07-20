@@ -6,26 +6,25 @@
         set_seed: sets the random seed
 """
 import datetime
+import logging
 import os
 from typing import Any, Tuple
-import logging
 
-import config
-from dataset import get_datasets
-from utils import set_seed
-
-from torch.amp.autocast_mode import autocast
-from torch.optim import Adam
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch.amp.autocast_mode import autocast
+from torch.optim import Adam
+from torch.utils.data import DataLoader
 from torchmetrics.classification import MultilabelAveragePrecision
-import wandb
+from tqdm import tqdm
 
+import config
+import wandb
+from dataset import get_datasets
 from models.early_stopper import EarlyStopper
 from models.timm_model import TimmModel
+from utils import set_seed
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
@@ -253,6 +252,9 @@ def valid(model: Any,
     return running_loss/len(data_loader), valid_map, best_valid_map
 
 def set_name(run):
+    """
+    Set wandb run name
+    """
     if cfg.wandb_run_name == "auto":
         # This variable is always defined
         cfg.wandb_run_name = cfg.model # type: ignore
