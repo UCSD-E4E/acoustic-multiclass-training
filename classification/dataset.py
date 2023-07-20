@@ -243,8 +243,8 @@ class PyhaDFDataset(Dataset):
         # Convert to Image
         image = torch.stack([mel, mel, mel])
         # Normalize Image
-        #image = torch.log(image)
-        image = 2 * torch.sigmoid(image) - 1
+        image = torch.log(image)
+        #image = 2 * torch.sigmoid(image) - 1
         #max_val = torch.abs(image).max() + 0.000001
         #image = image / max_val
         return image
