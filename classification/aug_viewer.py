@@ -65,7 +65,7 @@ def get_audio(dataset: PyhaDFDataset, num_samples: int=3):
     return [dataset.get_annotation(np.random.randint(len(dataset)))[0]
             for _ in range(num_samples)]
 
-N_AUGS = 10
+N_AUGS = 9
 def get_augs(dataset: PyhaDFDataset, conf) -> Tuple[List[Callable],List[str]]:
     """ Returns a list of augmentations that can be applied
     Each element is a tuple of the form (aug, name)
@@ -106,7 +106,7 @@ def normalize(data: torch.Tensor, norms) -> np.ndarray:
     if norms["use_normal_dist"]:
         data = (data-torch.mean(data))/torch.std(data)
     data_np = norms["normalization"](data.to("cpu").numpy())
-    data_np = np.clip(data,norms["min_clip"],norms["max_clip"])
+    data_np = np.clip(data_np,norms["min_clip"],norms["max_clip"])
     return data_np
 
 def get_min_max(mel_list: List[np.ndarray]) -> Tuple[float,float]:
