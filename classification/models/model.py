@@ -2,7 +2,7 @@
 
 """ Contains model methods
 
-    note: Models have been moved to thier own python folder
+    note: Models have been moved to their own python folder
 """
 import config
 import torch
