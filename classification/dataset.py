@@ -242,9 +242,21 @@ class PyhaDFDataset(Dataset):
         mel = self.mel_spectogram(audio)
         # Convert to Image
         image = torch.stack([mel, mel, mel])
+        
+        # Convert to decibels
+        # Log scale the power
+        decibel_convert = audtr.AmplitudeToDB(stype="power")
+        image = decibel_convert(image)
+        
         # Normalize Image
-        max_val = torch.abs(image).max() + 0.000001
-        image = image / max_val
+        # Inspired by
+        # https://medium.com/@hasithsura/audio-classification-d37a82d6715
+        mean = image.mean()
+        std = image.std()
+        image = (image - mean) / (std + 1e-6)
+        
+        # Sigmoid to get 0 to 1 scaling (0.5 becomes mean)
+        image = torch.sigmoid(image)
         return image
 
     def __getitem__(self, index): #-> Any:
