@@ -1,0 +1,43 @@
+<mxfile host="app.diagrams.net" modified="2023-07-21T17:30:40.528Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0" etag="s6TzS1-_iFkwWGHkGIY9" version="21.6.5">
+  <diagram name="Page-1" id="-w-RGW3C-Wi5RQnP-DNP">
+    <mxGraphModel dx="2140" dy="538" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="WWt6G-lWlpgVYgTc2d6v-19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="WWt6G-lWlpgVYgTc2d6v-9" target="WWt6G-lWlpgVYgTc2d6v-10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="WWt6G-lWlpgVYgTc2d6v-9" value="&lt;div&gt;&lt;b&gt;Data Processing&lt;/b&gt;&lt;/div&gt;&lt;div&gt;Run training data through&lt;/div&gt;&lt;div&gt;&amp;nbsp;PyHa to produce a .csv of 500k strong labels, each 5s long&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="160" y="40" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="WWt6G-lWlpgVYgTc2d6v-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="WWt6G-lWlpgVYgTc2d6v-10" target="WWt6G-lWlpgVYgTc2d6v-15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="WWt6G-lWlpgVYgTc2d6v-10" value="&lt;div&gt;&lt;b&gt;Train Classifier&lt;br&gt;&lt;/b&gt;&lt;/div&gt;&lt;div&gt;Train chosen model using&amp;nbsp;&lt;/div&gt;&lt;div&gt;the strongly labeled data to produce a multi-label classifier&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="40" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="WWt6G-lWlpgVYgTc2d6v-21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="WWt6G-lWlpgVYgTc2d6v-12" target="WWt6G-lWlpgVYgTc2d6v-15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="WWt6G-lWlpgVYgTc2d6v-12" value="&lt;div&gt;&lt;b&gt;Testing Data&lt;br&gt;&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&amp;nbsp;Strongly-labeled, manually created dataset for hour-long soundscapes containing&amp;nbsp;&lt;/div&gt;&lt;div&gt;132 species&lt;/div&gt;" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="160" y="200" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="WWt6G-lWlpgVYgTc2d6v-18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="WWt6G-lWlpgVYgTc2d6v-13" target="WWt6G-lWlpgVYgTc2d6v-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="WWt6G-lWlpgVYgTc2d6v-13" value="&lt;div&gt;&lt;b&gt;Training Data&lt;br&gt;&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&amp;nbsp;Weakly-labeled bird calls &lt;br&gt;&lt;/div&gt;&lt;div&gt;of 132 species from open source/contribution&amp;nbsp;&lt;/div&gt;&lt;div&gt;database&lt;br&gt;&lt;/div&gt;" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-40" y="40" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="WWt6G-lWlpgVYgTc2d6v-23" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="WWt6G-lWlpgVYgTc2d6v-15" target="WWt6G-lWlpgVYgTc2d6v-17">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="WWt6G-lWlpgVYgTc2d6v-15" value="&lt;div&gt;&lt;b&gt;Test Classifier&lt;br&gt;&lt;/b&gt;&lt;/div&gt;&lt;div&gt;Run testing data through classifier to make predictions on probability of each species&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="200" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="WWt6G-lWlpgVYgTc2d6v-17" value="&lt;b&gt;Evaluation&lt;/b&gt;&lt;br&gt;&lt;div&gt;Compare manual and automated annotations using PyHa to determine similarity&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="200" width="170" height="120" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
