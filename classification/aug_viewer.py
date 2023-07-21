@@ -145,7 +145,7 @@ def plot(mels: List[Tuple[np.ndarray,str,Tuple[int,int]]],
     fig.text(0.5,0.05, str(norms))
     plt.show()
 
-def run_test(n_samples,norms, noise_types, cfg=cfg): 
+def run_test(n_samples,norms, noise_types): 
     """ Main function """
     train_ds, _ = get_datasets()
     # Get audio
@@ -168,5 +168,5 @@ def run_test(n_samples,norms, noise_types, cfg=cfg):
 
     plot(mels_norm, vmin, vmax, norms)
 
-if __name__ == "__main__":
-    run_test(3,DEFAULT_CONF,DEFAULT_NORMS)
+# if __name__ == "__main__":
+#     run_test(3,DEFAULT_NORMS)
