@@ -6,6 +6,7 @@ sweep. If the former, set the sweep_id option in config
 import config
 import wandb
 from train import main as train_main
+import multiprocessing as mp
 
 cfg = config.cfg
 
@@ -90,7 +91,7 @@ def main():
         sweep_id = wandb.sweep(
             sweep_config,
             entity=cfg.wandb_entity,
-            project=cfg.wandb_project)
+            project=cfg.wandb_project + "-sweep")
     wandb.agent(sweep_id, function = train_main, count=1)
 
 if __name__ == "__main__":

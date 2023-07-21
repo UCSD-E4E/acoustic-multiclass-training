@@ -298,7 +298,7 @@ def main(in_sweep=True) -> None:
     logger.info("Device is: %s",DEVICE)
     set_seed(cfg.seed)
     if in_sweep:
-        run = wandb.init(mode="online" if cfg.logging else "disabled")
+        run = wandb.init()
         for key, val in dict(wandb.config).items():
             setattr(cfg, key, val)
     else:
@@ -307,7 +307,7 @@ def main(in_sweep=True) -> None:
             project=cfg.wandb_project,
             config=cfg.config_dict,
             mode="online" if cfg.logging else "disabled")
-    set_name(run)
+        set_name(run)
 
 
     # Load in dataset
