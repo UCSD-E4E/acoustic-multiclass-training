@@ -12,6 +12,7 @@ from augmentations import (BackgroundNoise, LowpassFilter, Mixup,
 from dataset import PyhaDFDataset, get_datasets
 from matplotlib import cm
 from matplotlib import pyplot as plt
+from utils import get_annotation
 
 cfg = config.cfg
 
@@ -62,7 +63,13 @@ def plot_audio(audio_list: List[torch.Tensor]):
 
 def get_audio(dataset: PyhaDFDataset, num_samples: int=3):
     """ Returns an array of audio waveforms and an array of one-hot labels """
-    return [dataset.get_annotation(np.random.randint(len(dataset)))[0]
+    return [(
+        get_annotation(
+            dataset.samples,
+            np.random.randint(len(dataset)),
+            dataset.class_to_idx,
+            "cuda")[0]
+    )
             for _ in range(num_samples)]
 
 N_AUGS = 9
@@ -138,7 +145,7 @@ def plot(mels: List[Tuple[np.ndarray,str,Tuple[int,int]]],
     fig.text(0.5,0.05, str(norms))
     plt.show()
 
-def main(n_samples, cfg,norms, noise_types): 
+def run_test(n_samples,norms, noise_types, cfg=cfg): 
     """ Main function """
     train_ds, _ = get_datasets()
     # Get audio
@@ -153,7 +160,7 @@ def main(n_samples, cfg,norms, noise_types):
         for sample in range(n_samples):
             audio_data.append((augmented_audio[sample][aug], names[aug], (sample,aug)))
     # Get mels
-    mels = [(train_ds.to_image(aud), label, pos) for (aud, label, pos) in audio_data]
+    mels = [(train_ds.to_image(aud)[0], label, pos) for (aud, label, pos) in audio_data]
     # Normalize mels
     mels_norm = [(normalize(mel,norms), label, pos) for (mel, label, pos) in mels]
     # Get min and max value
@@ -162,4 +169,4 @@ def main(n_samples, cfg,norms, noise_types):
     plot(mels_norm, vmin, vmax, norms)
 
 if __name__ == "__main__":
-    main(3,DEFAULT_CONF,DEFAULT_NORMS)
+    run_test(3,DEFAULT_CONF,DEFAULT_NORMS)
