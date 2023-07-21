@@ -242,14 +242,18 @@ class PyhaDFDataset(Dataset):
         mel = self.mel_spectogram(audio)
         # Convert to Image
         image = torch.stack([mel, mel, mel])
+
+        #Convert to decibels
+        decibel_convert = audtr.AmplitudeToDB(stype="power")
+        image = decibel_convert(image)
         
         # Normalize Image
         # BEST RESULT WAS THIS
         # https://medium.com/@hasithsura/audio-classification-d37a82d6715
-        # mean = image.mean()
-        # std = image.std()
-        # image = (image - mean) / (std + 1e-6)
-        # image = torch.sigmoid(image)
+        mean = image.mean()
+        std = image.std()
+        image = (image - mean) / (std + 1e-6)
+        image = torch.sigmoid(image)
         
         #OLD ATTEMPTS
         #image = torch.log(image)
@@ -259,8 +263,8 @@ class PyhaDFDataset(Dataset):
         #print(image.max(), image.min(), torch.quantile(image, 0.75),torch.quantile(image, 0.25))
         
         #BASELINE
-        max_val = torch.abs(image).max() + 0.000001
-        image = image / max_val
+        #max_val = torch.abs(image).max() + 0.000001
+        #image = image / max_val
         return image
 
     def __getitem__(self, index): #-> Any:

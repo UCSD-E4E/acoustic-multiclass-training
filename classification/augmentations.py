@@ -344,7 +344,7 @@ def plot_spectrogram(image):
     imgplot = plt.imshow(image.cpu().numpy(), cmap='gray')
     
 
-def testing(index=10, aug=True):
+def testing(index=1, aug=True):
     from utils import set_seed, get_annotation
     from dataset import get_datasets, vitr, audtr
 
@@ -387,18 +387,19 @@ def testing(index=10, aug=True):
     if(aug):
         image = image_augmentations(image)
         plot_spectrogram(image)
-    #plt.show()
+    plt.show()
     return image.max(), image.min()
 
 if __name__ == "__main__":
-    max_value = []
-    min_value = []
-    for i in range(1000):
-        max_, min_ = testing(index=i)
-        max_value.append(max_)
-        min_value.append(min_)
-    plt.figure()
-    plt.plot(max_value)
-    plt.figure()
-    plt.plot(min_value)
-    plt.show()
+    max_, min_ = testing(index=1)
+    # max_value = []
+    # min_value = []
+    # for i in range(1000):
+    #     max_, min_ = testing(index=i)
+    #     max_value.append(max_)
+    #     min_value.append(min_)
+    # plt.figure()
+    # plt.plot(max_value)
+    # plt.figure()
+    # plt.plot(min_value)
+    # plt.show()
