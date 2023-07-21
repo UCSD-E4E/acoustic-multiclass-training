@@ -3,8 +3,8 @@ channels:
   - defaults
 dependencies:
   - python=3.8
-  - pandas=1.5.3
   - pip:
+      - pandas
       - --extra-index-url https://download.pytorch.org/whl/cu118
       - antlr4-python3-runtime==4.9.3
       - asttokens==2.2.1
