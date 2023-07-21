@@ -22,6 +22,13 @@ sweep_config = {
             'min': 5e-4,
             'distribution': 'log_uniform_values'
         },
+        'mode' : ["eca_nfnet_l0",
+                 "tf_efficientnet_b4",
+                 "resnetv2_50",
+                 "resnetv2_101",
+                 "seresnext50_32x4d",
+                 "seresnext101_32x4d",
+                 "rexnet_200"],
         #Data Aug Probabilities
         'mixup_p'           : {'max': .6, 'min': 0.},
         'time_shift_p'      : {'max': .6, 'min': 0.},
