@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 import torchaudio
 from torchaudio import transforms as audtr
 from torchvision import transforms as vitr
@@ -359,6 +359,24 @@ def get_datasets():
 
     valid_ds = PyhaDFDataset(valid,train=False, species=species)
     return train_ds, valid_ds
+
+def make_dataloaders(train_dataset, val_dataset
+        )-> Tuple[DataLoader, DataLoader]:
+    """ Loads datasets and dataloaders for train and validation """
+
+    train_dataloader = DataLoader(
+        train_dataset,
+        cfg.train_batch_size,
+        shuffle=True,
+        num_workers=cfg.jobs,
+    )
+    val_dataloader = DataLoader(
+        val_dataset,
+        cfg.validation_batch_size,
+        shuffle=False,
+        num_workers=cfg.jobs,
+    )
+    return train_dataloader, val_dataloader
 
 def main() -> None:
     """
