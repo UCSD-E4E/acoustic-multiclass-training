@@ -257,8 +257,6 @@ class PyhaDFDataset(Dataset):
         
         # Sigmoid to get 0 to 1 scaling (0.5 becomes mean)
         image = torch.sigmoid(image)
-
-
         return image
 
     def __getitem__(self, index): #-> Any:
