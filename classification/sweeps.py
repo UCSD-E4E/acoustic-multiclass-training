@@ -22,11 +22,12 @@ sweep_config = {
             'min': 5e-4,
             'distribution': 'log_uniform_values'
         },
+        'epochs' : {'values':[3]},
         'model' : {'values':["eca_nfnet_l0",
+                "eca_nfnet_l0",
                  "tf_efficientnet_b4",
-                 "resnetv2_50",
+                 "tf_efficientnet_b4",
                  "resnetv2_101",
-                 "seresnext50_32x4d",
                  "seresnext101_32x4d",
                  "rexnet_200"]},
         #Data Aug Probabilities
