@@ -21,7 +21,8 @@ from augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
                            SyntheticNoise)
 from models.early_stopper import EarlyStopper
 from models.timm_model import TimmModel
-from dataset import get_datasets
+from dataset import get_datasets, make_dataloaders
+from train import run_batch, map_metric, save_model
 
 cfg = config.cfg
 dataset, valid_ds = get_datasets()
@@ -56,13 +57,15 @@ class TestAugmentations(unittest.TestCase):
         augmented_audio = [aug.forward(audio) for aug in augs]
         for aug_audio in augmented_audio:
             assert aug_audio.shape == audio.shape, "Augmented audio should not change shape"
-        
+
+
 class TestConfig(unittest.TestCase):
     def test_config(self):
         """ Confirm config is a singleton """
         config1 = config.Config()
         config2 = config.Config()
         assert config1 == config2, "Config should be a singleton class"
+
 
 class TestDataset(unittest.TestCase):
     def test_dataset(self):
@@ -84,7 +87,7 @@ class TestDataset(unittest.TestCase):
         pad_len = dataset.pad_audio(torch.zeros(num_samples // 2)).shape[0]
         assert crop_len == num_samples, "crop_audio should crop to num_samples"
         assert pad_len == num_samples, "pad_audio should pad to num_samples"
-        
+
 
 class TestModel(unittest.TestCase):
     def test_model(self):
@@ -96,7 +99,6 @@ class TestModel(unittest.TestCase):
         out = model.forward(torch.zeros((batch_size,3,224,224)).to(DEVICE))
         assert str(out.device).startswith(DEVICE), "Model output device is wrong"
         assert out.shape == (batch_size,num_classes), "Model output shape not matched"
-
 
     def test_early_stopper(self):
         """ Tests early stopper performs properly """
@@ -115,9 +117,37 @@ class TestModel(unittest.TestCase):
         for x, stop in [(0.7, False),(0.5, False),(0.9, False),(0.7, False),(0.7, True)]:
             assert early_stopper.early_stop(x) == stop
 
+
 class TestTrain(unittest.TestCase):
-    def test_train(self):
+    def test_train_batch(self):
         """ Tests if a training batch runs properly """
+        cfg.jobs = 0 # type: ignore
+        train_dl, _ = make_dataloaders(dataset, valid_ds)
+        model = TimmModel(dataset.num_classes, "tf_efficientnet_b4", True).to(DEVICE)
+        model.create_loss_fn(dataset)
+        mels, labels = next(iter(train_dl))
+        loss, outputs = run_batch(model, mels, labels)
+        assert loss >= 0, "Loss should be positive"
+        assert outputs.shape == labels.shape, "Model output shape should match labels shape"
+
+    def test_map(self):
+        """ Tests if macro average precision meets expected values """
+        map_val = map_metric(
+            torch.tensor([[0.1,0.2,0.3,0.4],[0.1,0.2,0.3,0.4]]),
+            torch.tensor([[1,0,0,0],[0,0,0,1]]).to(dtype=torch.float),
+            4)
+        assert map_val == 0.5, "mAP expected to be 0.5"
+        map_val = map_metric(
+            torch.tensor([[1,0,0,0],[0,0,0,1]]).to(dtype=torch.float),
+            torch.tensor([[1,0,0,0],[0,0,0,1]]).to(dtype=torch.float),
+            4)
+        assert map_val == 1.0, "mAP expected to be 1"
+
+    def test_model_save(self):
+        """ Tests that model saving does not crash """
+        model = TimmModel(10,"tf_efficientnet_b4",True)
+        save_model(model)
+
 
 class TestUtils(unittest.TestCase):
     def test_rand(self):
@@ -143,6 +173,7 @@ class TestUtils(unittest.TestCase):
             one_hot = utils.one_hot(torch.tensor(utils.randint(0, num_classes)),
                                     num_classes, on_value=1., off_value=0.)[0]
             self.assert_one_hot(one_hot, num_classes)
+
     def test_get_annotation(self):
         """ Tests get_annotation 100 times """
         num_samples = 5 * cfg.sample_rate
@@ -153,7 +184,7 @@ class TestUtils(unittest.TestCase):
             self.assert_one_hot(label,dataset.num_classes)
             assert str(audio.device) == "cpu", "get annotation returned wrong device"
             assert str(label.device) == "cpu", "get annotation returned wrong device"
-    
+
     def test_cropping(self):
         """ Test utils crop_audio and pad_audio """
         sample_rate = 16000
@@ -163,6 +194,7 @@ class TestUtils(unittest.TestCase):
         pad_len = utils.pad_audio(torch.zeros(num_samples // 2),num_samples).shape[0]
         assert crop_len == num_samples, "crop_audio should crop to num_samples"
         assert pad_len == num_samples, "pad_audio should pad to num_samples"
+
 
 if __name__=="__main__":
     unittest.main(exit=False)

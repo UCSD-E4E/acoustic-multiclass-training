@@ -213,18 +213,18 @@ def valid(model: Any,
     # pylint: disable-next=global-statement
     global best_valid_map
     if valid_map > best_valid_map:
-        save_model(model)
+        logger.info("Model saved in: %s", save_model(model))
         logger.info("Validation mAP Improved - %f ---> %f", best_valid_map, valid_map)
         best_valid_map = valid_map
     return valid_map
 
-def save_model(model: TimmModel) -> None:
-    """ Saves model in the models directory as a pt file """
+def save_model(model: TimmModel) -> str:
+    """ Saves model in the models directory as a pt file, returns path """
     path = os.path.join("models", f"{cfg.model}-{time_now}.pt")
     if not os.path.exists("models"):
         os.mkdir("models")
     torch.save(model.state_dict(), path)
-    logger.info("Model saved in: %s", path)
+    return path
 
 def init_wandb() -> Any:
     """
