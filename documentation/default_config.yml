@@ -56,6 +56,9 @@ learning_rate: 0.001
 loss_fnc: "CE"
 imb: false
 
+# Hyperparameter sweep settings
+sweep_id: 
+
 # Specify path to load a checkpoint
 model_checkpoint: ""
 
@@ -65,25 +68,37 @@ patience: 3
 min_valid_map_delta: 0.01
 
 # Data augmentation probabilities
-mixup_p: 0
+mixup_p: 0.4
 time_shift_p: 0
 noise_p: 0.35
 freq_mask_p: 0.5
 time_mask_p: 0.5
+rand_eq_p: 0
+noise_p: 1
+lowpass_p: 0
+bg_noise_p: 1
 
 # Background noise params
 # Expects background_path to lead to a directory with only audio files
 # Example dataset: BirdVOX at https://dcase.community/challenge2018/task-bird-audio-detection
 # Make sure to delete all bird clips so it is only background noise
 # If path is blank and p=0, background noise will not be used
-background_path: ""
-background_p: 0.0
-background_intensity: 0.2
+bg_noise_path: ""
+bg_noise_alpha_range: [0.1, 0.2]
 
 # Data augmentation parameters
-noise_std: 0.005
+noise_type: "white"
+noise_alpha: 0.05
 freq_mask_param: 10 # Number of frequencies masked
 time_mask_param: 25 # Number of samples masked
+mixup_alpha_range: [0.1, 0.4]
+rand_eq_f_range: [100, 8000]
+rand_eq_q_range: [1, 9]
+rand_eq_g_range: [-8, 8]
+rand_eq_iters: 3
+lowpass_cutoff: 15000
+lowpass_q_val: 0.7
+bg_noise_alpha: [0.05, 0.2]
 
 # Transforms settings
 imbalance_sampler: false
