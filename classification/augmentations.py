@@ -15,7 +15,7 @@ import config
 import utils
 
 logger = logging.getLogger("acoustic_multiclass_training")
-if torch.cuda.is_available() and not cfg.cpu_preprocessing:
+if torch.cuda.is_available() and not config.cfg.cpu_preprocessing:
     DEVICE = "cuda"
 else:
     DEVICE = "cpu"
