@@ -145,6 +145,11 @@ def train(model: Any,
             log_map = 0
 
         if (i != 0 and i % (cfg.valid_freq) == 0):
+            # Free memory so gpu is freed before validation run
+            del mels
+            del outputs
+            del labels
+
             valid_start_time = datetime.datetime.now()
             _, _, best_valid_map = valid(model,
                                          valid_loader,
@@ -266,12 +271,32 @@ def load_datasets(train_dataset, val_dataset
         Loads datasets and dataloaders for train and validation
     """
 
-    train_dataloader = DataLoader(
-        train_dataset,
-        cfg.train_batch_size,
-        shuffle=True,
-        num_workers=cfg.jobs,
-    )
+    # Code used from:
+    # https://www.kaggle.com/competitions/birdclef-2023/discussion/412808
+    # Get Sample Weights
+    weights_list = train_dataset.get_sample_weights()
+    sampler = torch.utils.data.WeightedRandomSampler(weights_list, len(weights_list))
+
+    # Create our dataloaders
+    # if sampler function is "specified, shuffle must not be specified."
+    # https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
+    
+    if cfg.does_weighted_sampling:
+        print("WORKS")
+        train_dataloader = DataLoader(
+            train_dataset,
+            cfg.train_batch_size,
+            sampler=sampler,
+            num_workers=cfg.jobs
+        )
+    else:
+        train_dataloader = DataLoader(
+            train_dataset,
+            cfg.train_batch_size,
+            shuffle=True,
+            num_workers=cfg.jobs
+        )
+
     val_dataloader = DataLoader(
         val_dataset,
         cfg.validation_batch_size,

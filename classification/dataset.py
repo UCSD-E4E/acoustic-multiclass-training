@@ -257,6 +257,20 @@ class PyhaDFDataset(Dataset):
         """
         return self.num_classes
 
+    def get_sample_weights(self) -> pd.Series:
+        """ Returns the weights as computed by the frist place winner of birdclef 2023
+        See https://www.kaggle.com/competitions/birdclef-2023/discussion/412808 
+        Congats on your win!
+        """
+        manual_id = cfg.manual_id_col
+        all_primary_labels = self.samples[manual_id]
+        sample_weights = (
+            all_primary_labels.value_counts() / 
+            all_primary_labels.value_counts().sum()
+        )  ** (-0.5)
+        weight_list = self.samples[manual_id].apply(lambda x: sample_weights.loc[x])
+        return weight_list
+
 
 def get_datasets():
     """ Returns train and validation datasets
