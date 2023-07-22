@@ -20,11 +20,11 @@ from torchmetrics.classification import MultilabelAveragePrecision
 from tqdm import tqdm
 
 import config
-import wandb
 from dataset import get_datasets, make_dataloaders
+from utils import set_seed
 from models.early_stopper import EarlyStopper
 from models.timm_model import TimmModel
-from utils import set_seed
+import wandb
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')

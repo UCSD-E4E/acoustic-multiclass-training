@@ -35,12 +35,11 @@ else:
 class TestAugmentations(unittest.TestCase):
     def test_augs(self):
         """ Test all augmentations and verify output is correct size """
-        audio, label = dataset.get_annotation(0)
+        audio, label = utils.get_annotation(dataset.samples,0,dataset.class_to_idx, DEVICE)
         TestUtils.assert_one_hot(label, dataset.num_classes)
         label_id = (label == 1.0).nonzero()[0].item()
-        mixup = Mixup(dataset.samples, dataset.class_to_idx,
-                      cfg.sample_rate, dataset.num_classes,
-                      (0.25, 0.25), 1.0)
+        cfg.mixup_alpha_range = [0.25, 0.25] # type: ignore
+        mixup = Mixup(dataset.samples, dataset.class_to_idx, cfg)
         new_audio, new_label = mixup(audio, label)
         # Assert mixup output
         assert new_audio.shape == audio.shape, "Mixup should not change shape"
@@ -48,12 +47,14 @@ class TestAugmentations(unittest.TestCase):
             "Mixup label should be equal to alpha"
         assert new_label.sum() == 1.0, "Mixup label should sum to 1"
 
+        augs = []
         noise_colors = ["white", "pink", "brown", "blue", "violet"]
-        synth = [SyntheticNoise(col, 0.2) for col in noise_colors]
-        rand_eq = RandomEQ()
-        bg_noise = BackgroundNoise(0.2, 5)
-        lowpass = LowpassFilter(200, 0.707)
-        augs = [*synth, rand_eq, bg_noise, lowpass]
+        for col in noise_colors:
+            cfg.noise_type = col # type: ignore
+            augs.append(SyntheticNoise(cfg))
+        augs.append(RandomEQ(cfg))
+        augs.append(BackgroundNoise(cfg))
+        augs.append(LowpassFilter(cfg))
         augmented_audio = [aug.forward(audio) for aug in augs]
         for aug_audio in augmented_audio:
             assert aug_audio.shape == audio.shape, "Augmented audio should not change shape"
@@ -78,15 +79,7 @@ class TestDataset(unittest.TestCase):
     def test_spectrogram(self):
         """ Test to_image in dataset.py """
         spec = dataset.to_image(torch.zeros(5*cfg.sample_rate).to(DEVICE))
-        assert spec.sum() == 0, "Spectrogram of zero audio should be zero"
-
-    def test_cropping(self):
-        """ Test crop_audio and pad_audio in dataset.py """
-        num_samples = 5 * cfg.sample_rate
-        crop_len = dataset.crop_audio(torch.zeros(num_samples * 2)).shape[0]
-        pad_len = dataset.pad_audio(torch.zeros(num_samples // 2)).shape[0]
-        assert crop_len == num_samples, "crop_audio should crop to num_samples"
-        assert pad_len == num_samples, "pad_audio should pad to num_samples"
+        assert (spec != spec.mean().item()).sum() == 0, "Spectrogram of no audio should be constant"
 
 
 class TestModel(unittest.TestCase):
@@ -178,8 +171,7 @@ class TestUtils(unittest.TestCase):
         """ Tests get_annotation 100 times """
         num_samples = 5 * cfg.sample_rate
         for i in range(20):
-            audio, label = utils.get_annotation(dataset.samples, i, dataset.class_to_idx, 
-                                                cfg.sample_rate, num_samples, "cpu")
+            audio, label = utils.get_annotation(dataset.samples, i, dataset.class_to_idx, "cpu")
             assert audio.shape[0] == num_samples, "audio should be num_samples long"
             self.assert_one_hot(label,dataset.num_classes)
             assert str(audio.device) == "cpu", "get annotation returned wrong device"
