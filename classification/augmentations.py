@@ -203,11 +203,12 @@ class BackgroundNoise(torch.nn.Module):
     def __init__(self, cfg: config.Config, norm=True):
         super().__init__()
         self.noise_path = Path(cfg.bg_noise_path)
+        self.noise_path_str = cfg.bg_noise_path
         self.alpha_range = cfg.bg_noise_alpha_range
         self.sample_rate = cfg.sample_rate
         self.length = cfg.max_time
         self.norm = norm
-        if self.noise_path != "" and cfg.background_p > 0.0:
+        if self.noise_path_str != "" and cfg.background_p > 0.0:
             files = list(os.listdir(self.noise_path))
             audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere",".pt")
             self.noise_clips = [f for f in files if f.endswith(audio_extensions)]
@@ -228,7 +229,7 @@ class BackgroundNoise(torch.nn.Module):
         """
         # Skip loading if no noise path
         alpha = utils.rand(*self.alpha_range)
-        if self.noise_path == "":
+        if self.noise_path_str == "":
             return clip
         # If loading fails, skip for now
         try:
