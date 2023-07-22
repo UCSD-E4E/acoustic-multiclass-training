@@ -14,7 +14,7 @@ sweep_config = {
     'method'            : 'bayes',
     'name'              : 'sweep',
     'early_terminate'   : {'type': 'hyperband', 'min_iter': 3},
-    'metric'            : {'goal': 'maximize', 'name' : 'val/map'},
+    'metric'            : {'goal': 'maximize', 'name' : 'valid/map'},
     'parameters'        : {
         # General
         'lr' : {
