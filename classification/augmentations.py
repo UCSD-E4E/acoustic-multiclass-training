@@ -208,7 +208,7 @@ class BackgroundNoise(torch.nn.Module):
         self.sample_rate = cfg.sample_rate
         self.length = cfg.max_time
         self.norm = norm
-        if self.noise_path_str != "" and cfg.background_p > 0.0:
+        if self.noise_path_str != "" and cfg.bg_noise_p > 0.0:
             files = list(os.listdir(self.noise_path))
             audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere",".pt")
             self.noise_clips = [f for f in files if f.endswith(audio_extensions)]

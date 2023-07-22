@@ -79,15 +79,6 @@ noise_p: 1
 lowpass_p: 0
 bg_noise_p: 1
 
-# Background noise params
-# Expects background_path to lead to a directory with only audio files
-# Example dataset: BirdVOX at https://dcase.community/challenge2018/task-bird-audio-detection
-# Make sure to delete all bird clips so it is only background noise
-# If path is blank and p=0, background noise will not be used
-bg_noise_path: ""
-bg_noise_alpha_range: [0.1, 0.2]
-background_p: 0.0
-
 # Data augmentation parameters
 noise_type: "white"
 noise_alpha: 0.05
@@ -100,7 +91,14 @@ rand_eq_g_range: [-8, 8]
 rand_eq_iters: 3
 lowpass_cutoff: 15000
 lowpass_q_val: 0.7
-bg_noise_alpha: [0.05, 0.2]
+bg_noise_alpha_range: [0.1, 0.2]
+
+# Background noise params
+# Expects background_path to lead to a directory with only audio files
+# Example dataset: BirdVOX at https://dcase.community/challenge2018/task-bird-audio-detection
+# Make sure to delete all bird clips so it is only background noise
+# If path is blank and p=0, background noise will not be used
+bg_noise_path: ""
 
 # Transforms settings
 imbalance_sampler: false
