@@ -4,34 +4,30 @@
         train: trains the model
         valid: calculates validation loss and accuracy
         set_seed: sets the random seed
-        init_wandb: initializes the Weights and Biases logging
-
-
 """
 import datetime
+import logging
 import os
 from typing import Any, Tuple
-import logging
 
-import config
-from dataset import get_datasets, make_dataloaders
-from utils import set_seed
-
-from torch.amp.autocast_mode import autocast
-from torch.optim import Adam
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch.amp.autocast_mode import autocast
+from torch.optim import Adam
+from torch.utils.data import DataLoader
 from torchmetrics.classification import MultilabelAveragePrecision
-import wandb
+from tqdm import tqdm
 
+import config
+import wandb
+from dataset import get_datasets, make_dataloaders
 from models.early_stopper import EarlyStopper
 from models.timm_model import TimmModel
+from utils import set_seed
 
 tqdm.pandas()
-time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 
+time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
 if torch.cuda.is_available():
     DEVICE = "cuda"
 else:
@@ -90,7 +86,7 @@ def train(model: TimmModel,
     log_n = 0
     log_loss = 0
     log_map = 0
-    
+
     #scaler = torch.cuda.amp.GradScaler()
     start_time = datetime.datetime.now()
     scaler = torch.cuda.amp.grad_scaler.GradScaler()
@@ -104,7 +100,7 @@ def train(model: TimmModel,
         if cfg.mixed_precision:
             # Pyright complains about scaler.scale(loss) returning iterable of unknown types
             # Problem in the pytorch typing, documentation says it returns iterables of Tensors
-            #  keep if needed - noqa: reportGeneralTypeIssues 
+            #  keep if needed - noqa: reportGeneralTypeIssues
             scaler.scale(loss).backward()  # type: ignore
             scaler.step(optimizer)
             scaler.update()
@@ -223,23 +219,14 @@ def save_model(model: TimmModel) -> str:
     torch.save(model.state_dict(), path)
     return path
 
-def init_wandb() -> Any:
+def set_name(run):
     """
-    Initialize the weights and biases logging
+    Set wandb run name
     """
-    run = wandb.init(
-        entity=cfg.wandb_entity,
-        project=cfg.wandb_project,
-        config=cfg.config_dict,
-        mode="online" if cfg.logging else "disabled"
-    )
-
-    assert run is not None
     if cfg.wandb_run_name == "auto":
         # This variable is always defined
         cfg.wandb_run_name = cfg.model # type: ignore
     run.name = f"{cfg.wandb_run_name}-{time_now}"
-
     return run
 
 def logging_setup() -> None:
@@ -253,14 +240,24 @@ def logging_setup() -> None:
     logger.debug("Config: %s", cfg.config_dict)
     logger.debug("Git hash: %s", cfg.git_hash)
 
-def main() -> None:
-    """ Main function """
+def main(in_sweep=True) -> None:
+    """ Main function
+    """
     torch.multiprocessing.set_start_method('spawn')
     logger.info("Device is: %s",DEVICE)
-    init_wandb()
-    logging_setup()
-    assert wandb.run is not None
     set_seed(cfg.seed)
+    if in_sweep:
+        run = wandb.init()
+        for key, val in dict(wandb.config).items():
+            setattr(cfg, key, val)
+    else:
+        run = wandb.init(
+            entity=cfg.wandb_entity,
+            project=cfg.wandb_project,
+            config=cfg.config_dict,
+            mode="online" if cfg.logging else "disabled")
+        set_name(run)
+
 
     # Load in dataset
     logger.info("Loading Dataset...")
@@ -295,4 +292,4 @@ def main() -> None:
             break
 
 if __name__ == '__main__':
-    main()
+    main(in_sweep=False)

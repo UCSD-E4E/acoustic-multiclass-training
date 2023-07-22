@@ -7,11 +7,12 @@ from typing import Callable, List, Tuple
 import config
 import numpy as np
 import torch
-from augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
-                           SyntheticNoise)
+from augmentations import (BackgroundNoise, LowpassFilter, Mixup, 
+                           RandomEQ, SyntheticNoise)
 from dataset import PyhaDFDataset, get_datasets
 from matplotlib import cm
 from matplotlib import pyplot as plt
+from utils import get_annotation
 
 cfg = config.cfg
 
@@ -62,35 +63,36 @@ def plot_audio(audio_list: List[torch.Tensor]):
 
 def get_audio(dataset: PyhaDFDataset, num_samples: int=3):
     """ Returns an array of audio waveforms and an array of one-hot labels """
-    return [dataset.get_annotation(np.random.randint(len(dataset)))[0]
+    return [(
+        get_annotation(
+            dataset.samples,
+            np.random.randint(len(dataset)),
+            dataset.class_to_idx,
+            "cuda")[0]
+    )
             for _ in range(num_samples)]
 
 N_AUGS = 9
-def get_augs(dataset: PyhaDFDataset, conf) -> Tuple[List[Callable],List[str]]:
+def get_augs(dataset: PyhaDFDataset, noise_types: list, _cfg) -> Tuple[List[Callable],List[str]]:
     """ Returns a list of augmentations that can be applied
     Each element is a tuple of the form (aug, name)
     Each augmentation is a Callable that takes in a waveform and returns a waveform
     """
     out = []
     names = []
-    for col in conf["synth_colors"]:
-        out.append(SyntheticNoise(col,conf["synth_noise_intensity"]).forward)
+    for col in noise_types:
+        out.append(SyntheticNoise(_cfg).forward)
         names.append("Synthetic " + col +" noise")
-    out.append(LowpassFilter(conf["lowpass_cutoff"],conf["lowpass_q_val"]).forward)
+    out.append(LowpassFilter(_cfg).forward)
     names.append("Lowpass filter")
-    out.append(RandomEQ(conf["eq_f_range"], conf["eq_g_range"], 
-                        conf["eq_q_range"], conf["eq_num_applications"]).forward)
+    out.append(RandomEQ(_cfg).forward)
     names.append("Random EQ")
-    out.append(BackgroundNoise(conf["background_intensity"],length=5, 
-                               norm=conf["background_norm"]).forward)
+    out.append(BackgroundNoise(_cfg).forward)
     names.append("Background noise")
     mixup = Mixup(df = dataset.samples,
                   class_to_idx = dataset.class_to_idx,
-                  sample_rate = dataset.target_sample_rate,
-                  target_num_samples = dataset.num_samples,
-                  alpha_range = conf["mixup_alpha_range"],
-                  p = 0)
-    out.append(lambda x: mixup.forward(x,torch.zeros(dataset.num_classes).to(x.device))[0])
+                  cfg = _cfg)
+    out.append(lambda x: mixup(x,torch.zeros(dataset.num_classes).to(x.device))[0])
     names.append("Mixup")
     return out, names
 
@@ -143,13 +145,13 @@ def plot(mels: List[Tuple[np.ndarray,str,Tuple[int,int]]],
     fig.text(0.5,0.05, str(norms))
     plt.show()
 
-def main(n_samples,conf,norms): 
+def run_test(n_samples,norms, noise_types): 
     """ Main function """
     train_ds, _ = get_datasets()
     # Get audio
     audio = get_audio(train_ds, n_samples)
     # Get augs
-    augs, names = get_augs(train_ds, conf)
+    augs, names = get_augs(train_ds, noise_types, cfg)
     # Apply augs
     augmented_audio = [apply_augs(audio[i],augs) for i in range(n_samples)]
     # Unpack to list of (audio, name, (x,y))
@@ -158,7 +160,7 @@ def main(n_samples,conf,norms):
         for sample in range(n_samples):
             audio_data.append((augmented_audio[sample][aug], names[aug], (sample,aug)))
     # Get mels
-    mels = [(train_ds.mel_spectogram(aud), label, pos) for (aud, label, pos) in audio_data]
+    mels = [(train_ds.to_image(aud)[0], label, pos) for (aud, label, pos) in audio_data]
     # Normalize mels
     mels_norm = [(normalize(mel,norms), label, pos) for (mel, label, pos) in mels]
     # Get min and max value
@@ -166,5 +168,5 @@ def main(n_samples,conf,norms):
 
     plot(mels_norm, vmin, vmax, norms)
 
-if __name__ == "__main__":
-    main(3,DEFAULT_CONF,DEFAULT_NORMS)
+# if __name__ == "__main__":
+#     run_test(3,DEFAULT_NORMS)
