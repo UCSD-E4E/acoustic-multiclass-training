@@ -86,6 +86,7 @@ bg_noise_p: 1
 # If path is blank and p=0, background noise will not be used
 bg_noise_path: ""
 bg_noise_alpha_range: [0.1, 0.2]
+background_p: 0.0
 
 # Data augmentation parameters
 noise_type: "white"
