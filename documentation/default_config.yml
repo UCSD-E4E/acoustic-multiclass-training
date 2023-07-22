@@ -11,6 +11,7 @@ file_name_col: "FILE NAME"
 manual_id_col: "MANUAL ID"
 
 # Training params
+cpu_preprocessing: True
 train_batch_size: 4
 validation_batch_size: 4
 jobs: 2

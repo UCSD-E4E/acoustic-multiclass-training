@@ -29,7 +29,7 @@ from utils import get_annotation, set_seed
 cfg = config.cfg
 
 tqdm.pandas()
-if torch.cuda.is_available():
+if torch.cuda.is_available() and not cfg.cpu_preprocessing:
     DEVICE = "cuda"
 else:
     DEVICE = "cpu"
