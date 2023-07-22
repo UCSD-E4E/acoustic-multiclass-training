@@ -212,7 +212,7 @@ class BackgroundNoise(torch.nn.Module):
             files = list(os.listdir(self.noise_path))
             audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere",".pt")
             self.noise_clips = [f for f in files if f.endswith(audio_extensions)]
-        elif cfg.background_p!=0.0:
+        elif cfg.bg_noise_p!=0.0:
             raise RuntimeError("Background noise probability is non-zero, "
             + "yet no background path was specified. Please update config.yml")
         else:
