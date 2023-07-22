@@ -233,8 +233,9 @@ class BackgroundNoise(torch.nn.Module):
         # If loading fails, skip for now
         try:
             noise_clip = self.choose_random_noise()
-        except RuntimeError:
+        except RuntimeError as e:
             logger.warning('Error loading noise clip, background noise augmentation not performed')
+            logger.error(e)
             return clip
         return (1 - alpha*clip) + alpha*noise_clip
 
