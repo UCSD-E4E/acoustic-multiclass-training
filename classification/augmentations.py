@@ -16,7 +16,7 @@ import utils
 
 logger = logging.getLogger("acoustic_multiclass_training")
 if torch.cuda.is_available():
-    DEVICE = "cuda"
+    DEVICE = "cpu" #TODO FIX
 else:
     DEVICE = "cpu"
 
