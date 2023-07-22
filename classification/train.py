@@ -39,8 +39,8 @@ else:
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
 
-epoch: int = 0
-best_valid_map: float = 0.0
+EPOCH: int = 0
+BEST_VALID_MAP: float = 0.0
 
 def run_batch(model: TimmModel,
                 mels: torch.Tensor,
@@ -83,9 +83,6 @@ def train(model: TimmModel,
         scheduler
        ) -> None:
     """ Trains the model
-        Returns:
-            loss: the average loss over the epoch
-            best_valid_map: the best validation mAP
     """
     logger.debug('size of data loader: %d', len(data_loader))
     model.train()
@@ -131,13 +128,13 @@ def train(model: TimmModel,
                 "train/loss": log_loss / log_n,
                 "train/mAP": log_map / log_n,
                 "i": i,
-                "epoch": epoch,
+                "epoch": EPOCH,
                 "clips/sec": annotations / duration,
-                "epoch_progress": epoch + float(i)/len(data_loader),
+                "epoch_progress": EPOCH + float(i)/len(data_loader),
             })
             logger.info("i: %s   epoch: %s   clips/s: %s   Loss: %s   mAP: %s",
                 str(i).zfill(5),
-                str(round(epoch+float(i)/len(data_loader),3)).ljust(5, '0'),
+                str(round(EPOCH+float(i)/len(data_loader),3)).ljust(5, '0'),
                 str(round(annotations / duration,3)).ljust(7), 
                 str(round(log_loss / log_n,3)).ljust(5), 
                 str(round(log_map / log_n,3)).ljust(5)
@@ -148,7 +145,7 @@ def train(model: TimmModel,
 
         if (i != 0 and i % (cfg.valid_freq) == 0):
             valid_start_time = datetime.datetime.now()
-            valid(model, valid_loader, epoch + i / len(data_loader))
+            valid(model, valid_loader, EPOCH + i / len(data_loader))
             model.train()
             # Ignore the time it takes to validate in annotations/sec
             start_time += datetime.datetime.now() - valid_start_time
@@ -165,7 +162,7 @@ def valid(model: Any,
             - Note: If this is an integer, it will run the full
                     validation set, otherwise runs cfg.valid_dataset_ratio
     Returns:
-        Tuple of (loss, valid_map, best_valid_map)
+        Loss
     """
     model.eval()
 
@@ -211,11 +208,11 @@ def valid(model: Any,
                 valid_map)
 
     # pylint: disable-next=global-statement
-    global best_valid_map
-    if valid_map > best_valid_map:
+    global BEST_VALID_MAP
+    if valid_map > BEST_VALID_MAP:
         logger.info("Model saved in: %s", save_model(model))
-        logger.info("Validation mAP Improved - %f ---> %f", best_valid_map, valid_map)
-        best_valid_map = valid_map
+        logger.info("Validation mAP Improved - %f ---> %f", BEST_VALID_MAP, valid_map)
+        BEST_VALID_MAP = valid_map
     return valid_map
 
 def save_model(model: TimmModel) -> str:
@@ -285,16 +282,16 @@ def main() -> None:
     # MAIN LOOP
     for _ in range(cfg.epochs):
         # pylint: disable-next=global-statement
-        global epoch
-        logger.info("Epoch %d", epoch)
+        global EPOCH
+        logger.info("Epoch %d", EPOCH)
 
         train(model_for_run, train_dataloader, val_dataloader, optimizer, scheduler)
-        epoch += 1
-        valid_map = valid( model_for_run, val_dataloader, epoch)
-        logger.info("Best validation map: %f", best_valid_map)
+        EPOCH += 1
+        valid_map = valid( model_for_run, val_dataloader, EPOCH)
+        logger.info("Best validation map: %f", BEST_VALID_MAP)
 
         if cfg.early_stopping and early_stopper.early_stop(valid_map):
-            logger.info("Early stopping has triggered on epoch %d", epoch)
+            logger.info("Early stopping has triggered on epoch %d", EPOCH)
             break
 
 if __name__ == '__main__':
