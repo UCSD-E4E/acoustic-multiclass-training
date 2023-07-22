@@ -144,6 +144,10 @@ def train(model: Any,
             log_n = 0
             log_map = 0
 
+        del mels
+        del outputs
+        del labels
+
         if (i != 0 and i % (cfg.valid_freq) == 0):
             valid_start_time = datetime.datetime.now()
             _, _, best_valid_map = valid(model,
