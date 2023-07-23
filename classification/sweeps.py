@@ -104,7 +104,7 @@ def main():
             project=sweep_project)
     else:
         sweep_id = f"{cfg.wandb_entity}/{sweep_project}/{cfg.sweep_id}"
-    wandb.agent(sweep_id, function = train_main, count=1)
+    wandb.agent(sweep_id, function = train_main, count=cfg.sweep_count)
 
 if __name__ == "__main__":
     torch.multiprocessing.set_start_method('spawn')

@@ -58,7 +58,8 @@ loss_fnc: "CE"
 imb: false
 
 # Hyperparameter sweep settings
-sweep_id: 
+sweep_id:
+sweep_count: 10 
 
 # Specify path to load a checkpoint
 model_checkpoint: ""
