@@ -48,7 +48,7 @@ class PyhaDFDataset(Dataset):
         self.samples = df[~(df[cfg.file_name_col].isnull())]
         self.num_samples = cfg.sample_rate * cfg.max_time
         self.train = train
-        self.device = cfg.device
+        self.device = cfg.prepros_device
 
 
         # List data directory and confirm it exists

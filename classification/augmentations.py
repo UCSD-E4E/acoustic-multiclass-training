@@ -70,7 +70,7 @@ class Mixup(torch.nn.Module):
         return mixed_clip, mixed_target
 
 
-def gen_noise(num_samples: int, psd_shape_func: Callable, device: str) -> torch.Tensor:
+def gen_noise(num_samples: int, psd_shape_func: Callable) -> torch.Tensor:
     """
     Args:
         num_samples: length of noise Tensor to generate
@@ -89,14 +89,14 @@ def gen_noise(num_samples: int, psd_shape_func: Callable, device: str) -> torch.
     shape_signal = shape_signal / torch.sqrt(torch.mean(shape_signal.float()**2))
     # Adjust frequency amplitudes according to noise type
     noise = white_signal * shape_signal
-    return torch.fft.irfft(noise).to(device)
+    return torch.fft.irfft(noise)
 
-def noise_generator(func: Callable, device: str):
+def noise_generator(func: Callable):
     """
     Given PSD shape function, returns a new function that takes in parameter N
     and generates noise Tensor of length N
     """
-    return lambda N: gen_noise(N, func, device)
+    return lambda N: gen_noise(N, func)
 
 @noise_generator
 def white_noise(vec: torch.Tensor):
@@ -150,7 +150,7 @@ class SyntheticNoise(torch.nn.Module):
         Returns: Clip mixed with noise according to noise_type and alpha
         """
         noise_function = self.noise_names[self.noise_type]
-        noise = noise_function(len(clip), self.device)
+        noise = noise_function(len(clip)).to(self.device)
         return (1 - self.alpha) * clip + self.alpha* noise
 
 

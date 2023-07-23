@@ -32,6 +32,7 @@ class Config():
         self.required_checks("data_path")
         self.get_git_hash()
         self.cli_values()
+        self.get_device()
 
     def __new__(cls):
         """
@@ -183,10 +184,8 @@ class Config():
         self.required_checks("device")
         if self.device is None:
              raise ValueError(f'The required parameter "device" is not defined in yaml')
-        if self.device == "auto" and is_available():
-            self.device = "cuda"
-        else:
-            self.device = "cpu"
+        if self.device == "auto":
+            self.device = "cuda" if is_available() else "cpu"
 
         self.config_dict["device"] = self.device
 
