@@ -15,7 +15,7 @@ import torch
 import torch.nn.functional as F
 from torch.amp.autocast_mode import autocast
 from torch.optim import Adam
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from torchmetrics.classification import MultilabelAveragePrecision
 from tqdm import tqdm
 
@@ -275,7 +275,7 @@ def load_datasets(train_dataset, val_dataset
     # https://www.kaggle.com/competitions/birdclef-2023/discussion/412808
     # Get Sample Weights
     weights_list = train_dataset.get_sample_weights()
-    sampler = torch.utils.data.WeightedRandomSampler(weights_list, len(weights_list))
+    sampler = WeightedRandomSampler(weights_list, len(weights_list))
 
     # Create our dataloaders
     # if sampler function is "specified, shuffle must not be specified."
