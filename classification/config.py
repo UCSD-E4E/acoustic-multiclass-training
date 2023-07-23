@@ -15,6 +15,8 @@ import git
 import yaml
 from git import Repo  # pyright: ignore [reportPrivateImportUsage]
 
+from torch.cuda import is_available
+
 logger = logging.getLogger("acoustic_multiclass_training")
 
 class Config():
@@ -131,6 +133,7 @@ class Config():
         if  self.config_dict[parameter] is None:
             raise ValueError(f'The required parameter "{parameter}" is not defined in yaml')
 
+
     def generate_config_file(self, filename="test.yml"):
         """
         Sends all configs saved to class to new file
@@ -170,6 +173,22 @@ class Config():
             logger.error("then you can run the script again")
             sys.exit(1)
         return sha
+    
+    def get_device(self):
+        """ Gets the current device of the system if user defined device config param as 'auto'
+        Returns nothing
+        Raises value error if device doesn't exist in config file
+        """
+
+        self.required_checks("device")
+        if self.device is None:
+             raise ValueError(f'The required parameter "device" is not defined in yaml')
+        if self.device == "auto" and is_available():
+            self.device = "cuda"
+        else:
+            self.device = "cpu"
+
+        self.config_dict["device"] = self.device
 
 def get_config():
     """ Returns a config variable with the command line arguments or defaults

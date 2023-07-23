@@ -10,8 +10,13 @@ duration_col: "DURATION"
 file_name_col: "FILE NAME"
 manual_id_col: "MANUAL ID"
 
+# Device Settings
+device: auto # Options: cuda, cpu, auto 
+prepros_device: cpu # Options: cuda, CPU
+
+
 # Training params
-cpu_preprocessing: True
+
 train_batch_size: 4
 validation_batch_size: 4
 jobs: 2
