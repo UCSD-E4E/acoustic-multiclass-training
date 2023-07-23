@@ -5,6 +5,8 @@ sweep. If the former, set the sweep_id option in config
 """
 import config
 import wandb
+import torch
+
 from train import main as train_main
 
 cfg = config.cfg
@@ -105,6 +107,5 @@ def main():
     wandb.agent(sweep_id, function = train_main, count=1)
 
 if __name__ == "__main__":
-    main()
-if __name__ == "__main__":
+    torch.multiprocessing.set_start_method('spawn')
     main()

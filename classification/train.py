@@ -299,7 +299,6 @@ def logging_setup() -> None:
 def main(in_sweep=True) -> None:
     """ Main function
     """
-    torch.multiprocessing.set_start_method('spawn')
     logger.info("Device is: %s",DEVICE)
     set_seed(cfg.seed)
     if in_sweep:
@@ -359,4 +358,5 @@ def main(in_sweep=True) -> None:
 
 
 if __name__ == '__main__':
+    torch.multiprocessing.set_start_method('spawn')
     main(in_sweep=False)
