@@ -59,7 +59,7 @@ imb: false
 
 # Hyperparameter sweep settings
 sweep_id:
-sweep_count: 10 
+sweep_count: 1
 
 # Specify path to load a checkpoint
 model_checkpoint: ""
