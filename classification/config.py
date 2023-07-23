@@ -87,9 +87,9 @@ class Config():
 
 
             if len(attrs_to_append) != 0:
-                logger.info("There are new updates in default config")
-                logger.info("please manually update these keys from the new config")
-                logger.info("%s", str(attrs_to_append))
+                logger.warning("There are new updates in default config")
+                logger.warning("please manually update these keys from the new config")
+                logger.warning("%s", str(attrs_to_append))
         else:
             shutil.copy(os.path.join("documentation","default_config.yml"), "config.yml")
 
