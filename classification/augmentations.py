@@ -15,7 +15,7 @@ import config
 import utils
 
 logger = logging.getLogger("acoustic_multiclass_training")
-if torch.cuda.is_available():
+if torch.cuda.is_available() and not config.cfg.cpu_preprocessing:
     DEVICE = "cuda"
 else:
     DEVICE = "cpu"
@@ -203,15 +203,16 @@ class BackgroundNoise(torch.nn.Module):
     def __init__(self, cfg: config.Config, norm=True):
         super().__init__()
         self.noise_path = Path(cfg.bg_noise_path)
+        self.noise_path_str = cfg.bg_noise_path
         self.alpha_range = cfg.bg_noise_alpha_range
         self.sample_rate = cfg.sample_rate
         self.length = cfg.max_time
         self.norm = norm
-        if self.noise_path != "":
+        if self.noise_path_str != "" and cfg.bg_noise_p > 0.0:
             files = list(os.listdir(self.noise_path))
             audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere",".pt")
             self.noise_clips = [f for f in files if f.endswith(audio_extensions)]
-        elif cfg.background_p!=0.0:
+        elif cfg.bg_noise_p!=0.0:
             raise RuntimeError("Background noise probability is non-zero, "
             + "yet no background path was specified. Please update config.yml")
         else:
@@ -228,13 +229,14 @@ class BackgroundNoise(torch.nn.Module):
         """
         # Skip loading if no noise path
         alpha = utils.rand(*self.alpha_range)
-        if self.noise_path == "":
+        if self.noise_path_str == "":
             return clip
         # If loading fails, skip for now
         try:
             noise_clip = self.choose_random_noise()
-        except RuntimeError:
+        except RuntimeError as e:
             logger.warning('Error loading noise clip, background noise augmentation not performed')
+            logger.error(e)
             return clip
         return (1 - alpha*clip) + alpha*noise_clip
 
