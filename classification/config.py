@@ -14,7 +14,6 @@ import sys
 import git
 import yaml
 from git import Repo  # pyright: ignore [reportPrivateImportUsage]
-
 from torch.cuda import is_available
 
 logger = logging.getLogger("acoustic_multiclass_training")
@@ -182,9 +181,9 @@ class Config():
         """
 
         self.required_checks("device")
-        if self.device is None:
-             raise ValueError(f'The required parameter "device" is not defined in yaml')
-        if self.device == "auto":
+        if self.config_dict["device"] is None:
+            raise ValueError('The required parameter "device" is not defined in yaml')
+        if self.config_dict["device"] == "auto":
             self.device = "cuda" if is_available() else "cpu"
 
         self.config_dict["device"] = self.device

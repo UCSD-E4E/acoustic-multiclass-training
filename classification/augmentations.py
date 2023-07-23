@@ -7,11 +7,10 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Dict, Tuple
 
+import config
 import pandas as pd
 import torch
 import torchaudio
-
-import config
 import utils
 
 logger = logging.getLogger("acoustic_multiclass_training")
@@ -190,6 +189,8 @@ class RandomEQ(torch.nn.Module):
                 clip, self.sample_rate, frequency, gain, q_val)
         return clip
 
+# Mald about it pylint!
+# pylint: disable-next=too-many-instance-attributes
 class BackgroundNoise(torch.nn.Module):
     """
     torch module for adding background noise to audio tensors
