@@ -76,30 +76,34 @@ def train(model: Any,
     scaler = torch.cuda.amp.grad_scaler.GradScaler()
 
     for i, (mels, labels) in enumerate(data_loader):
-        optimizer.zero_grad()
-        mels = mels.to(DEVICE)
-        labels = labels.to(DEVICE)
+        try:
+            optimizer.zero_grad()
+            mels = mels.to(DEVICE)
+            labels = labels.to(DEVICE)
 
-        with autocast(device_type=DEVICE, dtype=torch.float16, enabled=cfg.mixed_precision):
-            outputs = model(mels)
-            check_shape(outputs, labels)
-            loss = model.loss_fn(outputs, labels)
-        outputs = outputs.to(dtype=torch.float32)
-        loss = loss.to(dtype=torch.float32)
+            with autocast(device_type=DEVICE, dtype=torch.float16, enabled=cfg.mixed_precision):
+                outputs = model(mels)
+                check_shape(outputs, labels)
+                loss = model.loss_fn(outputs, labels)
+            outputs = outputs.to(dtype=torch.float32)
+            loss = loss.to(dtype=torch.float32)
 
-        if cfg.mixed_precision:
-            # Pyright complains about scaler.scale(loss) returning iterable of unknown types
-            # Problem in the pytorch typing, documentation says it returns iterables of Tensors
-            #  keep if needed - noqa: reportGeneralTypeIssues
-            scaler.scale(loss).backward()  # type: ignore
-            scaler.step(optimizer)
-            scaler.update()
-        else:
-            loss.backward()
-            optimizer.step()
+            if cfg.mixed_precision:
+                # Pyright complains about scaler.scale(loss) returning iterable of unknown types
+                # Problem in the pytorch typing, documentation says it returns iterables of Tensors
+                #  keep if needed - noqa: reportGeneralTypeIssues
+                scaler.scale(loss).backward()  # type: ignore
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss.backward()
+                optimizer.step()
 
-        if scheduler is not None:
-            scheduler.step()
+            if scheduler is not None:
+                scheduler.step()
+        except Exception as e:
+            logger.error(e)
+            continue
 
         running_loss += loss.item()
 
@@ -198,22 +202,25 @@ def valid(model: Any,
     else:
         with torch.no_grad():
             for index, (mels, labels) in enumerate(dl_iter):
-                if index > len(dl_iter) * dataset_ratio:
-                    # Stop early if not doing full validation
-                    break
-                mels = mels.to(DEVICE)
-                labels = labels.to(DEVICE)
+                try:
+                    if index > len(dl_iter) * dataset_ratio:
+                        # Stop early if not doing full validation
+                        break
+                    mels = mels.to(DEVICE)
+                    labels = labels.to(DEVICE)
 
-                # argmax
-                outputs = model(mels)
-                check_shape(outputs, labels)
+                    # argmax
+                    outputs = model(mels)
+                    check_shape(outputs, labels)
 
-                loss = model.loss_fn(outputs, labels)
+                    loss = model.loss_fn(outputs, labels)
 
-                running_loss += loss.item()
+                    running_loss += loss.item()
 
-                pred.append(outputs.cpu().detach())
-                label.append(labels.cpu().detach())
+                    pred.append(outputs.cpu().detach())
+                    label.append(labels.cpu().detach())
+                except Exception as e:
+                    logger.error(e)
 
 
             pred = torch.cat(pred)
