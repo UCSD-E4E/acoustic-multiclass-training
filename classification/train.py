@@ -282,7 +282,6 @@ def load_datasets(train_dataset, val_dataset
     # https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
     
     if cfg.does_weighted_sampling:
-        print("WORKS")
         train_dataloader = DataLoader(
             train_dataset,
             cfg.train_batch_size,
