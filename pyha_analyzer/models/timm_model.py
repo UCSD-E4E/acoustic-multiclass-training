@@ -11,7 +11,7 @@ import torch
 from torch import nn
 
 from pyha_analyzer import config
-from pyha_analyzer.models.loss_fn import bce_loss_fn, cross_entropy_loss_fn
+from pyha_analyzer.models.loss_fn import bce_loss_fn, cross_entropy_loss_fn, focal_loss_fn
 
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
@@ -58,4 +58,6 @@ class TimmModel(nn.Module):
             return bce_loss_fn(self, self.without_logits)
         if loss_desc == "BCEWL":
             return bce_loss_fn(self, self.without_logits)
-        raise RuntimeError("Pick a loss in the form of CE, BCE, BCEWL")
+        if loss_desc == "FL":
+            return focal_loss_fn(self, self.without_logits)
+        raise RuntimeError("Pick a loss in the form of CE, BCE, BCEWL, or FL")
