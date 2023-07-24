@@ -198,7 +198,7 @@ class PyhaDFDataset(Dataset):
         convert_to_mel = audtr.MelSpectrogram(
                 sample_rate=cfg.sample_rate,
                 n_mels=cfg.n_mels,
-                nfft=cfg.n_fft)
+                n_fft=cfg.n_fft)
         convert_to_mel = convert_to_mel.to(DEVICE)
         # Mel spectrogram
         # Pylint complains this is not callable, but it is a torch.nn.Module

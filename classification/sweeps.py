@@ -105,7 +105,7 @@ def main():
     else:
         sweep_id = f"{cfg.wandb_entity}/{sweep_project}/{cfg.sweep_id}"
     
-    for i in range(cfg.agent_run_count):
+    for _ in range(cfg.agent_run_count):
         wandb.agent(sweep_id, function = train_main, count=1)
         print("HOPEFULLY AGENT IS DONE ================================")
 
