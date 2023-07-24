@@ -30,7 +30,11 @@ class TimmModel(nn.Module):
         super().__init__()
         self.num_classes = num_classes
         # See config.py for list of recommended models
-        self.model = timm.create_model(model_name, pretrained=pretrained, num_classes=num_classes)
+        self.model = timm.create_model(
+            model_name,
+            pretrained=pretrained,
+            num_classes=num_classes,
+            drop_rate=0.5)
         self.loss_fn = None
         self.without_logits = cfg.loss_fnc == "BCE"
 

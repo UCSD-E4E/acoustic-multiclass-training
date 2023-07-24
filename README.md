@@ -38,6 +38,8 @@ conda env create -f environment.yml
 
 To recreate our results, [PyHa](https://github.com/UCSD-E3E/PyHa) needs to be installed and set up. Furthermore, our results are based on the [BirdCLEF2023 dataset](https://www.kaggle.com/competitions/birdclef-2023). You may also find it useful to use a  [no-call dataset](https://www.kaggle.com/code/sprestrelski/birdclef23-uniform-no-call-sound-chunks) compiled from previous competitions.
 
+### Quick Start Dataset
+You can download a sample dataset and labels .csv here: https://drive.google.com/file/d/1DrFlOGmlbXaStgDn2tFTklfpbBM4uim4/view?usp=sharing. This contains 18 `.mp3` files for 3 Amazonian species and a metadata `.csv` with 531 annotations. These files can be directly fed into the [classification pipeline]((#classification))
 
 ## Data Setup
 The data processing pipeline assumes a folder directory structure as follows
@@ -57,9 +59,6 @@ The CSV file referenced in `config.py` contains all metadata about clips in that
 
 We ran into issues running PyHa over `.ogg` files, so there is an included function in `gen_csv_labels.py` to convert `.ogg` to `.wav` files and can be swapped out for your original file type. This is an issue for the data processing pipeline. However, the training pipeline can accept most file types. This will be fixed in future versions of PyHa.
 
-### Quick Start Data Setup
-You can download a sample dataset and labels .csv here: [http://gofile.me/4PtL7/4dwRKkSu2](http://gofile.me/4PtL7/4dwRKkSu2). This contains 10 `.mp3` files for the Amazonian Barred Woodcreeper and their metadata from Xeno-canto.
-
 ## Data Processing
 To process data using TweetyNet, you will need to have [PyHa](https://github.com/UCSD-E3E/PyHa) installed and set up.  
 
@@ -68,27 +67,21 @@ The main file is is `gen_csv_labels.py` and uses functions from `config.py` and 
 conda env create --file conda_environments/{filename}
 conda activate species-id
 ```
-If PyHa was correctly set up, running `gen_csv_labels.py` will generate two csvs: one with strong labels, one with chunked strong labels. For example, to create labels with 5 second, sliding window chunks for `.ogg` files in a folder called `~/amabaw1`, you can run the following:
+If PyHa was correctly set up, running `gen_csv_labels.py` will generate two csvs: one with strong labels, one with chunked strong labels. For example, to create labels with 5 second, sliding window chunks for `.ogg` files in a folder called `~/example_dataset`, you can run the following:
 ```
-python gen_csv_labels.py -l 5 -f .ogg -w -a ~/amabaw1  
+python gen_csv_labels.py -l 5 -f .ogg -w -a ~/example_dataset
 ```
 If using simple chunks, ie. if the `sliding_window` is not used, it will only create one `.csv` for `chunk_labels`.
 
 ## Classification
-The main file is `train.py`, which has the main training loop and uses functions from `dataset.py` and `model.py`. This has several hyperparameters related to training, logging, and data augmentation that can be passed in as arguments. For example, to run with a mixup probability of -1.6, with all other arguments kept to the defaults, you would run:
+The main file is `train.py`, which has the main training loop and uses functions from `dataset.py` and `models/timm_model.py`. This has several hyperparameters related to training, logging, and data augmentation which are processed in `config.py`.  
 
-```py
-python train.py –mix_p=-1.6
-```
+These hyperparameters can be changed in `config.yml`. It's currently required to run this script from within the root directory of this repo to save the Git hash in the config namespace and have access to the config file. This assists with reproducibility by saving the hash used to run the model. 
 
-These hyperparameters can also be changed in `config.py`. It's currently required to run this script from within the repo directory to save the Git hash in the config namespace. This assists with reproducibility by saving the hash used to run the model. 
-
-To select a model, change the `model_name` parameter in `config.py` when instantiating `timmsModels`, or edit the `model.py` file directly. `model.py` loads in models using the [Pytorch Image Models library (timm)](https://timm.fast.ai/) and supports a variety of models including EfficientNets, ResNets, and DenseNets. To directly load local models, you would add another parameter for the checkpoint path:
+To select a model, change the `model` parameter in `config.yml`, or edit the `timm_model.py` file directly. `timm_model.py` loads in models using the [Pytorch Image Models library (timm)](https://timm.fast.ai/) and supports a variety of models including EfficientNets, ResNets, and DenseNets. To directly load local models, you would add another parameter for the checkpoint path:
 ```py
 self.model = timm.create_model('tf_efficientnet_b0', checkpoint_path='./models/tf_efficientnet_b1_aa-ea7a6ee0.pth')
 ```
-
-Custom models will also be in the pipeline sometime in the future
 
 ### Logging
 This project is set up with [WandB](https://wandb.ai), a dashboard to keep track of hyperparameters and system metrics. You’ll need to make an account and log in locally to use it. WandB is extremely helpful for comparing models live and visualizing the training process.
@@ -96,9 +89,9 @@ This project is set up with [WandB](https://wandb.ai), a dashboard to keep track
 ![](images/SampleWandBOutputs.PNG)
 
 
-If you do not want to enable WandB logging, it can disabled during runtime using the `-l` flag:
+If you do not want to enable WandB logging, set `logging: false` in `config.yml` or disable it during runtime using the `-l` flag:
 ```
-python train.py -l False
+python train.py -l
 ```
 
 ## Inference 

@@ -4,38 +4,30 @@
         train: trains the model
         valid: calculates validation loss and accuracy
         set_seed: sets the random seed
-        init_wandb: initializes the Weights and Biases logging
-
-
 """
 import datetime
+import logging
 import os
 from typing import Any, Tuple
-import logging
 
-import config
-from dataset import get_datasets
-from utils import set_seed
-
-from torch.amp.autocast_mode import autocast
-from torch.optim import Adam
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch.amp.autocast_mode import autocast
+from torch.optim import Adam
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from torchmetrics.classification import MultilabelAveragePrecision
-import wandb
+from tqdm import tqdm
 
+import config
+import wandb
+from dataset import get_datasets
 from models.early_stopper import EarlyStopper
 from models.timm_model import TimmModel
+from utils import set_seed
 
 tqdm.pandas()
-time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M') 
-if torch.cuda.is_available():
-    DEVICE = "cuda"
-else:
-    DEVICE = "cpu"
+time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
 
@@ -51,7 +43,7 @@ def check_shape(outputs: torch.Tensor, labels: torch.Tensor) -> None:
 
 
 # Splitting this up would be annoying!!!
-# pylint: disable=too-many-statements 
+# pylint: disable=too-many-statements
 # pylint: disable=too-many-locals
 # pylint: disable=too-many-arguments
 def train(model: Any,
@@ -74,34 +66,35 @@ def train(model: Any,
     log_n = 0
     log_loss = 0
     log_map = 0
-    
+
     #scaler = torch.cuda.amp.GradScaler()
     start_time = datetime.datetime.now()
     scaler = torch.cuda.amp.grad_scaler.GradScaler()
 
     for i, (mels, labels) in enumerate(data_loader):
         optimizer.zero_grad()
-        mels = mels.to(DEVICE)
-        labels = labels.to(DEVICE)
-        
-        with autocast(device_type=DEVICE, dtype=torch.float16, enabled=cfg.mixed_precision):
+        mels = mels.to(cfg.device)
+        labels = labels.to(cfg.device)
+        with autocast(device_type=cfg.device, dtype=torch.bfloat16, enabled=cfg.mixed_precision):
             outputs = model(mels)
             check_shape(outputs, labels)
             loss = model.loss_fn(outputs, labels)
         outputs = outputs.to(dtype=torch.float32)
         loss = loss.to(dtype=torch.float32)
 
-        if cfg.mixed_precision:
+        if cfg.mixed_precision and cfg.device != "cpu":
             # Pyright complains about scaler.scale(loss) returning iterable of unknown types
             # Problem in the pytorch typing, documentation says it returns iterables of Tensors
-            #  keep if needed - noqa: reportGeneralTypeIssues 
+            #  keep if needed - noqa: reportGeneralTypeIssues
             scaler.scale(loss).backward()  # type: ignore
             scaler.step(optimizer)
             scaler.update()
         else:
+            if cfg.mixed_precision:
+                logger.warning("cuda required, mixed precision not applied")
             loss.backward()
             optimizer.step()
-        
+
         if scheduler is not None:
             scheduler.step()
 
@@ -116,7 +109,7 @@ def train(model: Any,
         # Could be possible when model is untrained so we only have FNs
         if np.isnan(batch_map):
             batch_map = 0
-        
+
         log_map += batch_map
 
         log_loss += loss.item()
@@ -149,10 +142,15 @@ def train(model: Any,
             log_map = 0
 
         if (i != 0 and i % (cfg.valid_freq) == 0):
+            # Free memory so gpu is freed before validation run
+            del mels
+            del outputs
+            del labels
+
             valid_start_time = datetime.datetime.now()
-            _, _, best_valid_map = valid(model, 
-                                         valid_loader, 
-                                         epoch + i / len(data_loader), 
+            _, _, best_valid_map = valid(model,
+                                         valid_loader,
+                                         epoch + i / len(data_loader),
                                          best_valid_map)
             model.train()
             # Ignore the time it takes to validate in annotations/sec
@@ -200,17 +198,17 @@ def valid(model: Any,
                 if index > len(dl_iter) * dataset_ratio:
                     # Stop early if not doing full validation
                     break
-                mels = mels.to(DEVICE)
-                labels = labels.to(DEVICE)
-                
+                mels = mels.to(cfg.device)
+                labels = labels.to(cfg.device)
+
                 # argmax
                 outputs = model(mels)
                 check_shape(outputs, labels)
-                
+
                 loss = model.loss_fn(outputs, labels)
-                    
+
                 running_loss += loss.item()
-                
+
                 pred.append(outputs.cpu().detach())
                 label.append(labels.cpu().detach())
 
@@ -222,7 +220,7 @@ def valid(model: Any,
                 torch.save(label, "/".join(cfg.model_checkpoint.split('/')[:-1]) + '/label.pt')
 
     # softmax predictions
-    pred = F.sigmoid(pred).to(DEVICE)
+    pred = F.softmax(pred).to(cfg.device)
 
     #metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
     #valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
@@ -252,28 +250,17 @@ def valid(model: Any,
         logger.info("Validation mAP Improved - %f ---> %f", best_valid_map, valid_map)
         best_valid_map = valid_map
 
-    
+
     return running_loss/len(data_loader), valid_map, best_valid_map
 
-
-def init_wandb() -> Any:
+def set_name(run):
     """
-    Initialize the weights and biases logging
+    Set wandb run name
     """
-    run = wandb.init(
-        entity=cfg.wandb_entity,
-        project=cfg.wandb_project,
-        config=cfg.config_dict,
-        mode="online" if cfg.logging else "disabled"
-    )
-
-    assert run is not None
     if cfg.wandb_run_name == "auto":
         # This variable is always defined
         cfg.wandb_run_name = cfg.model # type: ignore
     run.name = f"{cfg.wandb_run_name}-{time_now}"
-
-    return run
 
 def load_datasets(train_dataset, val_dataset
         )-> Tuple[DataLoader, DataLoader]:
@@ -281,12 +268,31 @@ def load_datasets(train_dataset, val_dataset
         Loads datasets and dataloaders for train and validation
     """
 
-    train_dataloader = DataLoader(
-        train_dataset,
-        cfg.train_batch_size,
-        shuffle=True,
-        num_workers=cfg.jobs,
-    )
+    # Code used from:
+    # https://www.kaggle.com/competitions/birdclef-2023/discussion/412808
+    # Get Sample Weights
+    weights_list = train_dataset.get_sample_weights()
+    sampler = WeightedRandomSampler(weights_list, len(weights_list))
+
+    # Create our dataloaders
+    # if sampler function is "specified, shuffle must not be specified."
+    # https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
+    
+    if cfg.does_weighted_sampling:
+        train_dataloader = DataLoader(
+            train_dataset,
+            cfg.train_batch_size,
+            sampler=sampler,
+            num_workers=cfg.jobs
+        )
+    else:
+        train_dataloader = DataLoader(
+            train_dataset,
+            cfg.train_batch_size,
+            shuffle=True,
+            num_workers=cfg.jobs
+        )
+
     val_dataloader = DataLoader(
         val_dataset,
         cfg.validation_batch_size,
@@ -306,15 +312,24 @@ def logging_setup() -> None:
     logger.debug("Config: %s", cfg.config_dict)
     logger.debug("Git hash: %s", cfg.git_hash)
 
-def main() -> None:
+def main(in_sweep=True) -> None:
     """ Main function
     """
     torch.multiprocessing.set_start_method('spawn')
-    logger.info("Device is: %s",DEVICE)
-    init_wandb()
-    logging_setup()
-    assert wandb.run is not None
+    logger.info("Device is: %s, Preprocessing Device is %s", cfg.device, cfg.prepros_device)
     set_seed(cfg.seed)
+    if in_sweep:
+        run = wandb.init()
+        for key, val in dict(wandb.config).items():
+            setattr(cfg, key, val)
+    else:
+        run = wandb.init(
+            entity=cfg.wandb_entity,
+            project=cfg.wandb_project,
+            config=cfg.config_dict,
+            mode="online" if cfg.logging else "disabled")
+        set_name(run)
+
 
     # Load in dataset
     logger.info("Loading Dataset")
@@ -324,15 +339,16 @@ def main() -> None:
 
     logger.info("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
-                              model_name=cfg.model).to(DEVICE)
+                              model_name=cfg.model).to(cfg.device)
     model_for_run.create_loss_fn(train_dataset)
     if cfg.model_checkpoint != "":
         model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))
     optimizer = Adam(model_for_run.parameters(), lr=cfg.learning_rate)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
+
     logger.info("Model / Optimizer Loading Successful :P")
-    
     logger.info("Training")
+
     best_valid_map = 0
     early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
     for epoch in range(cfg.epochs):
@@ -347,9 +363,9 @@ def main() -> None:
             epoch,
             best_valid_map
         )
-        _, valid_map, best_valid_map = valid(model_for_run, 
-                                             val_dataloader, 
-                                             epoch + 1.0, 
+        _, valid_map, best_valid_map = valid(model_for_run,
+                                             val_dataloader,
+                                             epoch + 1.0,
                                              best_valid_map)
 
         logger.info("Best validation map: %f", best_valid_map)
@@ -357,6 +373,6 @@ def main() -> None:
             logger.info("Early stopping has triggered on epoch %d", epoch)
             break
 
-        
+
 if __name__ == '__main__':
-    main()
+    main(in_sweep=False)

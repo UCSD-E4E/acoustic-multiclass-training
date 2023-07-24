@@ -5,11 +5,13 @@
 """
 
 from pathlib import Path
-from typing import Dict, Any, Tuple
+from typing import Any, Dict, Tuple
+
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
+
 import config
 
 cfg = config.cfg
@@ -51,6 +53,11 @@ def crop_audio(audio: torch.Tensor, num_samples:int) -> torch.Tensor:
     """
     return audio[:num_samples]
 
+def to_mono(audio: torch.Tensor) -> torch.Tensor:
+    """Converts audio to mono
+    """
+    return torch.mean(audio, dim=0)
+
 def one_hot(tensor, num_classes, on_value=1., off_value=0.):
     """Return one hot tensor of length num_classes
     """
@@ -62,12 +69,12 @@ def one_hot(tensor, num_classes, on_value=1., off_value=0.):
 def get_annotation(df: pd.DataFrame, 
         index: int,
         class_to_idx: Dict[str, Any], 
-        sample_rate: int,
-        target_num_samples: int,
         device) -> Tuple[torch.Tensor, torch.Tensor]:
     """ Returns tuple of audio waveform and its one-hot label
     """
     #annotation = self.samples.iloc[index]
+    sample_rate = cfg.sample_rate
+    target_num_samples = cfg.sample_rate * cfg.max_time
     annotation = df.iloc[index]
     file_name = annotation[cfg.file_name_col]
 
