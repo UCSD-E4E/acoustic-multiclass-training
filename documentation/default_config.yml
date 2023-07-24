@@ -23,6 +23,7 @@ jobs: 2
 valid_freq: 2000
 mixed_precision: true
 valid_dataset_ratio: 0.3
+does_weighted_sampling: False
 
 # Logging
 logging: true

@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torchaudio
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from torchaudio import transforms as audtr
 from torchvision.transforms import RandomApply
 from tqdm import tqdm
@@ -254,6 +254,20 @@ class PyhaDFDataset(Dataset):
         """
         return self.num_classes
 
+    def get_sample_weights(self) -> pd.Series:
+        """ Returns the weights as computed by the first place winner of BirdCLEF 2023
+        See https://www.kaggle.com/competitions/birdclef-2023/discussion/412808 
+        Congrats on your win!
+        """
+        manual_id = cfg.manual_id_col
+        all_primary_labels = self.samples[manual_id]
+        sample_weights = (
+            all_primary_labels.value_counts() / 
+            all_primary_labels.value_counts().sum()
+        )  ** (-0.5)
+        weight_list = self.samples[manual_id].apply(lambda x: sample_weights.loc[x])
+        return weight_list
+
 
 def get_datasets():
     """ Returns train and validation datasets
@@ -289,14 +303,35 @@ def get_datasets():
 
 def make_dataloaders(train_dataset, val_dataset
         )-> Tuple[DataLoader, DataLoader]:
-    """ Loads datasets and dataloaders for train and validation """
+    """
+        Loads datasets and dataloaders for train and validation
+    """
 
-    train_dataloader = DataLoader(
-        train_dataset,
-        cfg.train_batch_size,
-        shuffle=True,
-        num_workers=cfg.jobs,
-    )
+    # Code used from:
+    # https://www.kaggle.com/competitions/birdclef-2023/discussion/412808
+    # Get Sample Weights
+    weights_list = train_dataset.get_sample_weights()
+    sampler = WeightedRandomSampler(weights_list, len(weights_list))
+
+    # Create our dataloaders
+    # if sampler function is "specified, shuffle must not be specified."
+    # https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
+    
+    if cfg.does_weighted_sampling:
+        train_dataloader = DataLoader(
+            train_dataset,
+            cfg.train_batch_size,
+            sampler=sampler,
+            num_workers=cfg.jobs
+        )
+    else:
+        train_dataloader = DataLoader(
+            train_dataset,
+            cfg.train_batch_size,
+            shuffle=True,
+            num_workers=cfg.jobs
+        )
+
     val_dataloader = DataLoader(
         val_dataset,
         cfg.validation_batch_size,
