@@ -14,7 +14,7 @@ sweep_config = {
     'method'            : 'bayes',
     'name'              : 'sweep',
     'early_terminate'   : {'type': 'hyperband', 'min_iter': 3},
-    'metric'            : {'goal': 'maximize', 'name' : 'val/map'},
+    'metric'            : {'goal': 'maximize', 'name' : 'valid/map'},
     'parameters'        : {
         # General
         'lr' : {
@@ -93,13 +93,18 @@ def main():
     """
     sweep_id = cfg.sweep_id
     wandb.login()
+    sweep_project = f"{cfg.wandb_project}-sweep"
     if not sweep_id:
         print("Starting a new sweep")
         sweep_id = wandb.sweep(
             sweep_config,
             entity=cfg.wandb_entity,
-            project=cfg.wandb_project + "-sweep")
+            project=sweep_project)
+    else:
+        sweep_id = f"{cfg.wandb_entity}/{sweep_project}/{cfg.sweep_id}"
     wandb.agent(sweep_id, function = train_main, count=1)
 
+if __name__ == "__main__":
+    main()
 if __name__ == "__main__":
     main()

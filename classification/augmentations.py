@@ -7,18 +7,13 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Dict, Tuple
 
+import config
 import pandas as pd
 import torch
 import torchaudio
-
-import config
 import utils
 
 logger = logging.getLogger("acoustic_multiclass_training")
-if torch.cuda.is_available():
-    DEVICE = "cuda"
-else:
-    DEVICE = "cpu"
 
 class Mixup(torch.nn.Module):
     """
@@ -80,6 +75,7 @@ def gen_noise(num_samples: int, psd_shape_func: Callable) -> torch.Tensor:
         num_samples: length of noise Tensor to generate
         psd_shape_func: function that gives the shape of the noise's
         power spectrum distribution
+        device: CUDA or CPU for processing
 
     Returns: noise Tensor of length num_samples
     """
@@ -92,7 +88,7 @@ def gen_noise(num_samples: int, psd_shape_func: Callable) -> torch.Tensor:
     shape_signal = shape_signal / torch.sqrt(torch.mean(shape_signal.float()**2))
     # Adjust frequency amplitudes according to noise type
     noise = white_signal * shape_signal
-    return torch.fft.irfft(noise).to(DEVICE)
+    return torch.fft.irfft(noise)
 
 def noise_generator(func: Callable):
     """
@@ -143,6 +139,7 @@ class SyntheticNoise(torch.nn.Module):
         super().__init__()
         self.noise_type = cfg.noise_type
         self.alpha = cfg.noise_alpha
+        self.device = cfg.prepros_device
 
     def forward(self, clip: torch.Tensor)->torch.Tensor:
         """
@@ -152,7 +149,7 @@ class SyntheticNoise(torch.nn.Module):
         Returns: Clip mixed with noise according to noise_type and alpha
         """
         noise_function = self.noise_names[self.noise_type]
-        noise = noise_function(len(clip))
+        noise = noise_function(len(clip)).to(self.device)
         return (1 - self.alpha) * clip + self.alpha* noise
 
 
@@ -192,6 +189,8 @@ class RandomEQ(torch.nn.Module):
                 clip, self.sample_rate, frequency, gain, q_val)
         return clip
 
+# Mald about it pylint!
+# pylint: disable-next=too-many-instance-attributes
 class BackgroundNoise(torch.nn.Module):
     """
     torch module for adding background noise to audio tensors
@@ -203,15 +202,17 @@ class BackgroundNoise(torch.nn.Module):
     def __init__(self, cfg: config.Config, norm=True):
         super().__init__()
         self.noise_path = Path(cfg.bg_noise_path)
+        self.noise_path_str = cfg.bg_noise_path
         self.alpha_range = cfg.bg_noise_alpha_range
         self.sample_rate = cfg.sample_rate
         self.length = cfg.max_time
+        self.device = cfg.prepros_device
         self.norm = norm
-        if self.noise_path != "":
+        if self.noise_path_str != "" and cfg.bg_noise_p > 0.0:
             files = list(os.listdir(self.noise_path))
             audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere",".pt")
             self.noise_clips = [f for f in files if f.endswith(audio_extensions)]
-        elif cfg.background_p!=0.0:
+        elif cfg.bg_noise_p!=0.0:
             raise RuntimeError("Background noise probability is non-zero, "
             + "yet no background path was specified. Please update config.yml")
         else:
@@ -228,13 +229,14 @@ class BackgroundNoise(torch.nn.Module):
         """
         # Skip loading if no noise path
         alpha = utils.rand(*self.alpha_range)
-        if self.noise_path == "":
+        if self.noise_path_str == "":
             return clip
         # If loading fails, skip for now
         try:
             noise_clip = self.choose_random_noise()
-        except RuntimeError:
+        except RuntimeError as e:
             logger.warning('Error loading noise clip, background noise augmentation not performed')
+            logger.error(e)
             return clip
         return (1 - alpha*clip) + alpha*noise_clip
 
@@ -247,11 +249,11 @@ class BackgroundNoise(torch.nn.Module):
         clip_len = self.sample_rate * self.length
 
         if str(noise_file).endswith(".pt"):
-            waveform = torch.load(noise_file).to(DEVICE, dtype=torch.float32)/32767.0
+            waveform = torch.load(noise_file).to(self.device, dtype=torch.float32)/32767.0
         else:
             # pryright complains that load isn't called from torchaudio. It is.
             waveform, sample_rate = torchaudio.load(noise_file, normalize=True) #pyright: ignore
-            waveform = waveform[0].to(DEVICE)
+            waveform = waveform[0].to(self.device)
             if sample_rate != self.sample_rate:
                 waveform = torchaudio.functional.resample(
                         waveform, orig_freq=sample_rate, new_freq=self.sample_rate)
