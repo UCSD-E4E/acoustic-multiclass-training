@@ -99,5 +99,6 @@ If a parameter specifies a range, then it is always a length two list with the f
 `lowpass_q_val`: Q value for the LowpassFilter augmentation
 
 ## Spectrogram conversion settings
+`n_hops`: Hop size in samples for fft. Do not change
 `n_mels`: Number of mel filterbanks to use in converting audio to spectrogram\
 `n_fft`: Size of FFT in mel spectrogram conversion. Creates n\_fft // 2 + 1 bins
