@@ -60,9 +60,9 @@ Below are the instructions for manual setup if you need to reference them.
 
 ### EC2 setup 
 
-Before starting anything, run `sudo apt update -y` followed by `sudo apt upgrade -y` to ensure that apt's repository cache is up to date.
+Before starting anything, run `sudo apt-get update -y` followed by `sudo apt-get upgrade -y` to ensure that apt's repository cache is up to date.
 
-Install the aws tools using the command: `sudo apt install awscli s3fs`.
+Install the aws tools using the command: `sudo apt-get install awscli s3fs`.
 
 ## IAM roles
 

@@ -3,119 +3,219 @@
     Methods:
         get_config: returns an ArgumentParser with the default arguments
 """
-import sys
 import argparse
-from operator import itemgetter
-import git
+import logging
+import os
+import shutil
+import sys
 
-# Machine learning has a lot of arugments
-# pylint: disable=too-many-statements
+# "Repo" is not exported from module "git" Import from "git.repo" instead
+# https://gitpython.readthedocs.io/en/stable/tutorial.html?highlight=repo#meet-the-repo-type
+import git
+import yaml
+from git import Repo  # pyright: ignore [reportPrivateImportUsage]
+from torch.cuda import is_available
+
+logger = logging.getLogger("acoustic_multiclass_training")
+
+class Config():
+    """
+    Saves config from config files
+    Allows for customising runs
+    """
+    def __init__(self):
+        """Constructor that runs after creating the singleton class
+        Post processing after reading config file
+        """
+        self.required_checks("dataframe_csv")
+        self.required_checks("data_path")
+        self.get_git_hash()
+        self.cli_values()
+        self.get_device()
+
+    def __new__(cls):
+        """
+        Constructor for Config
+
+        Takes data from config files and generates a singleton class
+        that can store all system vars
+
+        returns a refrence to the singleton class
+
+        Intended to read config files
+        """
+        
+        # Set up singleton class design template
+        if not hasattr(cls, 'instance'):
+            cls.instance = super(Config, cls).__new__(cls)
+        else:
+            return cls.instance
+
+        #Set defaults config
+        with open('documentation/default_config.yml', 'r', encoding='utf-8') as file:
+            cls.config_dict = yaml.safe_load(file)
+
+        default_keys = set()
+        for (key, value) in cls.config_dict.items():
+            setattr(cls, key, value)
+            default_keys.add(key)
+
+        #Set User Custom Values
+        if os.path.exists('config.yml'):
+            with open('config.yml', 'r', encoding='utf-8') as file:
+                cls.config_personal_dict = yaml.safe_load(file)
+
+            for (key, value) in cls.config_personal_dict.items():
+                setattr(cls, key, value)
+                
+            cls.config_dict.update(cls.config_personal_dict)
+            
+            attrs_to_append = []
+
+            for key in default_keys:
+                if key in cls.config_personal_dict: 
+                    continue
+                
+                value = cls.config_dict[key]
+                appending_attrs = {
+                    key: value
+                }
+
+                #https://media.tenor.com/dxPl_UoR8J0AAAAC/fire-writing.gif
+                attrs_to_append.append(appending_attrs) 
+
+
+            if len(attrs_to_append) != 0:
+                logger.warning("There are new updates in default config")
+                logger.warning("please manually update these keys from the new config")
+                logger.warning("%s", str(attrs_to_append))
+        else:
+            shutil.copy(os.path.join("documentation","default_config.yml"), "config.yml")
+
+            # Update personal dict with new keys
+        return cls.instance
+
+    def cli_values(self):
+        """ 
+        Saves all command line arguments to config class
+        Primarily intended for quick flags such as turning a property on or off
+        """
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-l', '--logging', action='store_false')
+        parser.add_argument('-d', '--debug', action='store_true')
+        
+        arg_cfgs = parser.parse_args()
+        
+        # Add all command line args to config
+        # Overwrite because user is defining them most recently
+        # Unless they are default value
+        arg_cfgs = vars(arg_cfgs)
+        for key in arg_cfgs:
+            if self.config_dict[key] == parser.get_default(key):
+                setattr(self, key, arg_cfgs[key])
+        
+        logger.setLevel(logging.DEBUG)
+        console_handler = logging.StreamHandler()
+        if self.debug:
+            console_handler.setLevel(logging.DEBUG)
+        else: 
+            console_handler.setLevel(logging.INFO)
+        logger.addHandler(console_handler)
+
+    def required_checks(self, parameter):
+        """
+        Parameter string
+
+        Raises ValueError if parameter isn't decalred in config yaml or isn't defined
+        """
+        if parameter not in self.config_dict:
+            raise ValueError(f'The required parameter "{parameter}" is not present in yaml')
+        if  self.config_dict[parameter] is None:
+            raise ValueError(f'The required parameter "{parameter}" is not defined in yaml')
+
+
+    def generate_config_file(self, filename="test.yml"):
+        """
+        Sends all configs saved to class to new file
+        overwrites file
+        """
+        with open(filename, 'w', encoding='utf-8') as file:
+            yaml.dump(self.config_dict, file)
+    
+    def __getattr__(self,attr):
+        """
+        Gets a config value in a dict-like way
+
+        attr string for varible name as defined in a config.yml file
+        """
+        return self.config_dict[attr]
+
+    def get_git_hash(self):
+        """
+        Gets the hash of the current git commit
+        This requires recording the hash before model training
+        """
+
+        #Add git hash to config so wand logging can track vrs used for reproduciblity
+        try:
+            #
+            repo = Repo(search_parent_directories=True)
+            sha = repo.head.object.hexsha
+            self.config_dict["git_hash"] = sha
+
+        #I want to catch this specific error, and it doesn't extend from base exception
+        #becuase of this, this leads to a lot of linting issues ¯\(ツ)/¯
+        # pylint: disable=no-member
+        except git.exc.InvalidGitRepositoryError: # pyright: ignore [reportGeneralTypeIssues]
+            logger.error("InvalidGitRepositoryError found, this means we cannot save git hash :(")
+            logger.error("You are likely calling a python file outside of this repo") 
+            logger.error("if from command line, cd into acoustic-mutliclass-training")
+            logger.error("then you can run the script again")
+            sys.exit(1)
+        return sha
+    
+    def get_device(self):
+        """ Gets the current device of the system if user defined device config param as 'auto'
+        Returns nothing
+        Raises value error if device doesn't exist in config file
+        """
+
+        self.required_checks("device")
+        if self.config_dict["device"] is None:
+            raise ValueError('The required parameter "device" is not defined in yaml')
+        if self.config_dict["device"] == "auto":
+            self.device = "cuda" if is_available() else "cpu"
+
+        self.config_dict["device"] = self.device
+
 def get_config():
     """ Returns a config variable with the command line arguments or defaults
+    Decrepated, returns Config to prevent largescale code breaks
     """
-    parser = argparse.ArgumentParser()
+    return cfg
 
-    # Dataset settings
-    parser.add_argument('-df', '--dataframe', default='CHANGEME.csv', type=str)
-    parser.add_argument('-dp', '--data_path', default='./all_10_species', type=str)
-
-
-    parser.add_argument('-st', '--offset_col', default='OFFSET', type=str)
-    parser.add_argument('-et', '--duration_col', default='DURATION', type=str)
-    parser.add_argument('-fn', '--file_name_col', default='FILE NAME', type=str)
-    parser.add_argument('-mi', '--manual_id_col', default='SCIENTIFIC', type=str)
-
-    # Env settings
-    parser.add_argument('-tbs', '--train_batch_size', default=4, type=int)
-    parser.add_argument('-vbs', '--valid_batch_size', default=4, type=int)
-    parser.add_argument('-wbs', '--wandb_session', default="acoustic-species-reu2023", 
-                        type=str, help="wandb project name")
-
-    # Functional settings
-    parser.add_argument('-j', '--jobs', default=2, type=int)
-    parser.add_argument('-s', '--seed', default=0, type=int)
-    parser.add_argument('-l', '--logging', default='True', type=str)
-    parser.add_argument('-v', '--verbose', action='store_true')
-    parser.add_argument('-lf', '--logging_freq', default=20, type=int)
-    parser.add_argument('-vf', '--valid_freq', default=2000, type=int)
-
-    # Model Training settings
-    # pylint: disable=pointless-string-statement
+def testing():
     """
-        Suggested model types:
-            eca_nfnet_l0 (90 MB)
-            tf_efficientnet_b4 (70 MB)
-            convnext_nano (60 MB)
-            convnext_tiny (110 MB)
-            resnetv2_50 (100 MB)
-            resnetv2_101 (170 MB)
-            seresnext50_32x4d (100 MB)
-            seresnext101_32x4d (200 MB)
-            rexnet_200 (70 MB)
-            mobilenetv3_large_100_miil_in21k (70 MB)
+    Test functionality of generating and caching configs
     """
-    parser.add_argument('-m', '--model', default='eca_nfnet_l0', type=str)
-    parser.add_argument('-e', '--epochs', default=10, type=int)
-    parser.add_argument('-nf', '--num_fold', default=5, type=int)
-    parser.add_argument('-tts', '--train_test_split', default=0.8, type=float)
-    parser.add_argument('-sr', '--sample_rate', default=32_000, type=int)
-    parser.add_argument('-hl', '--hop_length', default=512, type=int)
-    parser.add_argument('-mt', '--max_time', default=5, type=int)
-    parser.add_argument('-nm', '--n_mels', default=194, type=int)
-    parser.add_argument('-nfft', '--n_fft', default=1400, type=int)
-    parser.add_argument('-mch', '--model_checkpoint', default=None, type=str)
-    parser.add_argument('-md', '--map_debug', action='store_true')
-    parser.add_argument('-mxp', '--mixed_precision', action='store_true')
 
-    # Early stopping
-    parser.add_argument('-es', '--early_stopping', action='store_true')
-    parser.add_argument('-pa', '--patience', type=int, default=3, help="epochs to wait before stopping")
-    parser.add_argument('-del', '--min_delta', type=float, default=0.01, help='min improvement btwn epochs')
-    # Transforms settings
-    parser.add_argument('-p', '--p', default=0, type=float, help='probability for mixup')
-    parser.add_argument('-i', '--imb', action='store_true', help='imbalance sampler')
-    parser.add_argument('-pw', "--pos_weight", type=float, default=1, help='pos weight')
-    parser.add_argument('-lr', "--lr", type=float, default=1e-3, help='learning rate')
-    parser.add_argument('-mp', "--mix_p", type=float, default=0.4, help='mixup probability')
-    parser.add_argument('-tsp', "--time_shift_p", type=float, default=0, help='time shift probability')
-    parser.add_argument('-np', "--noise_p", type=float, default=0.35, help='noise probability')
-    parser.add_argument('-nsd', "--noise_std", type=float, default=0.005, help='noise std')
-    parser.add_argument('-fmp', "--freq_mask_p", type=float, default=0.5, help='freq mask probability')
-    parser.add_argument('-fmpa', "--freq_mask_param", type=int, default=10, help='freq mask param')
-    parser.add_argument("-tmp", "--time_mask_p", type=float, default=0.5, help='time mask probability')
-    parser.add_argument("-tmpa", "--time_mask_param", type=int, default=25, help='time mask param')
-    parser.add_argument('-sm', '--smoothing', type=float, default=0.05, help='label smoothing')
+    config = Config()
 
-    CONFIG = parser.parse_args()
+    # I want to test singleton class creation
+    # So I want to change one instance var and see that var in a new class
+    # in practice, I never want to change a config setting outside of config
+    # pylint: disable=attribute-defined-outside-init
     
-    # Convert string arguments to boolean
-    CONFIG.logging = CONFIG.logging == 'True'
-    
-    #Add git hash to config so wand logging can track vrs used for reproduciblity
-    try:
-        repo = git.Repo(search_parent_directories=True)
-        sha = repo.head.object.hexsha
-        setattr(CONFIG, "git_hash", sha)
-        print(sha)
+    config2 = Config()
+    assert config == config2
+    logger.info("%s", str(config.dataframe_csv))
+    logger.info("%s", str(config.logging))
+    get_config()
+    #cfg.generate_config_file()
 
-    #I want to catch this spefific error, and it doesn't extend from base exception
-    #¯\(ツ)/¯
-    # pylint: disable=no-member
-    except git.exc.InvalidGitRepositoryError:
-        print("InvalidGitRepositoryError found, this means we cannot save git hash :(")
-        print("You are likely calling a python file outside of this repo") 
-        print("if from command line, cd into acoustic-mutliclass-training")
-        print("then you can run the script again")
-        sys.exit(1)
 
-    return CONFIG
+#Expose variable to page scope
+cfg = Config()
 
-def get_args(*args):
-    """
-    Args:
-        *args: Series of strings corresponding to the command line arguments
-    Returns: Values of the command line arguments
-    """
-    CONFIG = get_config().__dict__
-    return itemgetter(*args)(CONFIG)
-    
+if __name__ == "__main__":
+    testing()
