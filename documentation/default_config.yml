@@ -10,15 +10,20 @@ duration_col: "DURATION"
 file_name_col: "FILE NAME"
 manual_id_col: "MANUAL ID"
 
+# Device Settings
+device: "auto" # Options: cuda, cpu, auto 
+prepros_device: "cpu" # Options: cuda, CPU
+
+
 # Training params
-cpu_preprocessing: True
+
 train_batch_size: 4
 validation_batch_size: 4
 jobs: 2
 valid_freq: 2000
 mixed_precision: true
 valid_dataset_ratio: 0.3
-chunk_length: 5 #seconds
+does_weighted_sampling: False
 
 # Logging
 logging: true
@@ -31,6 +36,7 @@ debug: false
 # Functional settings
 seed: 0
 sample_rate: 32_000
+map_debug: false
 train_test_split: 0.8
 num_fold: 5
 
@@ -55,10 +61,10 @@ learning_rate: 0.001
 #   BCE: Binary cross entropy
 #   BCEWL: Binary cross entropy with logits
 loss_fnc: "CE"
+imb: false
 
 # Hyperparameter sweep settings
-sweep_id:
-agent_run_count: 2
+sweep_id: 
 
 # Specify path to load a checkpoint
 model_checkpoint: ""
@@ -75,9 +81,9 @@ noise_p: 0.35
 freq_mask_p: 0.5
 time_mask_p: 0.5
 rand_eq_p: 0
+noise_p: 1
 lowpass_p: 0
 bg_noise_p: 1
-
 
 # Data augmentation parameters
 noise_type: "white"
@@ -100,11 +106,8 @@ bg_noise_alpha_range: [0.1, 0.2]
 # If path is blank and p=0, background noise will not be used
 bg_noise_path: ""
 
-# Transforms settings
-#imbalance_sampler: false
-#pos_weight: 1
-#smoothing: 0.05
-
 # FFT Settings
+hop_length: 512
 n_mels: 194
 n_fft: 1400
+max_time: 5
