@@ -74,31 +74,33 @@ def get_audio(dataset: PyhaDFDataset, num_samples: int=3):
     )
             for _ in range(num_samples)]
 
-N_AUGS = 9
+N_AUGS = 10
 def get_augs(dataset: PyhaDFDataset, noise_types: list, _cfg) -> Tuple[List[Callable],List[str]]:
     """ Returns a list of augmentations that can be applied
     Each element is a tuple of the form (aug, name)
     Each augmentation is a Callable that takes in a waveform and returns a waveform
     """
-    out = []
-    names = []
-    for col in noise_types:
-        out.append(SyntheticNoise(_cfg).forward)
-        names.append("Synthetic " + col +" noise")
-    out.append(LowpassFilter(_cfg).forward)
-    names.append("Lowpass filter")
-    out.append(HighpassFilter(_cfg).forward)
-    names.append("Highpass filter")
-    out.append(RandomEQ(_cfg).forward)
-    names.append("Random EQ")
-    out.append(BackgroundNoise(_cfg).forward)
-    names.append("Background noise")
+    augmentations = {
+            SyntheticNoise(_cfg): f"{col} noise" for col in noise_types
+        }
+    for aug, color in zip(augmentations.keys(), noises_types):
+        setattr(aug, "noise_type", color)
+
+    # Other augmentations
+    augs_with_names.update({
+        LowpassFilter(_cfg)   : "Lowpass Filter",
+        HighpassFilter(_cfg)  : "Highpass Filter",
+        RandomEQ(_cfg)        : "Random EQ",
+        BackgroundNoise(_cfg) : "Background Noise"})
+
+    #Mixup
     mixup = Mixup(df = dataset.samples,
                   class_to_idx = dataset.class_to_idx,
                   cfg = _cfg)
-    out.append(lambda x: mixup(x,torch.zeros(dataset.num_classes).to(x.device))[0])
-    names.append("Mixup")
-    return out, names
+    mixup = lambda x: mixup(x,torch.zeros(dataset.num_classes).to(x.device))[0]
+    augmentations.append({mixup: "Mixup"})
+
+    return augmentations.keys(), augmentations.values()
 
 def apply_augs(audio: torch.Tensor, augs: List[Callable]) -> List[torch.Tensor]:
     """ Apply all augmetations
