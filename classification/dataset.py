@@ -50,7 +50,7 @@ class PyhaDFDataset(Dataset):
                  species: Optional[Tuple[List[str], Dict[str, int]]]=None
                  ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
-        self.num_samples = cfg.sample_rate * cfg.max_time
+        self.num_samples = cfg.sample_rate * cfg.chunk_length
         self.train = train
 
 
@@ -74,6 +74,7 @@ class PyhaDFDataset(Dataset):
         self.serialize_data()
 
 
+        #Data augmentations
         self.mixup = Mixup(self.samples, self.class_to_idx, cfg)
         audio_augs = {
                 SyntheticNoise  : cfg.noise_p,
@@ -197,7 +198,7 @@ class PyhaDFDataset(Dataset):
         convert_to_mel = audtr.MelSpectrogram(
                 sample_rate=cfg.sample_rate,
                 n_mels=cfg.n_mels,
-                n_fft=cfg.n_fft)
+                nfft=cfg.n_fft)
         convert_to_mel = convert_to_mel.to(DEVICE)
         # Mel spectrogram
         # Pylint complains this is not callable, but it is a torch.nn.Module
