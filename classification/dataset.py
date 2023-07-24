@@ -54,7 +54,9 @@ class PyhaDFDataset(Dataset):
         # List data directory and confirm it exists
         if not os.path.exists(cfg.data_path):
             raise FileNotFoundError("Data path does not exist")
-        self.data_dir = set(os.listdir(self.config.data_path))
+        self.data_dir = set()
+        for root, _, files in os.walk(cfg.data_path):
+            self.data_dir |= {os.path.join(root,file) for file in files}
         
         #Log bad files
         self.bad_files = []
@@ -92,8 +94,12 @@ class PyhaDFDataset(Dataset):
         """
         Checks to make sure files exist that are referenced in input df
         """
-        missing_files = pd.Series(self.samples[self.config.file_name_col].unique()) \
-            .progress_apply(lambda file: "good" if file in self.data_dir else file)
+        missing_files = pd.Series(self.samples[cfg.file_name_col].unique()) \
+            .progress_apply(
+                lambda file: "good" if os.path.join(
+                    cfg.data_path,file
+                ) in self.data_dir else file
+        )
         missing_files = missing_files[missing_files != "good"].unique()
         if missing_files.shape[0] > 0:
             logger.info("ignoring %d missing files", missing_files.shape[0])
@@ -108,7 +114,7 @@ class PyhaDFDataset(Dataset):
 
         exts = "." + file_name.split(".")[-1]
         new_name = file_name.replace(exts, ".pt")
-        if os.path.join(self.config.data_path,new_name) in self.data_dir:
+        if os.path.join(cfg.data_path,new_name) in self.data_dir:
             #ASSUME WE HAVE ALREADY PREPROCESSED THIS CORRECTLY
             return pd.Series({
                 "FILE NAME": file_name,
@@ -132,7 +138,7 @@ class PyhaDFDataset(Dataset):
                 resample = audtr.Resample(sample_rate, cfg.sample_rate)
                 audio = resample(audio)
 
-            torch.save(audio, os.path.join(self.config.data_path,new_name))
+            torch.save(audio, os.path.join(cfg.data_path,new_name))
             self.data_dir.add(new_name)
         # IO is messy, I want any file that could be problematic
         # removed from training so it isn't stopped after hours of time
