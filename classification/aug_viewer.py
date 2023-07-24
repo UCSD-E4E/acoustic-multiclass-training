@@ -83,21 +83,21 @@ def get_augs(dataset: PyhaDFDataset, noise_types: list, _cfg) -> Tuple[List[Call
     augmentations = {
             SyntheticNoise(_cfg): f"{col} noise" for col in noise_types
         }
-    for aug, color in zip(augmentations.keys(), noises_types):
+    for aug, color in zip(augmentations.keys(), noise_types):
         setattr(aug, "noise_type", color)
 
     # Other augmentations
-    augs_with_names.update({
+    augmentations.update({
         LowpassFilter(_cfg)   : "Lowpass Filter",
         HighpassFilter(_cfg)  : "Highpass Filter",
         RandomEQ(_cfg)        : "Random EQ",
         BackgroundNoise(_cfg) : "Background Noise"})
 
     #Mixup
-    mixup = Mixup(df = dataset.samples,
+    mix = Mixup(df = dataset.samples,
                   class_to_idx = dataset.class_to_idx,
                   cfg = _cfg)
-    mixup = lambda x: mixup(x,torch.zeros(dataset.num_classes).to(x.device))[0]
+    def mixup(t):  mix(t, torch.zeros(dataset.num_classes).to(t.device))[0]
     augmentations.append({mixup: "Mixup"})
 
     return augmentations.keys(), augmentations.values()
