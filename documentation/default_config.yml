@@ -57,7 +57,7 @@ loss_fnc: "CE"
 
 # Hyperparameter sweep settings
 sweep_id:
-sweep_count: 2
+agent_run_count: 2
 
 # Specify path to load a checkpoint
 model_checkpoint: ""
