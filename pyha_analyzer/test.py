@@ -1,7 +1,6 @@
 """
-Unit tests for the classification folder.
-Note: must run from the root directory of the project.
-Example: `python -m classification.test.test`
+Unit tests for the pyha_analyzer package
+To run: `python -m pyha_analyzer.test`
 """
 # Class names are self explanatory
 # pylint: disable=missing-class-docstring
