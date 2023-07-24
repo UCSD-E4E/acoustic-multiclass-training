@@ -29,7 +29,7 @@
 `loss_fnc`: Loss function to use. Can be any of the following:
 - "CE": cross entropy loss
 - "BCE": binary cross entropy loss
-- "BCEWL": binary cross entropy loss with logits
+- "BCEWL": binary cross entropy loss with logits\
 `model`: Which model architecture to use. Can be any of the following:
  - "eca\_nfnet\_l0"
  - "tf\_efficientnet\_b4"
@@ -40,7 +40,7 @@
  - "seresnext50\_32x4d"
  - "seresnext101\_32x4d"
  - "rexnet\_200"
- - "mobilenetv3\_large\_100\_miil\_in21k"
+ - "mobilenetv3\_large\_100\_miil\_in21k"\
 `model_checkpoint`: Path from which to load starting model weights. Optional.
 
 ## Validation parameters
@@ -82,7 +82,7 @@ If a parameter specifies a range, then it is always a length two list with the f
 - "violet"
 - "blue"
 - "pink"
-- "brown"
+- "brown"\
 `noise_alpha`: Strength of noise in augmented clip after applying SyntheticNoise augmentation. Must be between 0 and 1\
 `freq_mask_param`: How many sequential pixels to mask in the FrequencyMasking augmentation\
 `freq_mask_param`: How many sequential pixels to mask in the TimeMasking augmentation\
