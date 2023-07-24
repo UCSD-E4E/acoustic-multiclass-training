@@ -53,8 +53,6 @@ DEFAULT_NORMS = {
     "max_clip": 3,
 }
 
-N_SAMPLES = 3
-
 def plot_audio(audio_list: List[torch.Tensor]):
     """Plots list of audio waveforms (not currently used)"""
     plt.figure(figsize=(10,len(audio_list)))
@@ -63,27 +61,26 @@ def plot_audio(audio_list: List[torch.Tensor]):
         plt.plot(audio.to("cpu").numpy())
     plt.show()
 
-def get_audio(dataset: PyhaDFDataset, num_samples: int=3):
+def get_audio(dataset: PyhaDFDataset, n_clips: int=3):
     """ Returns an array of audio waveforms and an array of one-hot labels """
     return [(
         get_annotation(
             dataset.samples,
             np.random.randint(len(dataset)),
             dataset.class_to_idx,
-            "cuda")[0]
+            cfg.prepros_device)[0]
     )
-            for _ in range(num_samples)]
+            for _ in range(n_clips)]
 
-N_AUGS = 10
-def get_augs(dataset: PyhaDFDataset, noise_types: list, _cfg) -> Tuple[List[Callable],List[str]]:
+def get_augs(dataset: PyhaDFDataset, _cfg, aug_cfg) -> Tuple[List[Callable],List[str]]:
     """ Returns a list of augmentations that can be applied
     Each element is a tuple of the form (aug, name)
     Each augmentation is a Callable that takes in a waveform and returns a waveform
     """
     augmentations = {
-            SyntheticNoise(_cfg): f"{col} noise" for col in noise_types
+            SyntheticNoise(_cfg): f"{col} noise" for col in aug_cfg["synth_colors"]
         }
-    for aug, color in zip(augmentations.keys(), noise_types):
+    for aug, color in zip(augmentations.keys(), aug_cfg["synth_colors"]):
         setattr(aug, "noise_type", color)
 
     # Other augmentations
@@ -98,11 +95,11 @@ def get_augs(dataset: PyhaDFDataset, noise_types: list, _cfg) -> Tuple[List[Call
                   class_to_idx = dataset.class_to_idx,
                   cfg = _cfg)
     num_classes = dataset.num_classes
-    augmentations.append({
+    augmentations.update({
         lambda x: mixup(x, torch.zeros(num_classes).to(x.device))[0]
         : "Mixup"})
 
-    return augmentations.keys(), augmentations.values()
+    return list(augmentations.keys()), list(augmentations.values())
 
 def apply_augs(audio: torch.Tensor, augs: List[Callable]) -> List[torch.Tensor]:
     """ Apply all augmetations
@@ -128,7 +125,7 @@ def get_min_max(mel_list: List[np.ndarray]) -> Tuple[float,float]:
         vmin = min(vmin, np.min(mel))
     return vmin, vmax
 
-def plot(mels: List[Tuple[np.ndarray,str,Tuple[int,int]]],
+def plot(mels: List[Tuple[np.ndarray,str,Tuple[int,int]]], n_clips: int,
          vmin:float, vmax:float,  norms=None) -> None:
     """ Plots a list of mel spectrograms 
         Arguments:
@@ -137,12 +134,12 @@ def plot(mels: List[Tuple[np.ndarray,str,Tuple[int,int]]],
             vmax: Maximum value for colorbar
             norms: List of normalization parameters (for display)
     """
-    n_samples = len(mels)//N_AUGS
+    n_augs = len(mels)//n_clips
     # Create subplots
-    fig, axes = plt.subplots(N_AUGS,n_samples, figsize=(12,40))
+    fig, axes = plt.subplots(n_augs,n_clips,figsize=(12,40))
     # Plot each mel
     for (mel, title, (x,y)) in mels:
-        plt.subplot(N_AUGS,n_samples,y*n_samples+x+1)
+        plt.subplot(n_augs,n_clips,y*n_clips+x+1)
         img = axes[y][x].imshow(mel, cmap="viridis", origin="lower", clim=(vmin,vmax))
         axes[y][x].set_title(title)
     # Create colorbar
@@ -153,19 +150,19 @@ def plot(mels: List[Tuple[np.ndarray,str,Tuple[int,int]]],
     fig.text(0.5,0.05, str(norms))
     plt.show()
 
-def run_test(n_samples,norms, noise_types): 
+def run_test(n_clips, norms, cfg, aug_cfg): 
     """ Main function """
     train_ds, _ = get_datasets()
     # Get audio
-    audio = get_audio(train_ds, n_samples)
+    audio = get_audio(train_ds, n_clips)
     # Get augs
-    augs, names = get_augs(train_ds, noise_types, cfg)
+    augs, names = get_augs(train_ds, cfg, aug_cfg)
     # Apply augs
-    augmented_audio = [apply_augs(audio[i],augs) for i in range(n_samples)]
+    augmented_audio = [apply_augs(audio[i],augs) for i in range(n_clips)]
     # Unpack to list of (audio, name, (x,y))
     audio_data = []
     for aug in range(len(augs)):
-        for sample in range(n_samples):
+        for sample in range(n_clips):
             audio_data.append((augmented_audio[sample][aug], names[aug], (sample,aug)))
     # Get mels
     mels = [(train_ds.to_image(aud)[0], label, pos) for (aud, label, pos) in audio_data]
@@ -174,7 +171,7 @@ def run_test(n_samples,norms, noise_types):
     # Get min and max value
     vmin, vmax = get_min_max([mel for (mel,_,_) in mels_norm])
 
-    plot(mels_norm, vmin, vmax, norms)
+    plot(mels_norm, n_clips, vmin, vmax, norms)
 
-# if __name__ == "__main__":
-#     run_test(3,DEFAULT_NORMS)
+if __name__ == "__main__":
+    run_test(3, DEFAULT_NORMS, cfg, DEFAULT_CONF)
