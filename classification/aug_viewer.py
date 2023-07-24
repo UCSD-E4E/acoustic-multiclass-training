@@ -8,7 +8,7 @@ import config
 import numpy as np
 import torch
 from augmentations import (BackgroundNoise, LowpassFilter, Mixup, 
-                           RandomEQ, SyntheticNoise)
+                           HighpassFilter, RandomEQ, SyntheticNoise)
 from dataset import PyhaDFDataset, get_datasets
 from matplotlib import cm
 from matplotlib import pyplot as plt
@@ -23,6 +23,8 @@ DEFAULT_CONF = {
     "synth_noise_intensity":  0.3,
     "lowpass_cutoff": 1000,
     "lowpass_q_val": 0.707,
+    "highpass_cutoff": 10000,
+    "highpass_q_val": 0.707,
     "eq_f_range": (100, 6000),
     "eq_g_range": (-8, 8),
     "eq_q_range": (1, 9),
@@ -85,6 +87,8 @@ def get_augs(dataset: PyhaDFDataset, noise_types: list, _cfg) -> Tuple[List[Call
         names.append("Synthetic " + col +" noise")
     out.append(LowpassFilter(_cfg).forward)
     names.append("Lowpass filter")
+    out.append(HighpassFilter(_cfg).forward)
+    names.append("Highpass filter")
     out.append(RandomEQ(_cfg).forward)
     names.append("Random EQ")
     out.append(BackgroundNoise(_cfg).forward)
