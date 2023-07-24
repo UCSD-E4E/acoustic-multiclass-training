@@ -14,6 +14,7 @@ import sys
 import git
 import yaml
 from git import Repo  # pyright: ignore [reportPrivateImportUsage]
+from torch.cuda import is_available
 
 logger = logging.getLogger("acoustic_multiclass_training")
 
@@ -30,6 +31,7 @@ class Config():
         self.required_checks("data_path")
         self.get_git_hash()
         self.cli_values()
+        self.get_device()
 
     def __new__(cls):
         """
@@ -84,9 +86,9 @@ class Config():
 
 
             if len(attrs_to_append) != 0:
-                logger.info("There are new updates in default config")
-                logger.info("please manually update these keys from the new config")
-                logger.info("%s", str(attrs_to_append))
+                logger.warning("There are new updates in default config")
+                logger.warning("please manually update these keys from the new config")
+                logger.warning("%s", str(attrs_to_append))
         else:
             shutil.copy(os.path.join("documentation","default_config.yml"), "config.yml")
 
@@ -131,6 +133,7 @@ class Config():
         if  self.config_dict[parameter] is None:
             raise ValueError(f'The required parameter "{parameter}" is not defined in yaml')
 
+
     def generate_config_file(self, filename="test.yml"):
         """
         Sends all configs saved to class to new file
@@ -170,6 +173,20 @@ class Config():
             logger.error("then you can run the script again")
             sys.exit(1)
         return sha
+    
+    def get_device(self):
+        """ Gets the current device of the system if user defined device config param as 'auto'
+        Returns nothing
+        Raises value error if device doesn't exist in config file
+        """
+
+        self.required_checks("device")
+        if self.config_dict["device"] is None:
+            raise ValueError('The required parameter "device" is not defined in yaml')
+        if self.config_dict["device"] == "auto":
+            self.device = "cuda" if is_available() else "cpu"
+
+        self.config_dict["device"] = self.device
 
 def get_config():
     """ Returns a config variable with the command line arguments or defaults

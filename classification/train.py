@@ -28,10 +28,6 @@ from utils import set_seed
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
-if torch.cuda.is_available():
-    DEVICE = "cuda"
-else:
-    DEVICE = "cpu"
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
 
@@ -77,17 +73,16 @@ def train(model: Any,
 
     for i, (mels, labels) in enumerate(data_loader):
         optimizer.zero_grad()
-        mels = mels.to(DEVICE)
-        labels = labels.to(DEVICE)
-
-        with autocast(device_type=DEVICE, dtype=torch.float16, enabled=cfg.mixed_precision):
+        mels = mels.to(cfg.device)
+        labels = labels.to(cfg.device)
+        with autocast(device_type=cfg.device, dtype=torch.bfloat16, enabled=cfg.mixed_precision):
             outputs = model(mels)
             check_shape(outputs, labels)
             loss = model.loss_fn(outputs, labels)
         outputs = outputs.to(dtype=torch.float32)
         loss = loss.to(dtype=torch.float32)
 
-        if cfg.mixed_precision:
+        if cfg.mixed_precision and cfg.device != "cpu":
             # Pyright complains about scaler.scale(loss) returning iterable of unknown types
             # Problem in the pytorch typing, documentation says it returns iterables of Tensors
             #  keep if needed - noqa: reportGeneralTypeIssues
@@ -95,6 +90,8 @@ def train(model: Any,
             scaler.step(optimizer)
             scaler.update()
         else:
+            if cfg.mixed_precision:
+                logger.warning("cuda required, mixed precision not applied")
             loss.backward()
             optimizer.step()
 
@@ -201,8 +198,8 @@ def valid(model: Any,
                 if index > len(dl_iter) * dataset_ratio:
                     # Stop early if not doing full validation
                     break
-                mels = mels.to(DEVICE)
-                labels = labels.to(DEVICE)
+                mels = mels.to(cfg.device)
+                labels = labels.to(cfg.device)
 
                 # argmax
                 outputs = model(mels)
@@ -223,7 +220,7 @@ def valid(model: Any,
                 torch.save(label, "/".join(cfg.model_checkpoint.split('/')[:-1]) + '/label.pt')
 
     # softmax predictions
-    pred = F.softmax(pred).to(DEVICE)
+    pred = F.softmax(pred).to(cfg.device)
 
     #metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
     #valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
@@ -300,7 +297,7 @@ def main(in_sweep=True) -> None:
     """ Main function
     """
     torch.multiprocessing.set_start_method('spawn')
-    logger.info("Device is: %s",DEVICE)
+    logger.info("Device is: %s, Preprocessing Device is %s", cfg.device, cfg.prepros_device)
     set_seed(cfg.seed)
     if in_sweep:
         run = wandb.init()
@@ -323,7 +320,7 @@ def main(in_sweep=True) -> None:
 
     logger.info("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
-                              model_name=cfg.model).to(DEVICE)
+                              model_name=cfg.model).to(cfg.device)
     model_for_run.create_loss_fn(train_dataset)
     if cfg.model_checkpoint != "":
         model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))

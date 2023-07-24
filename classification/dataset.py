@@ -29,10 +29,6 @@ from utils import get_annotation, set_seed
 cfg = config.cfg
 
 tqdm.pandas()
-if torch.cuda.is_available() and not cfg.cpu_preprocessing:
-    DEVICE = "cuda"
-else:
-    DEVICE = "cpu"
 logger = logging.getLogger("acoustic_multiclass_training")
 
 # pylint: disable=too-many-instance-attributes
@@ -52,6 +48,7 @@ class PyhaDFDataset(Dataset):
         self.samples = df[~(df[cfg.file_name_col].isnull())]
         self.num_samples = cfg.sample_rate * cfg.max_time
         self.train = train
+        self.device = cfg.prepros_device
 
 
         # List data directory and confirm it exists
@@ -198,7 +195,7 @@ class PyhaDFDataset(Dataset):
                 sample_rate=cfg.sample_rate,
                 n_mels=cfg.n_mels,
                 n_fft=cfg.n_fft)
-        convert_to_mel = convert_to_mel.to(DEVICE)
+        convert_to_mel = convert_to_mel.to(self.device)
         # Mel spectrogram
         # Pylint complains this is not callable, but it is a torch.nn.Module
         # pylint: disable-next=not-callable
@@ -230,7 +227,7 @@ class PyhaDFDataset(Dataset):
                 df = self.samples,
                 index = index,
                 class_to_idx = self.class_to_idx,
-                device = DEVICE)
+                device = self.device)
 
         if self.train:
             audio, target = self.mixup(audio, target)
