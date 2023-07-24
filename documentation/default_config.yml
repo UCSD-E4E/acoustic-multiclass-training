@@ -83,7 +83,7 @@ time_mask_p: 0.5
 rand_eq_p: 0
 noise_p: 1
 lowpass_p: 0
-bg_noise_p: 1
+bg_noise_p: 0
 
 # Data augmentation parameters
 noise_type: "white"

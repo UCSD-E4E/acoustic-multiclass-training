@@ -46,9 +46,13 @@ class TimmModel(nn.Module):
 
         #remove potnetially conflicting layers 
         #due to class size differences
-        if(remove_pretrained_fc):
-            pretrained_model.pop("fc.weight")
-            pretrained_model.pop("fc.bias")
+        try:
+            if(remove_pretrained_fc):
+                pretrained_model.pop("head.fc.weight")
+                pretrained_model.pop("head.fc.bias")
+        except:
+            print(self)
+            print("DOUBLE CHECK WHICH LAYER")
 
         #Load in model so it overwrites only the weights we care about
         self.load_state_dict(pretrained_model, strict=False)
