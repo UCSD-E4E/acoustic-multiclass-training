@@ -183,6 +183,8 @@ class TestUtils(unittest.TestCase):
 if __name__=="__main__":
     unittest.main(exit=False)
     print("Running pylint")
-    os.system("pylint pyha_analyzer --rcfile=\""+pyha_project_directory+"/.pylintrc\"")
+    main_dir = os.path.join(pyha_project_directory,"pyha_analyzer")
+    os.system(f"pylint \"{main_dir}/*.py\" \"{main_dir}/**/*.py\"" +
+              f" --rcfile=\"{pyha_project_directory}/.pylintrc\"")
     print("Running pyright")
-    os.system(f"pyright \"{pyha_project_directory}/pyha_analyzer\"")
+    os.system(f"pyright \"{main_dir}\"")

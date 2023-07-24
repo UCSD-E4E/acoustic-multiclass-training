@@ -1,14 +1,8 @@
-# pylint: disable=E1123:
+""" Loss functions """
 
-""" Contains model methods
-
-    note: Models have been moved to their own python folder
-"""
-from pyha_analyzer import config
 import torch
 from torch import nn
-
-# timm is a library of premade models
+from pyha_analyzer import config
 
 cfg = config.cfg
 
