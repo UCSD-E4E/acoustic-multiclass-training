@@ -50,7 +50,7 @@ class PyhaDFDataset(Dataset):
                  species: Optional[Tuple[List[str], Dict[str, int]]]=None
                  ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
-        self.num_samples = cfg.sample_rate * cfg.max_time
+        self.num_samples = cfg.sample_rate * cfg.chunk_length
         self.train = train
 
 
@@ -74,6 +74,7 @@ class PyhaDFDataset(Dataset):
         self.serialize_data()
 
 
+        #Data augmentations
         self.mixup = Mixup(self.samples, self.class_to_idx, cfg)
         audio_augs = {
                 SyntheticNoise  : cfg.noise_p,
