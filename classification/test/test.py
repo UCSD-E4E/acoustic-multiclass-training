@@ -18,7 +18,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 import utils
 from augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
-                           SyntheticNoise)
+                           HighpassFilter, SyntheticNoise)
 from models.early_stopper import EarlyStopper
 from models.timm_model import TimmModel
 from dataset import get_datasets, make_dataloaders
@@ -52,6 +52,7 @@ class TestAugmentations(unittest.TestCase):
         augs.append(RandomEQ(cfg))
         augs.append(BackgroundNoise(cfg))
         augs.append(LowpassFilter(cfg))
+        augs.append(HighpassFilter(cfg))
         augmented_audio = [aug.forward(audio) for aug in augs]
         for aug_audio in augmented_audio:
             assert aug_audio.shape == audio.shape, "Augmented audio should not change shape"
