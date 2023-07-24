@@ -258,9 +258,9 @@ class PyhaDFDataset(Dataset):
         return self.num_classes
 
     def get_sample_weights(self) -> pd.Series:
-        """ Returns the weights as computed by the frist place winner of birdclef 2023
+        """ Returns the weights as computed by the first place winner of BirdCLEF 2023
         See https://www.kaggle.com/competitions/birdclef-2023/discussion/412808 
-        Congats on your win!
+        Congrats on your win!
         """
         manual_id = cfg.manual_id_col
         all_primary_labels = self.samples[manual_id]
