@@ -245,7 +245,7 @@ class BackgroundNoise(torch.nn.Module):
         self.sample_rate = cfg.sample_rate
         self.length = length
         self.norm = norm
-        if self.noise_path != "":
+        if self.noise_path != Path(""):
             files = list(os.listdir(self.noise_path))
             audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere",".pt")
             self.noise_clips = [f for f in files if f.endswith(audio_extensions)]
@@ -265,7 +265,7 @@ class BackgroundNoise(torch.nn.Module):
         Returns: Tensor of original clip mixed with noise
         """
         # Skip loading if no noise path
-        if self.noise_path == "":
+        if self.noise_path == Path(""):
             return clip
         # If loading fails, skip for now
         try:
