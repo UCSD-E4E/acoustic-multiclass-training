@@ -47,8 +47,8 @@ def run_batch(model: TimmModel,
             loss: the loss of the batch
             outputs: the output of the model
     """
-    mels = mels.to(DEVICE)
-    labels = labels.to(DEVICE)
+    mels = mels.to(cfg.device)
+    labels = labels.to(cfg.device)
     with autocast(device_type=cfg.device, dtype=torch.bfloat16, enabled=cfg.mixed_precision):
         outputs = model(mels)
         loss = model.loss_fn(outputs, labels) # type: ignore
@@ -181,9 +181,6 @@ def valid(model: Any,
             if index > num_valid_samples:
                 # Stop early if not doing full validation
                 break
-        
-            mels = mels.to(cfg.device)
-            labels = labels.to(cfg.device)
 
             loss, outputs = run_batch(model, mels, labels)
                 

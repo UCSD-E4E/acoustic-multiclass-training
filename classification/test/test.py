@@ -26,16 +26,13 @@ from train import run_batch, map_metric, save_model
 
 cfg = config.cfg
 dataset, valid_ds = get_datasets()
-if torch.cuda.is_available():
-    DEVICE = "cuda"
-else:
-    DEVICE = "cpu"
 
 
 class TestAugmentations(unittest.TestCase):
     def test_augs(self):
         """ Test all augmentations and verify output is correct size """
-        audio, label = utils.get_annotation(dataset.samples,0,dataset.class_to_idx, DEVICE)
+        audio, label = utils.get_annotation(dataset.samples,0,
+                                            dataset.class_to_idx,cfg.prepros_device)
         TestUtils.assert_one_hot(label, dataset.num_classes)
         label_id = (label == 1.0).nonzero()[0].item()
         cfg.mixup_alpha_range = [0.25, 0.25] # type: ignore
@@ -78,7 +75,7 @@ class TestDataset(unittest.TestCase):
 
     def test_spectrogram(self):
         """ Test to_image in dataset.py """
-        spec = dataset.to_image(torch.zeros(5*cfg.sample_rate).to(DEVICE))
+        spec = dataset.to_image(torch.zeros(5*cfg.sample_rate).to(cfg.prepros_device))
         assert (spec != spec.mean().item()).sum() == 0, "Spectrogram of no audio should be constant"
 
 
@@ -87,10 +84,10 @@ class TestModel(unittest.TestCase):
         """ Test model.forward output is correct """
         batch_size = 8
         num_classes = 12
-        model = TimmModel(num_classes,"tf_efficientnet_b4",True).to(DEVICE)
+        model = TimmModel(num_classes,"tf_efficientnet_b4",True).to(cfg.device)
         model.eval()
-        out = model.forward(torch.zeros((batch_size,3,224,224)).to(DEVICE))
-        assert str(out.device).startswith(DEVICE), "Model output device is wrong"
+        out = model.forward(torch.zeros((batch_size,3,224,224)).to(cfg.device))
+        assert str(out.device).startswith(cfg.device), "Model output device is wrong"
         assert out.shape == (batch_size,num_classes), "Model output shape not matched"
 
     def test_early_stopper(self):
@@ -116,7 +113,7 @@ class TestTrain(unittest.TestCase):
         """ Tests if a training batch runs properly """
         cfg.jobs = 0 # type: ignore
         train_dl, _ = make_dataloaders(dataset, valid_ds)
-        model = TimmModel(dataset.num_classes, "tf_efficientnet_b4", True).to(DEVICE)
+        model = TimmModel(dataset.num_classes, "tf_efficientnet_b4", True).to(cfg.device)
         model.create_loss_fn(dataset)
         mels, labels = next(iter(train_dl))
         loss, outputs = run_batch(model, mels, labels)
