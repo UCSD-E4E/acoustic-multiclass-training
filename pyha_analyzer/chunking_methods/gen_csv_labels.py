@@ -9,7 +9,7 @@ from math import ceil
 from pathlib import Path
 
 import pandas as pd
-from chunks_config import get_config
+from pyha_analyzer.chunking_methods.chunks_config import get_config
 from pydub import AudioSegment, exceptions
 # pylint: disable=import-error #this file gets put into PyHa
 # pylint: disable=no-name-in-module

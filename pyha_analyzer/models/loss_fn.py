@@ -4,7 +4,7 @@
 
     note: Models have been moved to their own python folder
 """
-import config
+from pyha_analyzer import config
 import torch
 from torch import nn
 

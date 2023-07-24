@@ -18,13 +18,13 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torchmetrics.classification import MultilabelAveragePrecision
 from tqdm import tqdm
-
-import config
-from dataset import get_datasets, make_dataloaders
-from utils import set_seed
-from models.early_stopper import EarlyStopper
-from models.timm_model import TimmModel
 import wandb
+
+from pyha_analyzer import config
+from pyha_analyzer.dataset import get_datasets, make_dataloaders
+from pyha_analyzer.utils import set_seed
+from pyha_analyzer.models.early_stopper import EarlyStopper
+from pyha_analyzer.models.timm_model import TimmModel
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')

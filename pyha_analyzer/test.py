@@ -5,24 +5,20 @@ Example: `python -m classification.test.test`
 """
 # Class names are self explanatory
 # pylint: disable=missing-class-docstring
-# Import order is right, sys path messes it up
-# pylint: disable=wrong-import-order
-# pylint: disable=wrong-import-position
 import os
-import sys
 import unittest
 
 import torch
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import config
-import utils
-from augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
+from pyha_analyzer import config
+from pyha_analyzer import utils
+from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
                            SyntheticNoise)
-from models.early_stopper import EarlyStopper
-from models.timm_model import TimmModel
-from dataset import get_datasets, make_dataloaders
-from train import run_batch, map_metric, save_model
+from pyha_analyzer.models.early_stopper import EarlyStopper
+from pyha_analyzer.models.timm_model import TimmModel
+from pyha_analyzer.dataset import get_datasets, make_dataloaders
+from pyha_analyzer.train import run_batch, map_metric, save_model
+from pyha_analyzer import pyha_project_directory
 
 cfg = config.cfg
 dataset, valid_ds = get_datasets()
@@ -188,6 +184,6 @@ class TestUtils(unittest.TestCase):
 if __name__=="__main__":
     unittest.main(exit=False)
     print("Running pylint")
-    os.system("pylint classification")
+    os.system("pylint pyha_analyzer --rcfile=\""+pyha_project_directory+"/.pylintrc\"")
     print("Running pyright")
-    os.system("pyright classification")
+    os.system(f"pyright \"{pyha_project_directory}/pyha_analyzer\"")

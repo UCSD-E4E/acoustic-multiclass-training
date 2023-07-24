@@ -3,9 +3,10 @@ Sweeps file:
     Run it to start a new sweep or start another agent for an existing
 sweep. If the former, set the sweep_id option in config
 """
-import config
-from train import main as train_main
 import wandb
+
+from pyha_analyzer import config
+from pyha_analyzer.train import main as train_main
 
 cfg = config.cfg
 
