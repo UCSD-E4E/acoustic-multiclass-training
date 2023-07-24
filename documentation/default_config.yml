@@ -30,7 +30,6 @@ debug: false
 # Functional settings
 seed: 0
 sample_rate: 32_000
-map_debug: false
 train_test_split: 0.8
 num_fold: 5
 
