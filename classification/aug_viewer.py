@@ -94,11 +94,13 @@ def get_augs(dataset: PyhaDFDataset, noise_types: list, _cfg) -> Tuple[List[Call
         BackgroundNoise(_cfg) : "Background Noise"})
 
     #Mixup
-    mix = Mixup(df = dataset.samples,
+    mixup = Mixup(df = dataset.samples,
                   class_to_idx = dataset.class_to_idx,
                   cfg = _cfg)
-    def mixup(t):  mix(t, torch.zeros(dataset.num_classes).to(t.device))[0]
-    augmentations.append({mixup: "Mixup"})
+    num_classes = dataset.num_classes
+    augmentations.append({
+        lambda x: mixup(x, torch.zeros(num_classes).to(x.device))[0]
+        : "Mixup"})
 
     return augmentations.keys(), augmentations.values()
 
