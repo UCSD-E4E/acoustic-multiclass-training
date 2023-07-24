@@ -1,9 +1,10 @@
+# Config parameters
+These parameters are stored in the `config.yml` file. Default values can be found at `documentation/default_config.yml`.
 
 ## Data paths
-`dataframe_csv`: Path to the csv file containing training data labels\
+`dataframe_csv`: Path to the CSV file containing training data labels\
 `data_path`: Path to the folder containing all the audio clips to be trained on\
-`bg_noise_path`: Path the the folder contain audio clips to be used as background noise in the BackgroundNoise data augmentation. Optional if the `bg_noise_p` is set to zero.
-
+`bg_noise_path`: Path to a folder containing audio clips for background noise in the BackgroundNoise data augmentation. Optional if the `bg_noise_p` is set to zero.
 
 ## Dataframe columns
 `offset_col`: Name of the column with the within-clip offset of each chunk in seconds\
@@ -11,14 +12,14 @@
 `file_name_col`: Name of the column with the name of the file the chunk came from\
 `manual_id_col`: Name of the column with the manual id of the chunk
 
-
 ## Audio parameters
 `chunk_length`: Chunk length in seconds\
 `sample_rate`: Target sample rate for loading clips
 
 ## System parameters
-`cpu_preprocessing`: Determines whether mixup augmentation is performed on cpu or not. Should never be changed.\
-`jobs`: Number of multiprocessing jobs\
+`prepros_device`: Device that preprocessing occurs on. Should never be changed from `"cpu"` unless CPU processing is limited.\
+`device`: Determines device that training is performed on. If `"auto"`, will default to `"cuda"` if available, or `"cpu"` if not.\
+`jobs`: Number of multiprocessing jobs for data loader\
 `mixed_precision`: Use mixed precision in model training
 
 ## Training and model parameters
@@ -29,26 +30,25 @@
 `loss_fnc`: Loss function to use. Can be any of the following:
 - "CE": cross entropy loss
 - "BCE": binary cross entropy loss
-- "BCEWL": binary cross entropy loss with logits\
+- "BCEWL": binary cross entropy loss with logits
+- "FL": focal loss
+
 `model`: Which model architecture to use. Can be any of the following:
- - "eca\_nfnet\_l0"
- - "tf\_efficientnet\_b4"
- - "convnext\_nano"
+ - "eca\_nfnet\_l0" (recommended)
+ - "tf\_efficientnet\_b4" (recommended)
  - "convnext\_tiny"
- - "resnetv2\_50"
  - "resnetv2\_101"
- - "seresnext50\_32x4d"
  - "seresnext101\_32x4d"
  - "rexnet\_200"
  - "mobilenetv3\_large\_100\_miil\_in21k"  
-
+ In addition, any model compatible with `timm` can be used. An input size of 224x224 is required.
 
 `model_checkpoint`: Path from which to load starting model weights. Optional.
 
 ## Validation parameters
 `validation_batch_size`: Batch size for validation\
 `valid_freq`: How often to perform validation. Unit is batches.\
-`valid_dataset_ratio`: What proportion of the validation dataset to use for validation within an epoch. In between epochs, the entire validation dataset will be used every time.\
+`valid_dataset_ratio`: Proportion of the validation dataset to use for validation within an epoch. In between epochs, the entire validation dataset will be used every time.\
 `num_folds`: Number of folds to use in validation
 
 ## Logging
@@ -56,7 +56,7 @@
 `logging_freq`: How often to log model metrics with Weights and Biases. Unit is batches.\
 `wandb_entity`: Entity name to log in Weights and Biases\
 `wandb_project`: Project name to log in Weights and Biases\
-`wandb_run_name`: Run name to log in wandb. Set to "auto" in order to automatically generate a unique run name\
+`wandb_run_name`: Run name to log in WandB. Set to "auto" in order to automatically generate a unique run name\
 `debug`: Whether to print all logger warnings
 
 ## Early stopping
@@ -69,13 +69,13 @@
 `agent_run_count`: Number of times to run an agent
 
 ## Data augmentation probabilities
-`mixup_p`: probability of applying augmentation\
-`noise_p`: probability of applying augmentation\
-`freq_mask_p`: probability of applying FrequencyMasking augmentation\
-`time_mask_p`: probability of applying TimeMasking augmentation\
-`rand_eq_p`: probability of applying RandEQ augmentation\
-`lowpass_p`: probability of applying LowpassFilter augmentation\
-`bg_noise_p`: probability of applying BackgroundNoise augmentation
+`mixup_p`: probability of applying mixup augmentation\
+`noise_p`: probability of applying synthetic noise augmentation\
+`freq_mask_p`: probability of applying frequency masking augmentation\
+`time_mask_p`: probability of applying time masking augmentation\
+`rand_eq_p`: probability of applying random equalization augmentation\
+`lowpass_p`: probability of applying lowpass filter augmentation\
+`bg_noise_p`: probability of applying background noise augmentation
 
 ## Data augmentation parameters
 If a parameter specifies a range, then it is always a length two list with the first element specifying the minimum and the second specifying the maximum. Values will be uniformly sampled from this range.\
@@ -86,9 +86,9 @@ If a parameter specifies a range, then it is always a length two list with the f
 - "pink"
 - "brown"
 
-`noise_alpha`: Strength of noise in augmented clip after applying SyntheticNoise augmentation. Must be between 0 and 1\
+`noise_alpha`: Strength of noise in an augmented clip after applying SyntheticNoise augmentation. Must be between 0 and 1\
 `freq_mask_param`: How many sequential pixels to mask in the FrequencyMasking augmentation\
-`freq_mask_param`: How many sequential pixels to mask in the TimeMasking augmentation\
+`time_mask_param`: How many sequential pixels to mask in the TimeMasking augmentation\
 `mixup_alpha_range`: Range for the alpha parameter of Mixup. The alpha parameter gives the strength of the other clip in the augmented clip after applying Mixup. Min/max values are between 0 and 1\
 `bg_noise_alpha_range`: Range for the alpha parameter of BackgroundNoise. The alpha parameter gives the strength of the other clip in the augmented clip after applying BackgroundNoise. Min/max values are between 0 and 1\
 `rand_eq_f_range`: Range for the frequency parameter of RandomEQ. Min/max must be greater than zero\
