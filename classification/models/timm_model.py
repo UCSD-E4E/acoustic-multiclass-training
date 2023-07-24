@@ -40,6 +40,20 @@ class TimmModel(nn.Module):
 
         logger.debug("add sigmod: %s", str(self.without_logits))
     
+    def load_pretrain_checkpoint(self, pretrain_path, remove_pretrained_fc=True):
+        #Load in a pretrained model (that used this class)
+        pretrained_model = torch.load(pretrain_path)
+
+        #remove potnetially conflicting layers 
+        #due to class size differences
+        if(remove_pretrained_fc):
+            pretrained_model.pop("fc.weight")
+            pretrained_model.pop("fc.bias")
+
+        #Load in model so it overwrites only the weights we care about
+        self.load_state_dict(pretrained_model, strict=False)
+        print("pretrained checkpoint loaded :P")
+
     def forward(self, images):
         """ Forward pass of the model
         """
