@@ -13,13 +13,13 @@ cfg = config.cfg
 class EarlyStopper():
     """Stop when the model is no longer improving
     """
-    def __init__(self, patience=3, min_delta=0):
+    def __init__(self, patience: int=3, min_delta: float=0):
         self.patience = patience # epochs to wait before stopping
         self.min_delta = min_delta # min change that counts as improvement
         self.counter = 0
         self.max_valid_map = 0
 
-    def early_stop(self, valid_map):
+    def early_stop(self, valid_map: float):
         """ Returns True if the model should early stop
         """
         # reset counter if it improved by more than min_delta

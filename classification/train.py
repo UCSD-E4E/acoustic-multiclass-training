@@ -15,54 +15,70 @@ import torch
 import torch.nn.functional as F
 from torch.amp.autocast_mode import autocast
 from torch.optim import Adam
-from torch.utils.data import DataLoader, WeightedRandomSampler
+from torch.utils.data import DataLoader
 from torchmetrics.classification import MultilabelAveragePrecision
 from tqdm import tqdm
 
 import config
-import wandb
-from dataset import get_datasets
+from dataset import get_datasets, make_dataloaders
+from utils import set_seed
 from models.early_stopper import EarlyStopper
 from models.timm_model import TimmModel
-from utils import set_seed
+import wandb
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
 
-def check_shape(outputs: torch.Tensor, labels: torch.Tensor) -> None:
+EPOCH: int = 0
+BEST_VALID_MAP: float = 0.0
+
+def run_batch(model: TimmModel,
+                mels: torch.Tensor,
+                labels: torch.Tensor,
+                ) -> Tuple[torch.Tensor, torch.Tensor]:
+    """ Runs the model on a single batch 
+        Args:
+            model: the model to pass the batch through
+            mels: single batch of input data
+            labels: single batch of expecte output
+        Returns (tuple of):
+            loss: the loss of the batch
+            outputs: the output of the model
     """
-    Checks to make sure the output is the same
-    """
-    if outputs.shape != labels.shape:
-        logger.info(outputs.shape)
-        logger.info(labels.shape)
-        raise RuntimeError("Shape diff between output of models and labels, see above and debug")
+    mels = mels.to(cfg.device)
+    labels = labels.to(cfg.device)
+    with autocast(device_type=cfg.device, dtype=torch.bfloat16, enabled=cfg.mixed_precision):
+        outputs = model(mels)
+        loss = model.loss_fn(outputs, labels) # type: ignore
+    outputs = outputs.to(dtype=torch.float32)
+    loss = loss.to(dtype=torch.float32)
+    return loss, outputs
 
+def map_metric(outputs: torch.Tensor, labels: torch.Tensor, num_classes: int) -> float:
+    """ Returns macro average precision metric for a batch of outputs and labels """
+    metric = MultilabelAveragePrecision(num_labels=num_classes, average="macro")
+    out_for_score = outputs.detach().cpu()
+    labels_for_score = labels.detach().cpu().long()
+    map_out = metric(out_for_score, labels_for_score).item()
+    # https://forums.fast.ai/t/nan-values-when-using-precision-in-multi-classification/59767/2
+    # Could be possible when model is untrained so we only have FNs
+    if np.isnan(map_out):
+        return 0
+    return map_out
 
-
-# Splitting this up would be annoying!!!
-# pylint: disable=too-many-statements
-# pylint: disable=too-many-locals
-# pylint: disable=too-many-arguments
-def train(model: Any,
+def train(model: TimmModel,
         data_loader: DataLoader,
-        valid_loader:  DataLoader,
+        valid_loader: DataLoader,
         optimizer: torch.optim.Optimizer,
-        scheduler,
-        epoch: int,
-        best_valid_map: float
-       ) -> Tuple[float, float]:
+        scheduler
+       ) -> None:
     """ Trains the model
-        Returns:
-            loss: the average loss over the epoch
-            best_valid_map: the best validation mAP
     """
     logger.debug('size of data loader: %d', len(data_loader))
     model.train()
 
-    running_loss = 0
     log_n = 0
     log_loss = 0
     log_map = 0
@@ -72,15 +88,10 @@ def train(model: Any,
     scaler = torch.cuda.amp.grad_scaler.GradScaler()
 
     for i, (mels, labels) in enumerate(data_loader):
+
         optimizer.zero_grad()
-        mels = mels.to(cfg.device)
-        labels = labels.to(cfg.device)
-        with autocast(device_type=cfg.device, dtype=torch.bfloat16, enabled=cfg.mixed_precision):
-            outputs = model(mels)
-            check_shape(outputs, labels)
-            loss = model.loss_fn(outputs, labels)
-        outputs = outputs.to(dtype=torch.float32)
-        loss = loss.to(dtype=torch.float32)
+
+        loss, outputs = run_batch(model,  mels, labels)
 
         if cfg.mixed_precision and cfg.device != "cpu":
             # Pyright complains about scaler.scale(loss) returning iterable of unknown types
@@ -98,20 +109,7 @@ def train(model: Any,
         if scheduler is not None:
             scheduler.step()
 
-        running_loss += loss.item()
-
-        map_metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
-        out_for_score = outputs.detach().cpu()
-        labels_for_score = labels.detach().cpu().long()
-        batch_map = map_metric(out_for_score, labels_for_score).item()
-
-        # https://forums.fast.ai/t/nan-values-when-using-precision-in-multi-classification/59767/2
-        # Could be possible when model is untrained so we only have FNs
-        if np.isnan(batch_map):
-            batch_map = 0
-
-        log_map += batch_map
-
+        log_map += map_metric(outputs, labels, model.num_classes)
         log_loss += loss.item()
         log_n += 1
 
@@ -119,21 +117,19 @@ def train(model: Any,
             duration = (datetime.datetime.now() - start_time).total_seconds()
             start_time = datetime.datetime.now()
             annotations = ((i % cfg.logging_freq) or cfg.logging_freq) * cfg.train_batch_size
-            annotations_per_sec = annotations / duration
-            epoch_progress = epoch + float(i) / len(data_loader)
             #Log to Weights and Biases
             wandb.log({
                 "train/loss": log_loss / log_n,
                 "train/mAP": log_map / log_n,
                 "i": i,
-                "epoch": epoch,
-                "clips/sec": annotations_per_sec,
-                "epoch_progress": epoch_progress,
+                "epoch": EPOCH,
+                "clips/sec": annotations / duration,
+                "epoch_progress": EPOCH + float(i)/len(data_loader),
             })
             logger.info("i: %s   epoch: %s   clips/s: %s   Loss: %s   mAP: %s",
                 str(i).zfill(5),
-                str(round(epoch_progress,3)).ljust(5, '0'),
-                str(round(annotations_per_sec,3)).ljust(7), 
+                str(round(EPOCH+float(i)/len(data_loader),3)).ljust(5, '0'),
+                str(round(annotations / duration,3)).ljust(7), 
                 str(round(log_loss / log_n,3)).ljust(5), 
                 str(round(log_map / log_n,3)).ljust(5)
             )
@@ -148,22 +144,15 @@ def train(model: Any,
             del labels
 
             valid_start_time = datetime.datetime.now()
-            _, _, best_valid_map = valid(model,
-                                         valid_loader,
-                                         epoch + i / len(data_loader),
-                                         best_valid_map)
+            valid(model, valid_loader, EPOCH + i / len(data_loader))
             model.train()
             # Ignore the time it takes to validate in annotations/sec
             start_time += datetime.datetime.now() - valid_start_time
-    return running_loss/len(data_loader), best_valid_map
 
-
-# pylint: disable=too-many-locals
 def valid(model: Any,
           data_loader: DataLoader,
           epoch_progress: float,
-          best_valid_map: float
-          ) -> Tuple[float,float, float]:
+          ) -> float:
     """ Run a validation loop
     Arguments:
         model: the model to validate
@@ -171,17 +160,15 @@ def valid(model: Any,
         epoch_progress: the progress of the epoch
             - Note: If this is an integer, it will run the full
                     validation set, otherwise runs cfg.valid_dataset_ratio
-        best_valid_map: the best validation mAP
     Returns:
-        Tuple of (loss, valid_map, best_valid_map)
+        Loss
     """
     model.eval()
 
     running_loss = 0
-    pred = []
-    label = []
+    log_pred, log_label = [], []
     dataset_ratio: float = cfg.valid_dataset_ratio
-    if epoch_progress.is_integer():
+    if float(epoch_progress).is_integer():
         dataset_ratio = 1.0
 
     num_valid_samples = int(len(data_loader)*dataset_ratio)
@@ -189,46 +176,24 @@ def valid(model: Any,
     # tqdm is a progress bar
     dl_iter = tqdm(data_loader, position=5, total=num_valid_samples)
 
-    if cfg.map_debug and cfg.model_checkpoint is not None:
-        pred = torch.load("/".join(cfg.model_checkpoint.split('/')[:-1]) + '/pred.pt')
-        label = torch.load("/".join(cfg.model_checkpoint.split('/')[:-1]) + '/label.pt')
-    else:
-        with torch.no_grad():
-            for index, (mels, labels) in enumerate(dl_iter):
-                if index > len(dl_iter) * dataset_ratio:
-                    # Stop early if not doing full validation
-                    break
-                mels = mels.to(cfg.device)
-                labels = labels.to(cfg.device)
+    with torch.no_grad():
+        for index, (mels, labels) in enumerate(dl_iter):
+            if index > num_valid_samples:
+                # Stop early if not doing full validation
+                break
 
-                # argmax
-                outputs = model(mels)
-                check_shape(outputs, labels)
+            loss, outputs = run_batch(model, mels, labels)
+                
+            running_loss += loss.item()
+            
+            log_pred.append(outputs.cpu().detach())
+            log_label.append(labels.cpu().detach())
 
-                loss = model.loss_fn(outputs, labels)
-
-                running_loss += loss.item()
-
-                pred.append(outputs.cpu().detach())
-                label.append(labels.cpu().detach())
-
-
-            pred = torch.cat(pred)
-            label = torch.cat(label)
-            if cfg.map_debug and cfg.model_checkpoint is not None:
-                torch.save(pred, "/".join(cfg.model_checkpoint.split('/')[:-1]) + '/pred.pt')
-                torch.save(label, "/".join(cfg.model_checkpoint.split('/')[:-1]) + '/label.pt')
 
     # softmax predictions
-    pred = F.softmax(pred).to(cfg.device)
+    log_pred = F.softmax(torch.cat(log_pred)).to(cfg.device)
 
-    #metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
-    #valid_map = metric(pred.detach().cpu(), label.detach().cpu().long())
-
-    map_metric = MultilabelAveragePrecision(num_labels=model.num_classes, average="macro")
-    out_for_score = pred.detach().cpu()
-    labels_for_score = label.detach().cpu().long()
-    valid_map = map_metric(out_for_score, labels_for_score).item()
+    valid_map = map_metric(log_pred, torch.cat(log_label), model.num_classes)
 
     # Log to Weights and Biases
     wandb.log({
@@ -241,17 +206,21 @@ def valid(model: Any,
                 running_loss/len(data_loader),
                 valid_map)
 
-    if valid_map > best_valid_map:
-        path = os.path.join("models", f"{cfg.model}-{time_now}.pt")
-        if not os.path.exists("models"):
-            os.mkdir("models")
-        torch.save(model.state_dict(), path)
-        logger.info("Model saved in: %s", path)
-        logger.info("Validation mAP Improved - %f ---> %f", best_valid_map, valid_map)
-        best_valid_map = valid_map
+    # pylint: disable-next=global-statement
+    global BEST_VALID_MAP
+    if valid_map > BEST_VALID_MAP:
+        logger.info("Model saved in: %s", save_model(model))
+        logger.info("Validation mAP Improved - %f ---> %f", BEST_VALID_MAP, valid_map)
+        BEST_VALID_MAP = valid_map
+    return valid_map
 
-
-    return running_loss/len(data_loader), valid_map, best_valid_map
+def save_model(model: TimmModel) -> str:
+    """ Saves model in the models directory as a pt file, returns path """
+    path = os.path.join("models", f"{cfg.model}-{time_now}.pt")
+    if not os.path.exists("models"):
+        os.mkdir("models")
+    torch.save(model.state_dict(), path)
+    return path
 
 def set_name(run):
     """
@@ -261,45 +230,7 @@ def set_name(run):
         # This variable is always defined
         cfg.wandb_run_name = cfg.model # type: ignore
     run.name = f"{cfg.wandb_run_name}-{time_now}"
-
-def load_datasets(train_dataset, val_dataset
-        )-> Tuple[DataLoader, DataLoader]:
-    """
-        Loads datasets and dataloaders for train and validation
-    """
-
-    # Code used from:
-    # https://www.kaggle.com/competitions/birdclef-2023/discussion/412808
-    # Get Sample Weights
-    weights_list = train_dataset.get_sample_weights()
-    sampler = WeightedRandomSampler(weights_list, len(weights_list))
-
-    # Create our dataloaders
-    # if sampler function is "specified, shuffle must not be specified."
-    # https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
-    
-    if cfg.does_weighted_sampling:
-        train_dataloader = DataLoader(
-            train_dataset,
-            cfg.train_batch_size,
-            sampler=sampler,
-            num_workers=cfg.jobs
-        )
-    else:
-        train_dataloader = DataLoader(
-            train_dataset,
-            cfg.train_batch_size,
-            shuffle=True,
-            num_workers=cfg.jobs
-        )
-
-    val_dataloader = DataLoader(
-        val_dataset,
-        cfg.validation_batch_size,
-        shuffle=False,
-        num_workers=cfg.jobs,
-    )
-    return train_dataloader, val_dataloader
+    return run
 
 def logging_setup() -> None:
     """ Setup logging on the main process
@@ -332,10 +263,9 @@ def main(in_sweep=True) -> None:
 
 
     # Load in dataset
-    logger.info("Loading Dataset")
-    # pylint: disable=unused-variable
+    logger.info("Loading Dataset...")
     train_dataset, val_dataset = get_datasets()
-    train_dataloader, val_dataloader = load_datasets(train_dataset, val_dataset)
+    train_dataloader, val_dataloader = make_dataloaders(train_dataset, val_dataset)
 
     logger.info("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
@@ -345,34 +275,24 @@ def main(in_sweep=True) -> None:
         model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))
     optimizer = Adam(model_for_run.parameters(), lr=cfg.learning_rate)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
-
-    logger.info("Model / Optimizer Loading Successful :P")
-    logger.info("Training")
-
-    best_valid_map = 0
+    
+    logger.info("Training...")
     early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
-    for epoch in range(cfg.epochs):
-        logger.info("Epoch %d", epoch)
+    
+    # MAIN LOOP
+    for _ in range(cfg.epochs):
+        # pylint: disable-next=global-statement
+        global EPOCH
+        logger.info("Epoch %d", EPOCH)
 
-        _, best_valid_map = train(
-            model_for_run,
-            train_dataloader,
-            val_dataloader,
-            optimizer,
-            scheduler,
-            epoch,
-            best_valid_map
-        )
-        _, valid_map, best_valid_map = valid(model_for_run,
-                                             val_dataloader,
-                                             epoch + 1.0,
-                                             best_valid_map)
+        train(model_for_run, train_dataloader, val_dataloader, optimizer, scheduler)
+        EPOCH += 1
+        valid_map = valid( model_for_run, val_dataloader, EPOCH)
+        logger.info("Best validation map: %f", BEST_VALID_MAP)
 
-        logger.info("Best validation map: %f", best_valid_map)
         if cfg.early_stopping and early_stopper.early_stop(valid_map):
-            logger.info("Early stopping has triggered on epoch %d", epoch)
+            logger.info("Early stopping has triggered on epoch %d", EPOCH)
             break
-
 
 if __name__ == '__main__':
     main(in_sweep=False)

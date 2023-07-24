@@ -4,8 +4,8 @@ Sweeps file:
 sweep. If the former, set the sweep_id option in config
 """
 import config
-import wandb
 from train import main as train_main
+import wandb
 
 cfg = config.cfg
 
