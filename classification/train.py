@@ -75,15 +75,14 @@ def train(model: Any,
         optimizer.zero_grad()
         mels = mels.to(cfg.device)
         labels = labels.to(cfg.device)
-
-        with autocast(device_type=cfg.device, dtype=torch.float16, enabled=cfg.mixed_precision):
+        with autocast(device_type=cfg.device, dtype=torch.bfloat16, enabled=cfg.mixed_precision):
             outputs = model(mels)
             check_shape(outputs, labels)
             loss = model.loss_fn(outputs, labels)
         outputs = outputs.to(dtype=torch.float32)
         loss = loss.to(dtype=torch.float32)
 
-        if cfg.mixed_precision:
+        if cfg.mixed_precision and cfg.device != "cpu":
             # Pyright complains about scaler.scale(loss) returning iterable of unknown types
             # Problem in the pytorch typing, documentation says it returns iterables of Tensors
             #  keep if needed - noqa: reportGeneralTypeIssues
@@ -91,6 +90,8 @@ def train(model: Any,
             scaler.step(optimizer)
             scaler.update()
         else:
+            if cfg.mixed_precision:
+                logger.warning("cuda required, mixed precision not applied")
             loss.backward()
             optimizer.step()
 
