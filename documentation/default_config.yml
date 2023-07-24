@@ -18,6 +18,7 @@ jobs: 2
 valid_freq: 2000
 mixed_precision: true
 valid_dataset_ratio: 0.3
+chunk_length: 5 #seconds
 
 # Logging
 logging: true
@@ -74,8 +75,8 @@ noise_p: 0.35
 freq_mask_p: 0.5
 time_mask_p: 0.5
 rand_eq_p: 0
-noise_p: 1
 lowpass_p: 0
+bg_noise_p: 1
 
 
 # Data augmentation parameters
@@ -98,14 +99,12 @@ bg_noise_alpha_range: [0.1, 0.2]
 # Make sure to delete all bird clips so it is only background noise
 # If path is blank and p=0, background noise will not be used
 bg_noise_path: ""
-bg_noise_p: 0
+
 # Transforms settings
-imbalance_sampler: false
-pos_weight: 1
-smoothing: 0.05
+#imbalance_sampler: false
+#pos_weight: 1
+#smoothing: 0.05
 
 # FFT Settings
-hop_length: 512
 n_mels: 194
 n_fft: 1400
-max_time: 5
