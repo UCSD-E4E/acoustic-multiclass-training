@@ -94,7 +94,7 @@ class Config():
             shutil.copy(os.path.join("documentation","default_config.yml"), "config.yml")
 
             # Update personal dict with new keys
-        return cls.instance
+        return cls
 
     def cli_values(self):
         """ 
