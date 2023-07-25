@@ -41,16 +41,18 @@ class TimmModel(nn.Module):
         logger.debug("add sigmod: %s", str(self.without_logits))
     
     def load_pretrain_checkpoint(self, pretrain_path, remove_pretrained_fc=True):
+        """ Loads a pretrained checkpoint into self
+        """
         #Load in a pretrained model (that used this class)
         pretrained_model = torch.load(pretrain_path)
 
         #remove potnetially conflicting layers 
         #due to class size differences
         try:
-            if(remove_pretrained_fc):
+            if remove_pretrained_fc:
                 pretrained_model.pop("head.fc.weight")
                 pretrained_model.pop("head.fc.bias")
-        except:
+        except Exception:
             print(self)
             print("DOUBLE CHECK WHICH LAYER")
 
