@@ -9,7 +9,6 @@ offset_col: "OFFSET"
 duration_col: "DURATION"
 file_name_col: "FILE NAME"
 manual_id_col: "MANUAL ID"
-cpu_preprocessing: True
 # Device Settings
 device: "auto" # Options: cuda, cpu, auto 
 prepros_device: "cpu" # Options: cuda, CPU

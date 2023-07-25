@@ -30,7 +30,6 @@ class Config():
         self.get_git_hash()
         self.cli_values()
         self.get_device()
-        self.device = "cpu"
 
     def __new__(cls):
         """
@@ -93,7 +92,7 @@ class Config():
             shutil.copy(os.path.join("documentation","default_config.yml"), "config.yml")
 
             # Update personal dict with new keys
-        return cls
+        return cls.instance
 
     def cli_values(self):
         """ 
@@ -187,7 +186,7 @@ class Config():
             device = "cuda" if is_available() else "cpu"
             # For whatever reason you have to use cfg.device instead of self.device
             # even though that doesn't make any sense at all
-            cfg.device = device
+            self.device = device
         self.config_dict["device"] = self.device
 
 def testing():
@@ -211,6 +210,7 @@ def testing():
 
 #Expose variable to page scope
 cfg = Config()
+
 
 if __name__ == "__main__":
     testing()
