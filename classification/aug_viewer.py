@@ -14,25 +14,7 @@ from matplotlib import cm
 from matplotlib import pyplot as plt
 from utils import get_annotation
 
-cfg = config.cfg
-
-
-# PARAMETERS
-DEFAULT_CONF = {
-    "synth_colors": ["white","pink","brown","violet","blue"],
-    "synth_noise_intensity":  0.3,
-    "lowpass_cutoff": 1000,
-    "lowpass_q_val": 0.707,
-    "highpass_cutoff": 10000,
-    "highpass_q_val": 0.707,
-    "eq_f_range": (100, 6000),
-    "eq_g_range": (-8, 8),
-    "eq_q_range": (1, 9),
-    "eq_num_applications": 1,
-    "background_intensity": 0.8,
-    "background_norm": False,
-    "mixup_alpha_range": (0.1,0.4),
-}
+SYNTH_COLORS = ["white","pink","brown","violet","blue"]
 
 def sigmoid(x):
     """ Sigmoid function """
@@ -61,39 +43,39 @@ def plot_audio(audio_list: List[torch.Tensor]):
         plt.plot(audio.to("cpu").numpy())
     plt.show()
 
-def get_audio(dataset: PyhaDFDataset, n_clips: int=3):
+def get_audio(dataset: PyhaDFDataset, n_clips: int=3, device="cpu"):
     """ Returns an array of audio waveforms and an array of one-hot labels """
     return [(
         get_annotation(
             dataset.samples,
             np.random.randint(len(dataset)),
             dataset.class_to_idx,
-            cfg.prepros_device)[0]
+            device)[0]
     )
             for _ in range(n_clips)]
 
-def get_augs(dataset: PyhaDFDataset, _cfg, aug_cfg) -> Tuple[List[Callable],List[str]]:
+def get_augs(dataset: PyhaDFDataset, cfg) -> Tuple[List[Callable],List[str]]:
     """ Returns a list of augmentations that can be applied
     Each element is a tuple of the form (aug, name)
     Each augmentation is a Callable that takes in a waveform and returns a waveform
     """
     augmentations = {
-            SyntheticNoise(_cfg): f"{col} noise" for col in aug_cfg["synth_colors"]
+            SyntheticNoise(cfg): f"{col} noise" for col in SYNTH_COLORS 
         }
-    for aug, color in zip(augmentations.keys(), aug_cfg["synth_colors"]):
+    for aug, color in zip(augmentations.keys(), SYNTH_COLORS):
         setattr(aug, "noise_type", color)
 
     # Other augmentations
     augmentations.update({
-        LowpassFilter(_cfg)   : "Lowpass Filter",
-        HighpassFilter(_cfg)  : "Highpass Filter",
-        RandomEQ(_cfg)        : "Random EQ",
-        BackgroundNoise(_cfg) : "Background Noise"})
+        LowpassFilter(cfg)   : "Lowpass Filter",
+        HighpassFilter(cfg)  : "Highpass Filter",
+        RandomEQ(cfg)        : "Random EQ",
+        BackgroundNoise(cfg) : "Background Noise"})
 
     #Mixup
     mixup = Mixup(df = dataset.samples,
                   class_to_idx = dataset.class_to_idx,
-                  cfg = _cfg)
+                  cfg = cfg)
     num_classes = dataset.num_classes
     augmentations.update({
         lambda x: mixup(x, torch.zeros(num_classes).to(x.device))[0]
@@ -126,7 +108,7 @@ def get_min_max(mel_list: List[np.ndarray]) -> Tuple[float,float]:
     return vmin, vmax
 
 def plot(mels: List[Tuple[np.ndarray,str,Tuple[int,int]]], n_clips: int,
-         vmin:float, vmax:float,  norms=None) -> None:
+         vmin:float, vmax:float, norms=None) -> None:
     """ Plots a list of mel spectrograms 
         Arguments:
             mels: List of tuples of the form (mel, title, (x,y))
@@ -150,13 +132,13 @@ def plot(mels: List[Tuple[np.ndarray,str,Tuple[int,int]]], n_clips: int,
     fig.text(0.5,0.05, str(norms))
     plt.show()
 
-def run_test(n_clips, norms, cfg, aug_cfg): 
+def run_test(n_clips, norms, cfg): 
     """ Main function """
     train_ds, _ = get_datasets()
     # Get audio
-    audio = get_audio(train_ds, n_clips)
+    audio = get_audio(train_ds, n_clips, cfg.prepros_device)
     # Get augs
-    augs, names = get_augs(train_ds, cfg, aug_cfg)
+    augs, names = get_augs(train_ds, cfg)
     # Apply augs
     augmented_audio = [apply_augs(audio[i],augs) for i in range(n_clips)]
     # Unpack to list of (audio, name, (x,y))
@@ -174,4 +156,4 @@ def run_test(n_clips, norms, cfg, aug_cfg):
     plot(mels_norm, n_clips, vmin, vmax, norms)
 
 if __name__ == "__main__":
-    run_test(3, DEFAULT_NORMS, cfg, DEFAULT_CONF)
+    run_test(3, DEFAULT_NORMS, config.Config())
