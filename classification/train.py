@@ -246,7 +246,7 @@ def logging_setup() -> None:
 def main(in_sweep=True) -> None:
     """ Main function
     """
-    logger.info("Device is: %s",DEVICE)
+    logger.info("Device is: %s", cfg.device)
     set_seed(cfg.seed)
     if in_sweep:
         run = wandb.init()
