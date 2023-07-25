@@ -6,6 +6,7 @@
 
 from pathlib import Path
 from typing import Any, Dict, Tuple
+import math
 
 import numpy as np
 import pandas as pd
@@ -39,7 +40,17 @@ def rand(low: float , high: float) -> float:
     Returns a random float between [low, high)
     """
     return (high - low) * float(torch.rand(1)[0]) + low
-    
+
+def log_rand(low: float, high: float) -> float:
+    """
+    Returns a random float between [low, high), with
+    a log uniform distribution
+    """
+    low_exp = math.log(low)
+    high_exp = math.log(high)
+    rand_exp = rand(low_exp, high_exp)
+    return math.exp(rand_exp)
+
 def pad_audio(audio: torch.Tensor, num_samples:int) -> torch.Tensor:
     """Fills the last dimension of the input audio with zeroes until it is num_samples long
     """
