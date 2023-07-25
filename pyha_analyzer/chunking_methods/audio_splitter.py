@@ -12,7 +12,7 @@ CONFIG = {
     "audio_dir": "input",
     "sample_rate": "error", # Only use if input format is pt
     "output_dir": "output",
-    "output_format": "flac", # Supports "wav" or "pt"
+    "output_format": "flac", # Supports torch audio formats
 
     "chunk_length_s": 60 * 5, # Length of each clip in seconds
     "overlap_s": 10, # Overlap to add to each file in seconds
@@ -45,13 +45,9 @@ def split_audio_file(path: str):
     for i in range(num_splits):
         # Create slice
         aud_slice = audio[i*split_len*sample_rate:((i+1)*split_len+CONFIG["overlap_s"])*sample_rate]
-        if CONFIG["output_format"] == "pt":
-            torch.save(aud_slice, 
-                       os.path.join(CONFIG["output_dir"], output_file_name(path, i, "pt")))
-        else:
-            torchaudio.save(os.path.join(CONFIG["output_dir"], # type: ignore
-                                         output_file_name(path,i,CONFIG["output_format"])),
-                            torch.unsqueeze(aud_slice,0), sample_rate)
+        torchaudio.save(os.path.join(CONFIG["output_dir"], # type: ignore
+                                     output_file_name(path,i,CONFIG["output_format"])),
+                        torch.unsqueeze(aud_slice,0), sample_rate)
 
 def edit_row(row: pd.Series) -> pd.Series:
     """ Edits a row of the metadata csv to reflect the new audio files
@@ -77,14 +73,8 @@ def split_all(input_dir: str):
         audio_path = os.path.join(input_dir, path)
         split_audio_file(audio_path)
 
-def verify_config():
-    """ Verify that the config is correct """
-    #if CONFIG["output_format"]!="wav" and CONFIG["output_format"]!="pt":
-        #raise ValueError("Output format must be wav or pt")
-
 def main():
     """ Main function """
-    verify_config()
     df = pd.read_csv(CONFIG["metadata_csv"], index_col=0)
     split_all(CONFIG["audio_dir"])
     edit_metadata(df)
