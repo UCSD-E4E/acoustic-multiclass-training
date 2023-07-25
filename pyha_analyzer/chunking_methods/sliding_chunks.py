@@ -58,7 +58,7 @@ def convolving_chunk(row:dict,
     # create new rows
     rows = []
     for value in starts:
-        new_row = row
+        new_row = row.copy()
         new_row['OFFSET'] = value
         new_row['DURATION'] = chunk_length_s
         rows.append(new_row)

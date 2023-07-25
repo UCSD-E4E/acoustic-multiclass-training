@@ -239,7 +239,8 @@ class PyhaDFDataset(Dataset):
             logger.error("ERROR IN ANNOTATION #%s", index)
             self.bad_files.append(index)
             #try again with a diff annotation to avoid training breaking
-            image, target = self[self.samples.sample(1).index[0]]
+            logger.error(self.samples.sample(1).index)
+            image, target = self[self.samples.sample(1).index]
 
         return image, target
 
