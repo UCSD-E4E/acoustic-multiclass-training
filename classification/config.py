@@ -47,6 +47,7 @@ class Config():
         
         # Set up singleton class design template
         if not hasattr(cls, 'instance'):
+            cls.instance = None
             cls.instance = super(Config, cls).__new__(cls)
         else:
             return cls.instance
