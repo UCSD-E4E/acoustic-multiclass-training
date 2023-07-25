@@ -19,7 +19,7 @@ prepros_device: "cpu" # Options: cuda, CPU
 device: auto # Options: cuda, cpu, auto 
 prepros_device: cpu # Options: cuda, CPU
 agent_run_count: 5
-
+chunk_length: 5
 # Training params
 
 train_batch_size: 4
