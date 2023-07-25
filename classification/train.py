@@ -186,8 +186,8 @@ def valid(model: Any,
                 
             running_loss += loss.item()
             
-            log_pred.append(outputs.cpu().detach())
-            log_label.append(labels.cpu().detach())
+            log_pred.append(torch.clone(outputs.cpu()).detach())
+            log_label.append(torch.clone(labels.cpu()).detach())
 
 
     # softmax predictions
