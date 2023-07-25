@@ -4,15 +4,16 @@
 """
 from typing import Callable, List, Tuple
 
-import config
 import numpy as np
 import torch
-from augmentations import (BackgroundNoise, LowpassFilter, Mixup, 
-                           RandomEQ, SyntheticNoise)
-from dataset import PyhaDFDataset, get_datasets
 from matplotlib import cm
 from matplotlib import pyplot as plt
-from utils import get_annotation
+
+from pyha_analyzer import config
+from pyha_analyzer.utils import get_annotation
+from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, 
+                           RandomEQ, SyntheticNoise)
+from pyha_analyzer.dataset import PyhaDFDataset, get_datasets
 
 cfg = config.cfg
 
