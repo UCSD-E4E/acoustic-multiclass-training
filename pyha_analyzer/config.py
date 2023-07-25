@@ -5,10 +5,12 @@ import argparse
 import logging
 import os
 import shutil
+from pathlib import Path
 
 # "Repo" is not exported from module "git" Import from "git.repo" instead
 # https://gitpython.readthedocs.io/en/stable/tutorial.html?highlight=repo#meet-the-repo-type
 import git
+import pandas as pd
 import yaml
 from git import Repo  # pyright: ignore [reportPrivateImportUsage]
 from torch.cuda import is_available
@@ -51,18 +53,21 @@ class Config():
             return cls.instance
 
         #Set defaults config
-        def_conf_path = os.path.join(pyha_project_directory,"documentation","default_config.yml")
+        def_conf_path = Path(pyha_project_directory)/"documentation"/"default_config.yml"
         with open(def_conf_path, 'r', encoding='utf-8') as file:
             cls.config_dict = yaml.safe_load(file)
 
         default_keys = set()
         for (key, value) in cls.config_dict.items():
+            if(isinstance(key, pd.Series)):
+                print("Series!!!!!!")
+               
             setattr(cls, key, value)
             default_keys.add(key)
 
         #Set User Custom Values
-        conf_path = os.path.join(pyha_project_directory,"config.yml")
-        if os.path.exists(conf_path):
+        conf_path = Path(pyha_project_directory)/"config.yml"
+        if conf_path.exists():
             with open(conf_path, 'r', encoding='utf-8') as file:
                 cls.config_personal_dict = yaml.safe_load(file)
 
