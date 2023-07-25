@@ -18,13 +18,13 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torchmetrics.classification import MultilabelAveragePrecision
 from tqdm import tqdm
-
-import config
-from dataset import get_datasets, make_dataloaders
-from utils import set_seed
-from models.early_stopper import EarlyStopper
-from models.timm_model import TimmModel
 import wandb
+
+from pyha_analyzer import config
+from pyha_analyzer.dataset import get_datasets, make_dataloaders
+from pyha_analyzer.utils import set_seed
+from pyha_analyzer.models.early_stopper import EarlyStopper
+from pyha_analyzer.models.timm_model import TimmModel
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
@@ -49,7 +49,11 @@ def run_batch(model: TimmModel,
     """
     mels = mels.to(cfg.device)
     labels = labels.to(cfg.device)
-    with autocast(device_type=cfg.device, dtype=torch.bfloat16, enabled=cfg.mixed_precision):
+    if cfg.device == "cpu": 
+        dtype = torch.bfloat16
+    else: 
+        dtype = torch.float16
+    with autocast(device_type=cfg.device, dtype=dtype, enabled=cfg.mixed_precision):
         outputs = model(mels)
         loss = model.loss_fn(outputs, labels) # type: ignore
     outputs = outputs.to(dtype=torch.float32)

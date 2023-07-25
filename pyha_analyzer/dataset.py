@@ -20,11 +20,10 @@ from torchaudio import transforms as audtr
 from torchvision.transforms import RandomApply
 from tqdm import tqdm
 
-import config
-import utils
-from augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
+from pyha_analyzer import config
+from pyha_analyzer import utils
+from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
                            SyntheticNoise)
-from utils import get_annotation, set_seed
 
 cfg = config.cfg
 
@@ -223,7 +222,7 @@ class PyhaDFDataset(Dataset):
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
 
-        audio, target = get_annotation(
+        audio, target = utils.get_annotation(
                 df = self.samples,
                 index = index,
                 class_to_idx = self.class_to_idx,
@@ -346,7 +345,7 @@ def main() -> None:
     testing function.
     """
     torch.multiprocessing.set_start_method('spawn')
-    set_seed(cfg.seed)
+    utils.set_seed(cfg.seed)
     get_datasets()
 
 if __name__ == '__main__':

@@ -36,6 +36,8 @@ We recommend that you use Miniconda for all package management. Once Miniconda i
 conda env create -f environment.yml
 ```
 
+For further setup, you can run `pip install -e .` in the directory to install the `pyha_analyzer` package. In order to generate the `config.yml` file, run `train.py` or copy `documentation/default_config.yml` into `./config.yml`.
+
 To recreate our results, [PyHa](https://github.com/UCSD-E3E/PyHa) needs to be installed and set up. Furthermore, our results are based on the [BirdCLEF2023 dataset](https://www.kaggle.com/competitions/birdclef-2023). You may also find it useful to use a  [no-call dataset](https://www.kaggle.com/code/sprestrelski/birdclef23-uniform-no-call-sound-chunks) compiled from previous competitions.
 
 ### Quick Start Dataset
@@ -53,16 +55,16 @@ data
 └── ...
 ```
 
-The data folder, cache folder (optional), and CSV location must all be referenced in `config.py` before running `train.py`. In the CSV file, the `"FILE NAME"` column must be the name of the file with no path preceding it. In this example, it would be `XC113913.wav`.
+The data folder and CSV location must be referenced in `config.yml` before `train.py` can run. In the CSV file, the `"FILE NAME"` column must be the name of the file with no path preceding it. In this example, it would be `XC113913.wav`.
 
-The CSV file referenced in `config.py` contains all metadata about clips in that dataset, which includes song file location, offset and duration of the clip, and species name. Using multiple different CSV files allows for different training scenarios such as using a small subset of clips to test a data augmentation technique.
+The CSV file referenced in `config.yml` contains all metadata about clips in that dataset, which includes song file location, offset and duration of the clip, and species name. Using multiple different CSV files allows for different training scenarios such as using a small subset of clips to test a data augmentation technique.
 
 We ran into issues running PyHa over `.ogg` files, so there is an included function in `gen_csv_labels.py` to convert `.ogg` to `.wav` files and can be swapped out for your original file type. This is an issue for the data processing pipeline. However, the training pipeline can accept most file types. This will be fixed in future versions of PyHa.
 
 ## Data Processing
 To process data using TweetyNet, you will need to have [PyHa](https://github.com/UCSD-E3E/PyHa) installed and set up.  
 
-The main file is is `gen_csv_labels.py` and uses functions from `config.py` and `sliding_chunks.py`. After downloading and setting up PyHa, copy all scripts in the `chunking_methods/` folder into the PyHa directory and `cd` into it. Activate the PyHa conda environment and run the script by doing the following:
+The main file is is `gen_csv_labels.py` and uses functions from `chunks_config.py` and `sliding_chunks.py`. After downloading and setting up PyHa, copy all scripts in the `chunking_methods/` folder into the PyHa directory and `cd` into it. Activate the PyHa conda environment and run the script by doing the following:
 ```
 conda env create --file conda_environments/{filename}
 conda activate species-id
@@ -74,9 +76,7 @@ python gen_csv_labels.py -l 5 -f .ogg -w -a ~/example_dataset
 If using simple chunks, ie. if the `sliding_window` is not used, it will only create one `.csv` for `chunk_labels`.
 
 ## Classification
-The main file is `train.py`, which has the main training loop and uses functions from `dataset.py` and `models/timm_model.py`. This has several hyperparameters related to training, logging, and data augmentation which are processed in `config.py`.  
-
-These hyperparameters can be changed in `config.yml`. It's currently required to run this script from within the root directory of this repo to save the Git hash in the config namespace and have access to the config file. This assists with reproducibility by saving the hash used to run the model. 
+The main file is `train.py`, which has the main training loop and uses functions from `dataset.py` and `models/timm_model.py`. This has several hyperparameters related to training, logging, and data augmentation which are processed in `config.yml`.  
 
 To select a model, change the `model` parameter in `config.yml`, or edit the `timm_model.py` file directly. `timm_model.py` loads in models using the [Pytorch Image Models library (timm)](https://timm.fast.ai/) and supports a variety of models including EfficientNets, ResNets, and DenseNets. To directly load local models, you would add another parameter for the checkpoint path:
 ```py
