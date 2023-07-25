@@ -1,15 +1,10 @@
-# pylint: disable=E1123:
+""" Loss functions """
 
-""" Contains model methods
-
-    note: Models have been moved to their own python folder
-"""
-import config
 import torch
 from torch import nn
 from torchvision.ops.focal_loss import sigmoid_focal_loss as focal_loss
 
-# timm is a library of premade models
+from pyha_analyzer import config
 
 cfg = config.cfg
 

@@ -9,12 +9,12 @@ from math import ceil
 from pathlib import Path
 
 import pandas as pd
-from chunks_config import get_config
 from pydub import AudioSegment, exceptions
 # pylint: disable=import-error #this file gets put into PyHa
 # pylint: disable=no-name-in-module
 from PyHa.IsoAutio import generate_automated_labels  # pyright: ignore
-from sliding_chunks import dynamic_yan_chunking
+from pyha_analyzer.chunking_methods.sliding_chunks import dynamic_yan_chunking
+from pyha_analyzer.chunking_methods.chunks_config import get_config
 
 # This could be changed to use Microfaune or BirdNET, but the parameters are
 # somewhat different and TweetyNet should be the default.
