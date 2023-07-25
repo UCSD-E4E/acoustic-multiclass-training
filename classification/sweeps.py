@@ -8,6 +8,7 @@ import wandb
 import torch
 
 from train import main as train_main
+import wandb
 
 cfg = config.cfg
 

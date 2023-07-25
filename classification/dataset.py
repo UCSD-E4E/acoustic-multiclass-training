@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torchaudio
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from torchaudio import transforms as audtr
 from torchvision.transforms import RandomApply
 from tqdm import tqdm
@@ -29,10 +29,6 @@ from utils import get_annotation, set_seed
 cfg = config.cfg
 
 tqdm.pandas()
-if torch.cuda.is_available() and not cfg.cpu_preprocessing:
-    DEVICE = "cuda"
-else:
-    DEVICE = "cpu"
 logger = logging.getLogger("acoustic_multiclass_training")
 
 # pylint: disable=too-many-instance-attributes
@@ -52,6 +48,7 @@ class PyhaDFDataset(Dataset):
         self.samples = df[~(df[cfg.file_name_col].isnull())]
         self.num_samples = cfg.sample_rate * cfg.chunk_length
         self.train = train
+        self.device = cfg.prepros_device
 
 
         # List data directory and confirm it exists
@@ -199,7 +196,7 @@ class PyhaDFDataset(Dataset):
                 sample_rate=cfg.sample_rate,
                 n_mels=cfg.n_mels,
                 n_fft=cfg.n_fft)
-        convert_to_mel = convert_to_mel.to(DEVICE)
+        convert_to_mel = convert_to_mel.to(self.device)
         # Mel spectrogram
         # Pylint complains this is not callable, but it is a torch.nn.Module
         # pylint: disable-next=not-callable
@@ -231,7 +228,7 @@ class PyhaDFDataset(Dataset):
                 df = self.samples,
                 index = index,
                 class_to_idx = self.class_to_idx,
-                device = DEVICE)
+                device = self.device)
 
         if self.train:
             audio, target = self.mixup(audio, target)
@@ -245,8 +242,8 @@ class PyhaDFDataset(Dataset):
             logger.error("ERROR IN ANNOTATION 2 #%s", self.samples.sample(1).index)
             self.bad_files.append(index)
             #try again with a diff annotation to avoid training breaking
+            logger.error(self.samples.sample(1).index)
             image, target = self[self.samples.sample(1).index]
-
 
         return image, target
 
@@ -259,6 +256,20 @@ class PyhaDFDataset(Dataset):
         """ Returns number of classes
         """
         return self.num_classes
+
+    def get_sample_weights(self) -> pd.Series:
+        """ Returns the weights as computed by the first place winner of BirdCLEF 2023
+        See https://www.kaggle.com/competitions/birdclef-2023/discussion/412808 
+        Congrats on your win!
+        """
+        manual_id = cfg.manual_id_col
+        all_primary_labels = self.samples[manual_id]
+        sample_weights = (
+            all_primary_labels.value_counts() / 
+            all_primary_labels.value_counts().sum()
+        )  ** (-0.5)
+        weight_list = self.samples[manual_id].apply(lambda x: sample_weights.loc[x])
+        return weight_list
 
 
 def get_datasets():
@@ -292,6 +303,45 @@ def get_datasets():
 
     valid_ds = PyhaDFDataset(valid,train=False, species=species)
     return train_ds, valid_ds
+
+def make_dataloaders(train_dataset, val_dataset
+        )-> Tuple[DataLoader, DataLoader]:
+    """
+        Loads datasets and dataloaders for train and validation
+    """
+
+    # Code used from:
+    # https://www.kaggle.com/competitions/birdclef-2023/discussion/412808
+    # Get Sample Weights
+    weights_list = train_dataset.get_sample_weights()
+    sampler = WeightedRandomSampler(weights_list, len(weights_list))
+
+    # Create our dataloaders
+    # if sampler function is "specified, shuffle must not be specified."
+    # https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
+    
+    if cfg.does_weighted_sampling:
+        train_dataloader = DataLoader(
+            train_dataset,
+            cfg.train_batch_size,
+            sampler=sampler,
+            num_workers=cfg.jobs
+        )
+    else:
+        train_dataloader = DataLoader(
+            train_dataset,
+            cfg.train_batch_size,
+            shuffle=True,
+            num_workers=cfg.jobs
+        )
+
+    val_dataloader = DataLoader(
+        val_dataset,
+        cfg.validation_batch_size,
+        shuffle=False,
+        num_workers=cfg.jobs,
+    )
+    return train_dataloader, val_dataloader
 
 def main() -> None:
     """

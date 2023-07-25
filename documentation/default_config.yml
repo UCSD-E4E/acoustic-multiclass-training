@@ -15,6 +15,11 @@ device: "auto" # Options: cuda, cpu, auto
 prepros_device: "cpu" # Options: cuda, CPU
 
 
+# Device Settings
+device: auto # Options: cuda, cpu, auto 
+prepros_device: cpu # Options: cuda, CPU
+
+
 # Training params
 
 train_batch_size: 4
