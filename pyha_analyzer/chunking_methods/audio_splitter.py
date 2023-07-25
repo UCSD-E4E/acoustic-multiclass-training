@@ -77,7 +77,7 @@ def main():
     """ Main function """
     df = pd.read_csv(CONFIG["metadata_csv"], index_col=0)
     split_all(CONFIG["audio_dir"])
-    edit_metadata(df)
+    df = edit_metadata(df)
     df.to_csv(CONFIG["metadata_output"])
 
 if __name__ == "__main__":
