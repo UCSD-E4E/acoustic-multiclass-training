@@ -49,7 +49,11 @@ def run_batch(model: TimmModel,
     """
     mels = mels.to(cfg.device)
     labels = labels.to(cfg.device)
-    with autocast(device_type=cfg.device, dtype=torch.bfloat16, enabled=cfg.mixed_precision):
+    if cfg.device == "cpu": 
+        dtype = torch.bfloat16
+    else: 
+        dtype = torch.float16
+    with autocast(device_type=cfg.device, dtype=dtype, enabled=cfg.mixed_precision):
         outputs = model(mels)
         loss = model.loss_fn(outputs, labels) # type: ignore
     outputs = outputs.to(dtype=torch.float32)
