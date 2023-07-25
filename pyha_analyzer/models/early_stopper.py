@@ -3,7 +3,7 @@
 
 """
 
-import config
+from pyha_analyzer import config
 
 # timm is a library of premade models
 

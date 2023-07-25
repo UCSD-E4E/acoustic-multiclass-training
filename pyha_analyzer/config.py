@@ -5,7 +5,6 @@ import argparse
 import logging
 import os
 import shutil
-import sys
 
 # "Repo" is not exported from module "git" Import from "git.repo" instead
 # https://gitpython.readthedocs.io/en/stable/tutorial.html?highlight=repo#meet-the-repo-type
@@ -13,6 +12,7 @@ import git
 import yaml
 from git import Repo  # pyright: ignore [reportPrivateImportUsage]
 from torch.cuda import is_available
+from pyha_analyzer import pyha_project_directory
 
 logger = logging.getLogger("acoustic_multiclass_training")
 
@@ -52,7 +52,8 @@ class Config():
             return cls.instance
 
         #Set defaults config
-        with open('documentation/default_config.yml', 'r', encoding='utf-8') as file:
+        def_conf_path = os.path.join(pyha_project_directory,"documentation","default_config.yml")
+        with open(def_conf_path, 'r', encoding='utf-8') as file:
             cls.config_dict = yaml.safe_load(file)
 
         default_keys = set()
@@ -61,8 +62,9 @@ class Config():
             default_keys.add(key)
 
         #Set User Custom Values
-        if os.path.exists('config.yml'):
-            with open('config.yml', 'r', encoding='utf-8') as file:
+        conf_path = os.path.join(pyha_project_directory,"config.yml")
+        if os.path.exists(conf_path):
+            with open(conf_path, 'r', encoding='utf-8') as file:
                 cls.config_personal_dict = yaml.safe_load(file)
 
             for (key, value) in cls.config_personal_dict.items():
@@ -90,7 +92,7 @@ class Config():
                 logger.warning("please manually update these keys from the new config")
                 logger.warning("%s", str(attrs_to_append))
         else:
-            shutil.copy(os.path.join("documentation","default_config.yml"), "config.yml")
+            shutil.copy(def_conf_path, conf_path)
 
             # Update personal dict with new keys
         return cls
@@ -157,9 +159,10 @@ class Config():
         """
 
         #Add git hash to config so wand logging can track vrs used for reproduciblity
+        sha = "git hash not found"
         try:
             #
-            repo = Repo(search_parent_directories=True)
+            repo = Repo(path=pyha_project_directory,search_parent_directories=True)
             sha = repo.head.object.hexsha
             self.config_dict["git_hash"] = sha
 
@@ -171,7 +174,6 @@ class Config():
             logger.error("You are likely calling a python file outside of this repo") 
             logger.error("if from command line, cd into acoustic-mutliclass-training")
             logger.error("then you can run the script again")
-            sys.exit(1)
         return sha
     
     def get_device(self):

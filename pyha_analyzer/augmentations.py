@@ -7,11 +7,11 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Dict, Tuple
 
-import config
 import pandas as pd
 import torch
 import torchaudio
-import utils
+from pyha_analyzer import config
+from pyha_analyzer import utils
 
 logger = logging.getLogger("acoustic_multiclass_training")
 
