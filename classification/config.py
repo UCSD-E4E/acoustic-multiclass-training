@@ -1,7 +1,5 @@
-
-""" Stores default argument information for the argparser
-    Methods:
-        get_config: returns an ArgumentParser with the default arguments
+""" 
+Stores default argument information for the argparser
 """
 import argparse
 import logging
@@ -32,6 +30,7 @@ class Config():
         self.get_git_hash()
         self.cli_values()
         self.get_device()
+        self.device = "cpu"
 
     def __new__(cls):
         """
@@ -185,15 +184,11 @@ class Config():
         if self.config_dict["device"] is None:
             raise ValueError('The required parameter "device" is not defined in yaml')
         if self.config_dict["device"] == "auto":
-            self.device = "cuda" if is_available() else "cpu"
-
+            device = "cuda" if is_available() else "cpu"
+            # For whatever reason you have to use cfg.device instead of self.device
+            # even though that doesn't make any sense at all
+            cfg.device = device
         self.config_dict["device"] = self.device
-
-def get_config():
-    """ Returns a config variable with the command line arguments or defaults
-    Decrepated, returns Config to prevent largescale code breaks
-    """
-    return cfg
 
 def testing():
     """
@@ -211,7 +206,6 @@ def testing():
     assert config == config2
     logger.info("%s", str(config.dataframe_csv))
     logger.info("%s", str(config.logging))
-    get_config()
     #cfg.generate_config_file()
 
 
