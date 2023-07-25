@@ -2,7 +2,7 @@
     This file contains methods that allow the visualization of
     different data augmentations.
 """
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Dict, Any
 
 import config
 import numpy as np
@@ -59,7 +59,7 @@ def get_augs(dataset: PyhaDFDataset, cfg) -> Tuple[List[Callable],List[str]]:
     Each element is a tuple of the form (aug, name)
     Each augmentation is a Callable that takes in a waveform and returns a waveform
     """
-    augmentations = {
+    augmentations: Dict[Any, str] = {
             SyntheticNoise(cfg): f"{col} noise" for col in SYNTH_COLORS 
         }
     for aug, color in zip(augmentations.keys(), SYNTH_COLORS):
