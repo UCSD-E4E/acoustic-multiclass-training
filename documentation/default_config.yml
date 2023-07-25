@@ -86,7 +86,8 @@ freq_mask_p: 0.5
 time_mask_p: 0.5
 rand_eq_p: 0
 noise_p: 1
-lowpass_p: 0
+lowpass_p: 0.02
+highpass_p: 0.02
 bg_noise_p: 1
 
 # Data augmentation parameters
@@ -101,6 +102,8 @@ rand_eq_g_range: [-8, 8]
 rand_eq_iters: 3
 lowpass_cutoff: 15000
 lowpass_q_val: 0.7
+highpass_cutoff: 1000
+highpass_q_val: 0.7
 bg_noise_alpha_range: [0.1, 0.2]
 
 # Background noise params

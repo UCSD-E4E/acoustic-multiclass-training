@@ -12,7 +12,7 @@ import torch
 from pyha_analyzer import config
 from pyha_analyzer import utils
 from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
-                           SyntheticNoise)
+                                         HighpassFilter, SyntheticNoise)
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
 from pyha_analyzer.dataset import get_datasets, make_dataloaders
@@ -47,6 +47,7 @@ class TestAugmentations(unittest.TestCase):
         augs.append(RandomEQ(cfg))
         augs.append(BackgroundNoise(cfg))
         augs.append(LowpassFilter(cfg))
+        augs.append(HighpassFilter(cfg))
         augmented_audio = [aug.forward(audio) for aug in augs]
         for aug_audio in augmented_audio:
             assert aug_audio.shape == audio.shape, "Augmented audio should not change shape"

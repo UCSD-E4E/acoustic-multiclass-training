@@ -25,6 +25,7 @@ These parameters are stored in the `config.yml` file. Default values can be foun
 ## Training and model parameters
 `train_batch_size`: Batch size for training\
 `train_test_split`: What proportion of the dataset to use for training\
+`do_weighted_sampling`: Whether to more frequently sample from less common classes\
 `epochs`: Number of epochs to train for\
 `learning_rate`: Learning rate of model\
 `loss_fnc`: Loss function to use. Can be any of the following:
@@ -41,8 +42,9 @@ These parameters are stored in the `config.yml` file. Default values can be foun
  - "seresnext101\_32x4d"
  - "rexnet\_200"
  - "mobilenetv3\_large\_100\_miil\_in21k"  
- In addition, any model compatible with `timm` can be used. An input size of 224x224 is required.
 
+
+ In addition, any model compatible with `timm` can be used. An input size of 224x224 is required.\
 `model_checkpoint`: Path from which to load starting model weights. Optional.
 
 ## Validation parameters
@@ -75,6 +77,7 @@ These parameters are stored in the `config.yml` file. Default values can be foun
 `time_mask_p`: probability of applying time masking augmentation\
 `rand_eq_p`: probability of applying random equalization augmentation\
 `lowpass_p`: probability of applying lowpass filter augmentation\
+`highpass_p`: probability of applying highpass filter augmentation\
 `bg_noise_p`: probability of applying background noise augmentation
 
 ## Data augmentation parameters
@@ -96,9 +99,11 @@ If a parameter specifies a range, then it is always a length two list with the f
 `rand_eq_g_range`: Range for the gain parameter of RandomEQ\
 `rand_eq_iters`: Number of times to apply RandomEQ to any given clip. All RandomEQ parameters are resampled at each application. Must be nonnegative\
 `lowpass_cutoff`: Cutoff frequency for the LowpassFilter augmentation\
-`lowpass_q_val`: Q value for the LowpassFilter augmentation
+`lowpass_q_val`: Q value for the LowpassFilter augmentation\
+`highpass_cutoff`: Cutoff frequency for the HighpassFilter augmentation\
+`highpass_q_val`: Q value for the HighpassFilter augmentation
 
 ## Spectrogram conversion settings
-`hop_length`: Hop size in samples for fft. Do not change
+`n_hops`: Hop size in samples for fft. Do not change\
 `n_mels`: Number of mel filterbanks to use in converting audio to spectrogram\
 `n_fft`: Size of FFT in mel spectrogram conversion. Creates n\_fft // 2 + 1 bins

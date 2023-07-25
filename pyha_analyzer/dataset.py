@@ -23,7 +23,7 @@ from tqdm import tqdm
 from pyha_analyzer import config
 from pyha_analyzer import utils
 from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
-                           SyntheticNoise)
+                                         HighpassFilter, SyntheticNoise)
 
 cfg = config.cfg
 
@@ -76,6 +76,7 @@ class PyhaDFDataset(Dataset):
                 SyntheticNoise  : cfg.noise_p,
                 RandomEQ        : cfg.rand_eq_p,
                 LowpassFilter   : cfg.lowpass_p,
+                HighpassFilter  : cfg.highpass_p,
                 BackgroundNoise : cfg.bg_noise_p
             }.items()
         # List around aug(cfg) is necessary
