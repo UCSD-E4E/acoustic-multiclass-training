@@ -1,5 +1,10 @@
 """ Splits longer audio files into smaller ones """
 
+import os
+import pandas as pd
+import torch
+import torchaudio
+
 CONFIG = {
     "metadata_csv": "annotations_chunked.csv",
     "metadata_output": "annotations_split.csv",
@@ -17,14 +22,9 @@ CONFIG = {
 
 }
 
-import os
-import pandas as pd
-import torch
-import torchaudio
-
-def output_file_name(path: str, index: int, format: str) -> str:
+def output_file_name(path: str, index: int, file_format: str) -> str:
     """ Returns the output file name for a given input file name and index """
-    return os.path.basename(path).split('.')[0] + "_" + str(index) + "." + format
+    return os.path.basename(path).split('.')[0] + "_" + str(index) + "." + file_format
 
 def split_audio_file(path: str):
     """ Splits audio file into smaller chunks """
@@ -34,21 +34,24 @@ def split_audio_file(path: str):
     # Load audio file
     if path.endswith(".pt"):
         audio = torch.load(path)
-        sr = CONFIG["sample_rate"]
+        sample_rate = CONFIG["sample_rate"]
     else:
-        audio, sr = torchaudio.load(path)
+        audio, sample_rate = torchaudio.load(path) # type: ignore
         audio = audio[0]
     
-    file_len = len(audio)/float(sr)
+    file_len = len(audio)/float(sample_rate)
     num_splits = int(file_len / split_len)
     
     for i in range(num_splits):
         # Create slice
-        slice = audio[i*split_len*sr:((i+1)*split_len+CONFIG["overlap_s"])*sr]
+        aud_slice = audio[i*split_len*sample_rate:((i+1)*split_len+CONFIG["overlap_s"])*sample_rate]
         if CONFIG["output_format"] == "pt":
-            torch.save(slice, os.path.join(CONFIG["output_dir"], output_file_name(path, i, "pt")))
+            torch.save(aud_slice, 
+                       os.path.join(CONFIG["output_dir"], output_file_name(path, i, "pt")))
         else:
-            torchaudio.save(os.path.join(CONFIG["output_dir"],output_file_name(path,i,CONFIG["output_format"])),torch.unsqueeze(slice,0), sr)
+            torchaudio.save(os.path.join(CONFIG["output_dir"], # type: ignore
+                                         output_file_name(path,i,CONFIG["output_format"])),
+                            torch.unsqueeze(aud_slice,0), sample_rate)
 
 def edit_row(row: pd.Series) -> pd.Series:
     """ Edits a row of the metadata csv to reflect the new audio files
@@ -58,12 +61,12 @@ def edit_row(row: pd.Series) -> pd.Series:
     file_index = int(offset/CONFIG["chunk_length_s"])
     # Update file name
     row[CONFIG["file_name_col"]] = \
-        output_file_name(row[CONFIG["file_name_col"]], file_index, CONFIG["output_format"])
+        output_file_name(str(row[CONFIG["file_name_col"]]), file_index, CONFIG["output_format"])
     # Shift offset
     row[CONFIG["offset_col"]] -= file_index * CONFIG["chunk_length_s"]
     return row
 
-def edit_metadata(df: pd.DataFrame) -> pd.DataFrame:
+def edit_metadata(df: pd.DataFrame):
     """ Edits metadata to reflect the new audio files """
     return df.apply(edit_row, axis=1)
 
@@ -79,9 +82,13 @@ def verify_config():
     #if CONFIG["output_format"]!="wav" and CONFIG["output_format"]!="pt":
         #raise ValueError("Output format must be wav or pt")
 
-if __name__ == "__main__":
+def main():
+    """ Main function """
     verify_config()
     df = pd.read_csv(CONFIG["metadata_csv"], index_col=0)
     split_all(CONFIG["audio_dir"])
     edit_metadata(df)
     df.to_csv(CONFIG["metadata_output"])
+
+if __name__ == "__main__":
+    main()
