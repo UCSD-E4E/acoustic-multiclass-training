@@ -1,0 +1,38 @@
+[project]
+name = "pyha_analyzer"
+description = "Acoustic multiclass training using a dataset generated from PyHa"
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["one", "two"]
+license = {text = "GPLv3"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+]
+dependencies = [
+    "pydub",
+    "torch",
+    "torchvision",
+    "torchaudio",
+    "pyyaml",
+    "timm",
+    "tqdm",
+    "wandb",
+    "matplotlib",
+    "gitpython",
+    "scikit-learn",
+    "scipy",
+    "numpy",
+    "pandas"
+]
+version = "0.1.0"
+
+[find]
+directories = ["."]
+include = ["pyha_analyzer"]
+
+[tool.setuptools]
+packages = ["pyha_analyzer"]
+
+# ... other project metadata fields as specified in:
+#     https://packaging.python.org/en/latest/specifications/declaring-project-metadata/

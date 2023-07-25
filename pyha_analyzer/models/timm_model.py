@@ -5,13 +5,13 @@
 
 """
 import logging
-import config
 # timm is a library of premade models
 import timm
 import torch
 from torch import nn
 
-from .model import bce_loss_fn, cross_entropy_loss_fn, focal_loss_fn
+from pyha_analyzer import config
+from pyha_analyzer.models.loss_fn import bce_loss_fn, cross_entropy_loss_fn, focal_loss_fn
 
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
