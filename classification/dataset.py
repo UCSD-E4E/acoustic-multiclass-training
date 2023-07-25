@@ -242,9 +242,11 @@ class PyhaDFDataset(Dataset):
 
         if image.isnan().any():
             logger.error("ERROR IN ANNOTATION #%s", index)
+            logger.error("ERROR IN ANNOTATION 2 #%s", self.samples.sample(1).index)
             self.bad_files.append(index)
             #try again with a diff annotation to avoid training breaking
             image, target = self[self.samples.sample(1).index]
+
 
         return image, target
 
