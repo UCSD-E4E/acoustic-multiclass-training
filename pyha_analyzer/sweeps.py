@@ -4,8 +4,8 @@ Sweeps file:
 sweep. If the former, set the sweep_id option in config
 """
 
-import wandb
 import torch
+import wandb
 
 from pyha_analyzer import config
 from pyha_analyzer.train import main as train_main
