@@ -108,9 +108,6 @@ def train(model: TimmModel,
 
             if scheduler is not None:
                 scheduler.step()
-        except Exception as e:
-            logger.error(e)
-            continue
 
         log_map += map_metric(outputs, labels, model.num_classes)
         log_loss += loss.item()
