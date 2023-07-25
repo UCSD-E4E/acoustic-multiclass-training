@@ -52,9 +52,9 @@ class TimmModel(nn.Module):
             if remove_pretrained_fc:
                 pretrained_model.pop("head.fc.weight")
                 pretrained_model.pop("head.fc.bias")
-        except Exception:
-            print(self)
+        except KeyError as exc:
             print("DOUBLE CHECK WHICH LAYER")
+            raise exc
 
         #Load in model so it overwrites only the weights we care about
         self.load_state_dict(pretrained_model, strict=False)

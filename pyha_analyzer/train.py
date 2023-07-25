@@ -276,7 +276,7 @@ def main(in_sweep=True) -> None:
                               model_name=cfg.model).to(cfg.device)
     model_for_run.create_loss_fn(train_dataset)
     if cfg.model_checkpoint != "":
-        model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))
+        model_for_run.load_pretrain_checkpoint(cfg.model_checkpoint)
     optimizer = Adam(model_for_run.parameters(), lr=cfg.learning_rate)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
     
