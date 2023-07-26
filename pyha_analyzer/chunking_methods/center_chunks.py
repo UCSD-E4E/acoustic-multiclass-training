@@ -74,15 +74,18 @@ def center_large_anno(row,  chunk_length_s=3,
     clip_len_s = row['CLIP LENGTH']
 
     #determine number of possible chunks
-    chunk_count = duration_s // chunk_length_s
+    chunk_count = int(duration_s // chunk_length_s)
 
     #Create naive chunks from here
-    chunk_starts = [(offset_s * i) for i in range(chunk_count)]
+    print(offset_s)
+    chunk_starts = [(offset_s + i * chunk_length_s) for i in range(chunk_count)]
     chunk_durats = [5 for _ in range(chunk_count)]
+
+    print(len(chunk_starts), len(chunk_durats))
 
     #Check end of annotation case
     if (include_last):
-        last_offset = offset_s * chunk_count
+        last_offset = offset_s + chunk_length_s * chunk_count
         
         # If the chunk goes beyond length of the clip
         # set the duration to the distance between end of clip and offset
@@ -96,9 +99,10 @@ def center_large_anno(row,  chunk_length_s=3,
 
         chunk_starts.append(last_offset)
         chunk_durats.append(last_durati)
+        print(len(chunk_starts), len(chunk_durats))
 
     # create new rows
-    assert chunk_starts == chunk_durats
+    assert len(chunk_starts) == len(chunk_durats)
     rows = []
     for new_offset, new_duration in zip(chunk_starts, chunk_durats):
         new_row = row.copy()
@@ -133,7 +137,7 @@ def make_center_chunk(row:dict,
     duration_s = row['DURATION']    # length of annotation
     
     #Ignore small duration (could be errors, play with this value)
-    if duration_s <= min_length_s:
+    if duration_s <= chunk_length_s:
         return center_small_anno(
             row,
             chunk_length_s=chunk_length_s, 
@@ -151,7 +155,7 @@ def make_center_chunk(row:dict,
 def center_chunking(df: pd.DataFrame,
                          chunk_length_s:int=5,
                          min_length_s:float=0.4,
-                         include_last:bool=False)-> pd.DataFrame:
+                         include_last:bool=True)-> pd.DataFrame:
     """
     Function that converts a Dataframe containing binary annotations 
     to uniform chunks by centering chunks on annotations
@@ -171,4 +175,5 @@ def center_chunking(df: pd.DataFrame,
     for _, row in df.iterrows():
         rows_dict = make_center_chunk(row.to_dict(), chunk_length_s, min_length_s, include_last)
         return_dicts.extend(rows_dict)
+    print(return_dicts)
     return pd.DataFrame(return_dicts)
