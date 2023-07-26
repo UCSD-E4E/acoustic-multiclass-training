@@ -224,7 +224,7 @@ class PyhaDFDataset(Dataset):
     def __getitem__(self, index): #-> Any:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
-        assert(isinstance(index, int))
+        assert isinstance(index, int)
         audio, target = utils.get_annotation(
                 df = self.samples,
                 index = index,
