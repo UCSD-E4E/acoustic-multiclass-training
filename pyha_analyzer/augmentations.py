@@ -59,8 +59,7 @@ class Mixup(torch.nn.Module):
             other_clip, other_target = utils.get_annotation(
                     df = self.df,
                     index = other_idx, 
-                    class_to_idx = self.class_to_idx, 
-                    device = clip.device)
+                    class_to_idx = self.class_to_idx)
         except RuntimeError:
             logger.error('Error loading other clip, mixup not performed')
             return clip, target
