@@ -10,6 +10,7 @@
 import logging
 import os
 from typing import Dict, List, Optional, Tuple
+import ast
 
 import numpy as np
 import pandas as pd
@@ -59,16 +60,25 @@ class PyhaDFDataset(Dataset):
         self.bad_files = []
 
         #Preprocessing start
+        self.samples[cfg.manual_id_col] = self.samples[cfg.manual_id_col].apply(
+            lambda x: ast.literal_eval(x) if isinstance(x, str) and x.startswith("{") else x
+        )
         if species is not None:
             self.classes, self.class_to_idx = species
         else:
-            self.classes = self.samples[cfg.manual_id_col].unique()
+            self.classes = set()
+            for species in self.samples[cfg.manual_id_col]:
+                if isinstance(species, dict):
+                    self.classes.update(species.keys())
+                else:
+                    self.classes.add(species)
             class_idx = np.arange(len(self.classes))
             self.class_to_idx = dict(zip(self.classes, class_idx))
+            print(self.classes)
+            print(self.class_to_idx)
 
         self.num_classes = len(self.classes)
         self.serialize_data()
-
 
         self.mixup = Mixup(self.samples, self.class_to_idx, cfg)
         audio_augs = {
@@ -308,17 +318,19 @@ def make_dataloaders(train_dataset, val_dataset
         Loads datasets and dataloaders for train and validation
     """
 
-    # Code used from:
-    # https://www.kaggle.com/competitions/birdclef-2023/discussion/412808
-    # Get Sample Weights
-    weights_list = train_dataset.get_sample_weights()
-    sampler = WeightedRandomSampler(weights_list, len(weights_list))
 
     # Create our dataloaders
     # if sampler function is "specified, shuffle must not be specified."
     # https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
     
     if cfg.does_weighted_sampling:
+        if train_dataset.samples[cfg.manual_id_col].any(lambda x: isinstance(x,dict)):
+            raise NotImplementedError("Weighted sampling not implemented for overlapping targets")
+        # Code used from:
+        # https://www.kaggle.com/competitions/birdclef-2023/discussion/412808
+        # Get Sample Weights
+        weights_list = train_dataset.get_sample_weights()
+        sampler = WeightedRandomSampler(weights_list, len(weights_list))
         train_dataloader = DataLoader(
             train_dataset,
             cfg.train_batch_size,
