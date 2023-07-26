@@ -83,7 +83,7 @@ def get_annotation(df: pd.DataFrame,
         device) -> Tuple[torch.Tensor, torch.Tensor]:
     """ Returns tuple of audio waveform and its one-hot label
     """
-    #annotation = self.samples.iloc[index]
+    assert isinstance(index, int)
     sample_rate = cfg.sample_rate
     target_num_samples = cfg.sample_rate * cfg.max_time
     annotation = df.iloc[index]
