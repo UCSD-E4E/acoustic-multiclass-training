@@ -14,7 +14,7 @@ import git
 import yaml
 from git import Repo  # pyright: ignore [reportPrivateImportUsage]
 from torch.cuda import is_available
-from pyha_analyzer import pyha_project_directory
+#from pyha_analyzer import pyha_project_directory
 
 logger = logging.getLogger("acoustic_multiclass_training")
 
@@ -52,7 +52,7 @@ class Config():
             return cls.instance
 
         #Set defaults config
-        def_conf_path = os.path.join(pyha_project_directory,"documentation","default_config.yml")
+        def_conf_path = os.path.join("documentation","default_config.yml")
         with open(def_conf_path, 'r', encoding='utf-8') as file:
             cls.config_dict = yaml.safe_load(file)
 
@@ -62,7 +62,7 @@ class Config():
             default_keys.add(key)
 
         #Set User Custom Values
-        conf_path = os.path.join(pyha_project_directory,"config.yml")
+        conf_path = os.path.join("config.yml")
         if os.path.exists(conf_path):
             with open(conf_path, 'r', encoding='utf-8') as file:
                 cls.config_personal_dict = yaml.safe_load(file)
@@ -162,7 +162,7 @@ class Config():
         sha = "git hash not found"
         try:
             #
-            repo = Repo(path=pyha_project_directory,search_parent_directories=True)
+            repo = Repo(path="",search_parent_directories=True)
             sha = repo.head.object.hexsha
             self.config_dict["git_hash"] = sha
 

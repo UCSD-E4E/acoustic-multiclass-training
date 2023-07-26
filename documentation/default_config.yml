@@ -13,7 +13,7 @@ manual_id_col: "MANUAL ID"
 # Device Settings
 device: auto # Options: cuda, cpu, auto 
 prepros_device: cpu # Options: cuda, CPU
-
+agent_run_count: 5
 
 # Training params
 
