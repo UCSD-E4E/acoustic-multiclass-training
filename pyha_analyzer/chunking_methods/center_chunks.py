@@ -114,10 +114,9 @@ def make_center_chunk(row:dict,
                      )->List[Dict]:
     """
     Helper function that converts a binary annotation row to uniform chunks. 
-    Note: Annotations of length shorter than min_length are ignored. Annotations
-    that are shorter than or equal to chunk_length are chopped into three chunks
-    where the annotation is placed at the start, middle, and end. Annotations
-    that are longer than chunk_length are chunked used a sliding window.
+    Note: Annotations of length shorter than min_length are ignored. If annotation
+    is less than chunking length, center the chunk. Otherwise do a naive chunk starting at
+    the row offset
     Args:
         row (dict)
             - Single annotation row represented as a dict
