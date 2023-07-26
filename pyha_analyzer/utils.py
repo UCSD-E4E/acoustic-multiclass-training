@@ -76,6 +76,9 @@ def one_hot(tensor, num_classes, on_value=1., off_value=0.):
     return torch.full((tensor.size()[0], num_classes), off_value, device=tensor.device) \
                 .scatter_(1, tensor, on_value)
 def rand_offset():
+    """
+    Return a random offset in samples
+    """
     max_offset = int(cfg.max_offset * cfg.sample_rate)
     return randint(-max_offset, max_offset)
 
