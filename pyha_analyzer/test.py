@@ -8,6 +8,7 @@ import os
 import unittest
 
 import torch
+import importlib_resources as pkg_resources
 
 from pyha_analyzer import config
 from pyha_analyzer import utils
@@ -17,7 +18,6 @@ from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
 from pyha_analyzer.dataset import get_datasets, make_dataloaders
 from pyha_analyzer.train import run_batch, map_metric, save_model
-from pyha_analyzer import pyha_project_directory
 
 cfg = config.cfg
 dataset, valid_ds = get_datasets()
@@ -184,8 +184,11 @@ class TestUtils(unittest.TestCase):
 if __name__=="__main__":
     unittest.main(exit=False)
     print("Running pylint")
-    main_dir = os.path.join(pyha_project_directory,"pyha_analyzer")
-    os.system(f"pylint \"{main_dir}/*.py\" \"{main_dir}/**/*.py\"" +
-              f" --rcfile=\"{pyha_project_directory}/.pylintrc\"")
+    main_dir = pkg_resources.files("pyha_analyzer")
+    if (main_dir / ".." / ".pylintrc").exists():
+        os.system(f"pylint \"{main_dir}/*.py\" \"{main_dir}/**/*.py\"" +
+                f" --rcfile=\"{str(main_dir / '..' / '.pylintrc')}\"")
+    else:
+        print("Pylintrc not found, skipping pylint")
     print("Running pyright")
     os.system(f"pyright \"{main_dir}\"")
