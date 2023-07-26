@@ -3,7 +3,6 @@ Stores default argument information for the argparser
 """
 import argparse
 import logging
-import os
 import shutil
 from pathlib import Path
 
@@ -59,8 +58,9 @@ class Config():
 
         default_keys = set()
         for (key, value) in cls.config_dict.items():
-            if(isinstance(key, pd.Series)):
+            if isinstance(key, pd.Series):
                 print("Series!!!!!!")
+                raise RuntimeError("Series in config file")
                
             setattr(cls, key, value)
             default_keys.add(key)
