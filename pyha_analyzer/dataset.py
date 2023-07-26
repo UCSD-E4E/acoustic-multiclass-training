@@ -292,10 +292,10 @@ def get_datasets():
 
     if cfg.is_unchunked:
         if cfg.does_center_chunking:
-            df = center_chunks.center_chunking(
+            data = center_chunks.center_chunking(
                 data, chunk_length_s=cfg.chunk_length_s, min_length_s=cfg.min_length_s, include_last=cfg.include_last)
         else:
-            df = sliding_chunks.dynamic_yan_chunking(
+            data = sliding_chunks.dynamic_yan_chunking(
                 data, chunk_length_s=cfg.chunk_length_s, min_length_s=cfg.min_length_s,overlap=cfg.overlap, only_slide=False)
 
     #for each species, get a random sample of files for train/valid split
