@@ -269,7 +269,13 @@ def main(in_sweep=True) -> None:
     # Load in dataset
     logger.info("Loading Dataset...")
     train_dataset, val_dataset = get_datasets()
+    
+    #Save species array
+    species = train_dataset.get_classes()
+    wandb.config.update({"species": species})
+
     train_dataloader, val_dataloader = make_dataloaders(train_dataset, val_dataset)
+
 
     logger.info("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
