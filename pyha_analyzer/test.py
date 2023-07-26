@@ -185,9 +185,10 @@ if __name__=="__main__":
     unittest.main(exit=False)
     print("Running pylint")
     main_dir = pkg_resources.files("pyha_analyzer")
-    if (main_dir / ".." / ".pylintrc").exists():
-        os.system(f"pylint \"{main_dir}/*.py\" \"{main_dir}/**/*.py\"" +
-                f" --rcfile=\"{str(main_dir / '..' / '.pylintrc')}\"")
+    if (main_dir / ".." / ".pylintrc").is_file():
+        os.system(f"pylint \"{main_dir}/../entry.py\" " + \
+                  f"\"{main_dir}/*.py\" \"{main_dir}/**/*.py\"" +
+                  f" --rcfile=\"{str(main_dir / '..' / '.pylintrc')}\"")
     else:
         print("Pylintrc not found, skipping pylint")
     print("Running pyright")
