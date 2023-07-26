@@ -305,7 +305,7 @@ def get_datasets():
     valid_ds = PyhaDFDataset(valid,train=False, species=species)
     return train_ds, valid_ds
 
-def set_torch_file_sharing(x) -> None:
+def set_torch_file_sharing(_) -> None:
     """
     Sets torch.multiprocessing to use file sharing
     """
