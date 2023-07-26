@@ -16,16 +16,19 @@ def main():
     print(f"Device is: {cfg.device}, Preprocessing Device is {cfg.prepros_device}")
     utils.set_seed(cfg.seed)
     wandb.init(mode="disabled")
+    
     # Get dataset
     df = pd.read_csv(cfg.dataframe_csv, index_col=0)
-    test_ds = dataset.PyhaDFDataset(df,train=False)
+    if cfg.class_list is None:
+        raise ValueError("Class list must be specified")
+    test_ds = dataset.PyhaDFDataset(df,train=False, species=cfg.class_list)
     dataloader = DataLoader(
         test_ds,
         cfg.train_batch_size,
         shuffle=False,
         num_workers=cfg.jobs,
     )
-    
+
     # Get model
     model_for_run = TimmModel(num_classes=test_ds.num_classes, 
                               model_name=cfg.model).to(cfg.device)

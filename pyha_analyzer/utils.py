@@ -97,7 +97,6 @@ def get_annotation(df: pd.DataFrame,
         target = torch.zeros(num_classes)
         for name, alpha in class_name.items():
             target[class_to_idx[name]] = alpha
-        print(target)
     else:
         target = one_hot(
                 torch.tensor(class_to_idx[class_name]),

@@ -3,6 +3,8 @@
 # Required path related config
 dataframe_csv:
 data_path:
+# Optional, automatically generates class order if not given
+class_list:
 
 # Dataframe column names
 offset_col: "OFFSET"

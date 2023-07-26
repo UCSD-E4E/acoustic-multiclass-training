@@ -43,7 +43,7 @@ class PyhaDFDataset(Dataset):
     def __init__(self,
                  df: pd.DataFrame,
                  train: bool=True,
-                 species: Optional[Tuple[List[str], Dict[str, int]]]=None
+                 species: List[str]=None
                  ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
         self.num_samples = cfg.sample_rate * cfg.max_time
@@ -63,21 +63,10 @@ class PyhaDFDataset(Dataset):
         self.samples[cfg.manual_id_col] = self.samples[cfg.manual_id_col].apply(
             lambda x: ast.literal_eval(x) if isinstance(x, str) and x.startswith("{") else x
         )
-        if species is not None:
-            self.classes, self.class_to_idx = species
-        else:
-            self.classes = set()
-            for species in self.samples[cfg.manual_id_col]:
-                if isinstance(species, dict):
-                    self.classes.update(species.keys())
-                else:
-                    self.classes.add(species)
-            class_idx = np.arange(len(self.classes))
-            self.class_to_idx = dict(zip(self.classes, class_idx))
-            print(self.classes)
-            print(self.class_to_idx)
+        self.classes = species
+        self.class_to_idx = dict(zip(species, np.arange(len(species))))
 
-        self.num_classes = len(self.classes)
+        self.num_classes = len(species)
         self.serialize_data()
 
         self.mixup = Mixup(self.samples, self.class_to_idx, cfg)
@@ -255,11 +244,6 @@ class PyhaDFDataset(Dataset):
 
         return image, target
 
-    def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
-        """ Returns tuple of class list and class to index dictionary
-        """
-        return self.classes, self.class_to_idx
-
     def get_num_classes(self) -> int:
         """ Returns number of classes
         """
@@ -299,6 +283,24 @@ def get_datasets():
         cfg.offset_col: float,
         cfg.duration_col: float})
 
+    # Get classes list
+    data[cfg.manual_id_col] = data[cfg.manual_id_col].apply(
+        lambda x: ast.literal_eval(x) if isinstance(x, str) and x.startswith("{") else x
+    )
+    if cfg.class_list is not None:
+        classes = cfg.class_list
+    else:
+        classes = set()
+        for species in data[cfg.manual_id_col]:
+            if isinstance(species, dict):
+                classes.update(species.keys())
+            else:
+                classes.add(species)
+        classes = list(classes)
+        classes.sort()
+        # pylint: disable-next=attribute-defined-outside-init
+        cfg.config_dict["class_list"] = classes
+
     #for each species, get a random sample of files for train/valid split
     train_files = data.groupby(cfg.manual_id_col, as_index=False).apply(
         lambda x: pd.Series(x[cfg.file_name_col].unique()).sample(frac=train_p)
@@ -306,10 +308,9 @@ def get_datasets():
     train = data[data[cfg.file_name_col].isin(train_files)]
 
     valid = data[~data.index.isin(train.index)]
-    train_ds = PyhaDFDataset(train)
-    species = train_ds.get_classes()
+    train_ds = PyhaDFDataset(train, train=True, species=classes)
 
-    valid_ds = PyhaDFDataset(valid,train=False, species=species)
+    valid_ds = PyhaDFDataset(valid, train=False, species=classes)
     return train_ds, valid_ds
 
 def make_dataloaders(train_dataset, val_dataset
