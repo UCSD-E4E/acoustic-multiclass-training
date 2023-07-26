@@ -31,6 +31,9 @@ def center_small_anno(row, chunk_length_s=3,
     clip_len_s = row['CLIP LENGTH']
 
     #If the clip cannot be centered, return it and let future preprocessing handle it
+    if duration_s < min_length_s:
+        return []
+    
     if clip_len_s < chunk_length_s:
         return [row]
 
@@ -50,8 +53,7 @@ def center_small_anno(row, chunk_length_s=3,
     new_row['DURATION'] = chunk_length_s
     return [new_row]
 
-def center_large_anno(row,  chunk_length_s=3, 
-                     min_length_s=0.4, include_last=True) -> List[Dict]:
+def center_large_anno(row,  chunk_length_s=3, include_last=True) -> List[Dict]:
     """
     Helper function that converts a binary annotation row to uniform chunks. 
     Note: Annotations of length shorter than min_length are ignored. Starts a naive
@@ -84,14 +86,14 @@ def center_large_anno(row,  chunk_length_s=3,
     print(len(chunk_starts), len(chunk_durats))
 
     #Check end of annotation case
-    if (include_last):
+    if include_last:
         last_offset = offset_s + chunk_length_s * chunk_count
         
         # If the chunk goes beyond length of the clip
         # set the duration to the distance between end of clip and offset
         # otherwise normal behavior
         amount_over = last_offset + chunk_length_s - clip_len_s
-        if (amount_over > 0):
+        if amount_over > 0:
             last_durati = clip_len_s - last_offset
         else:
             last_durati = chunk_length_s
@@ -143,13 +145,13 @@ def make_center_chunk(row:dict,
             chunk_length_s=chunk_length_s, 
             min_length_s=min_length_s
         )
-    else:
-        return center_large_anno(
-            row,
-            chunk_length_s=chunk_length_s, 
-            min_length_s=min_length_s,
-            include_last=include_last
-        )
+    
+    #Else clip is longer than chunk length
+    return center_large_anno(
+        row,
+        chunk_length_s=chunk_length_s, 
+        include_last=include_last
+    )
 
 
 def center_chunking(df: pd.DataFrame,
