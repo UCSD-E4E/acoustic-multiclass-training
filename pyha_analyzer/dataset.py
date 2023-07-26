@@ -24,6 +24,7 @@ from pyha_analyzer import config
 from pyha_analyzer import utils
 from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
                                          HighpassFilter, SyntheticNoise)
+from pyha_analyzer.chunking_methods import center_chunks, sliding_chunks
 
 cfg = config.cfg
 
@@ -288,6 +289,14 @@ def get_datasets():
         cfg.manual_id_col: str,
         cfg.offset_col: float,
         cfg.duration_col: float})
+
+    if cfg.is_unchunked:
+        if cfg.does_center_chunking:
+            df = center_chunks.center_chunking(
+                df, chunk_length_s=cfg.chunk_length_s, min_length_s=cfg.min_length_s, include_last=cfg.include_last)
+        else:
+            df = sliding_chunks.dynamic_yan_chunking(
+                df, chunk_length_s=cfg.chunk_length_s, min_length_s=cfg.min_length_s,overlap=cfg.overlap, only_slide=False)
 
     #for each species, get a random sample of files for train/valid split
     train_files = data.groupby(cfg.manual_id_col, as_index=False).apply(

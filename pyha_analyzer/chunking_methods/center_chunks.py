@@ -53,7 +53,7 @@ def center_small_anno(row, chunk_length_s=3,
     new_row['DURATION'] = chunk_length_s
     return [new_row]
 
-def center_large_anno(row,  chunk_length_s=3, include_last=True) -> List[Dict]:
+def center_large_anno(row,  chunk_length_s=3,  include_last=True) -> List[Dict]:
     """
     Helper function that converts a binary annotation row to uniform chunks. 
     Note: Annotations of length shorter than min_length are ignored. Starts a naive
@@ -79,11 +79,8 @@ def center_large_anno(row,  chunk_length_s=3, include_last=True) -> List[Dict]:
     chunk_count = int(duration_s // chunk_length_s)
 
     #Create naive chunks from here
-    print(offset_s)
     chunk_starts = [(offset_s + i * chunk_length_s) for i in range(chunk_count)]
-    chunk_durats = [5 for _ in range(chunk_count)]
-
-    print(len(chunk_starts), len(chunk_durats))
+    chunk_durats = [chunk_length_s for _ in range(chunk_count)]
 
     #Check end of annotation case
     if include_last:
@@ -101,7 +98,6 @@ def center_large_anno(row,  chunk_length_s=3, include_last=True) -> List[Dict]:
 
         chunk_starts.append(last_offset)
         chunk_durats.append(last_durati)
-        print(len(chunk_starts), len(chunk_durats))
 
     # create new rows
     assert len(chunk_starts) == len(chunk_durats)
@@ -177,5 +173,4 @@ def center_chunking(df: pd.DataFrame,
     for _, row in df.iterrows():
         rows_dict = make_center_chunk(row.to_dict(), chunk_length_s, min_length_s, include_last)
         return_dicts.extend(rows_dict)
-    print(return_dicts)
     return pd.DataFrame(return_dicts)

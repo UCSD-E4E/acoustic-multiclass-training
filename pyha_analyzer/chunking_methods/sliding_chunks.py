@@ -7,7 +7,8 @@ import pandas as pd
 
 def convolving_chunk(row:dict, 
                      chunk_length_s=3, 
-                     min_length_s=0.4, 
+                     min_length_s=0.4,
+                     overlap=1/2, 
                      only_slide=False)->List[Dict]:
     """
     Helper function that converts a binary annotation row to uniform chunks. 
@@ -31,7 +32,7 @@ def convolving_chunk(row:dict,
     offset_s = row['OFFSET']        # start time of original clip
     duration_s = row['DURATION']    # length of annotation
     end_s = offset_s + duration_s
-    half_chunk_s = chunk_length_s / 2
+    half_chunk_s = chunk_length_s * overlap
     
     #Ignore small duration (could be errors, play with this value)
     if duration_s < min_length_s:
@@ -67,6 +68,7 @@ def convolving_chunk(row:dict,
 def dynamic_yan_chunking(df: pd.DataFrame,
                          chunk_length_s:int=3,
                          min_length_s:float=0.4,
+                         overlap=1/2,
                          only_slide:bool=False)-> pd.DataFrame:
     """
     Function that converts a Dataframe containing binary annotations 
@@ -85,6 +87,11 @@ def dynamic_yan_chunking(df: pd.DataFrame,
     """
     return_dicts = []
     for _, row in df.iterrows():
-        rows_dict = convolving_chunk(row.to_dict(), chunk_length_s, min_length_s, only_slide)
+        rows_dict = convolving_chunk(
+            row.to_dict(),
+            chunk_length_s,
+            min_length_s,
+            overlap,
+            only_slide)
         return_dicts.extend(rows_dict)
     return pd.DataFrame(return_dicts)

@@ -14,9 +14,17 @@ manual_id_col: "MANUAL ID"
 device: auto # Options: cuda, cpu, auto 
 prepros_device: cpu # Options: cuda, CPU
 
+#chunking settings
+is_unchunked: false
+does_center_chunking: true
+chunk_length_s: 5
+min_length_s: 0.4
+include_last: false
+overlap: 1/2
+
+
 
 # Training params
-
 train_batch_size: 4
 validation_batch_size: 4
 jobs: 2
@@ -24,6 +32,7 @@ valid_freq: 2000
 mixed_precision: true
 valid_dataset_ratio: 0.3
 does_weighted_sampling: False
+drop_rate: 0.5
 
 # Logging
 logging: true
