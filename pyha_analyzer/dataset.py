@@ -304,6 +304,11 @@ def get_datasets():
     valid_ds = PyhaDFDataset(valid,train=False, species=species)
     return train_ds, valid_ds
 
+def set_torch_file_sharing(x) -> None:
+    """
+    Sets torch.multiprocessing to use file sharing
+    """
+    torch.multiprocessing.set_sharing_strategy("file_system")
 def make_dataloaders(train_dataset, val_dataset
         )-> Tuple[DataLoader, DataLoader]:
     """
@@ -325,14 +330,16 @@ def make_dataloaders(train_dataset, val_dataset
             train_dataset,
             cfg.train_batch_size,
             sampler=sampler,
-            num_workers=cfg.jobs
+            num_workers=cfg.jobs,
+            worker_init_fn=set_torch_file_sharing
         )
     else:
         train_dataloader = DataLoader(
             train_dataset,
             cfg.train_batch_size,
             shuffle=True,
-            num_workers=cfg.jobs
+            num_workers=cfg.jobs,
+            worker_init_fn=set_torch_file_sharing
         )
 
     val_dataloader = DataLoader(
