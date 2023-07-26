@@ -182,7 +182,7 @@ class RandomEQ(torch.nn.Module):
         according to object parameters
         """
         for _ in range(self.iterations):
-            frequency = utils.rand(*self.f_range)
+            frequency = utils.log_rand(*self.f_range)
             gain = utils.rand(*self.g_range)
             q_val = utils.rand(*self.q_range)
             clip = torchaudio.functional.equalizer_biquad(
@@ -271,7 +271,7 @@ class BackgroundNoise(torch.nn.Module):
 class LowpassFilter(torch.nn.Module):
     """
     Applies lowpass filter to audio based on provided parameters.
-    Note that due implementation details of the lowpass filters,
+    Note that due implementation details of the biquad filters,
     this may not work as expected for high q values (>5 ish)
     Attributes:
         sample_rate: sample_rate of audio clip
@@ -293,6 +293,35 @@ class LowpassFilter(torch.nn.Module):
         Returns: Tensor of audio data with lowpass filter applied
         """
         return torchaudio.functional.lowpass_biquad(clip,
+                                                    self.sample_rate,
+                                                    self.cutoff,
+                                                    self.q_val)
+
+class HighpassFilter(torch.nn.Module):
+    """
+    Applies highpass filter to audio based on provided parameters.
+    Note that due implementation details of the biquad filters,
+    this may not work as expected for high q values (>5 ish)
+    Attributes:
+        sample_rate: sample_rate of audio clip
+        cutoff: cutoff frequency
+        q_val: Q value for highpass filter
+    """
+    def __init__(self, cfg: config.Config):
+        super().__init__()
+        self.sample_rate = cfg.sample_rate
+        self.cutoff = cfg.highpass_cutoff
+        self.q_val = cfg.highpass_q_val
+
+    def forward(self, clip: torch.Tensor) -> torch.Tensor:
+        """
+        Applies lowpass filter based on specified parameters
+        Args:
+            clip: Tensor of audio data
+
+        Returns: Tensor of audio data with lowpass filter applied
+        """
+        return torchaudio.functional.highpass_biquad(clip,
                                                     self.sample_rate,
                                                     self.cutoff,
                                                     self.q_val)
