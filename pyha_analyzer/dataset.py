@@ -220,10 +220,11 @@ class PyhaDFDataset(Dataset):
         image = torch.sigmoid(image)
         return image
 
+
     def __getitem__(self, index): #-> Any:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
-
+        assert(isinstance(index, int))
         audio, target = utils.get_annotation(
                 df = self.samples,
                 index = index,
@@ -239,11 +240,11 @@ class PyhaDFDataset(Dataset):
 
         if image.isnan().any():
             logger.error("ERROR IN ANNOTATION #%s", index)
-            logger.error("ERROR IN ANNOTATION 2 #%s", self.samples.sample(1).index)
             self.bad_files.append(index)
-            #try again with a diff annotation to avoid training breaking
-            logger.error(self.samples.sample(1).index)
-            image, target = self[self.samples.sample(1).index]
+            image = torch.zeros(image.shape)
+            target = torch.zeros(target.shape)
+
+            
 
         return image, target
 
