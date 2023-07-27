@@ -38,15 +38,17 @@ class TestAugmentations(unittest.TestCase):
             "Mixup label should be equal to alpha"
         assert new_label.sum() == 1.0, "Mixup label should sum to 1"
 
+        
         augs = []
         noise_colors = ["white", "pink", "brown", "blue", "violet"]
         for col in noise_colors:
             cfg.noise_type = col # type: ignore
             augs.append(SyntheticNoise(cfg))
-        augs.append(BackgroundNoise(cfg))
-        augs.append(LowpassFilter(cfg))
-        augs.append(HighpassFilter(cfg))
-        augmented_audio = [aug.forward(audio) for aug in augs]
+        augs += [BackgroundNoise(cfg),
+                LowpassFilter(cfg),
+                HighpassFilter(cfg)]
+        augmented_audio = [aug(audio) for aug in augs]
+
         for aug_audio in augmented_audio:
             assert aug_audio.shape == audio.shape, "Augmented audio should not change shape"
 
