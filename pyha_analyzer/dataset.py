@@ -206,8 +206,8 @@ class PyhaDFDataset(Dataset):
         
         # Convert to decibels
         # Log scale the power
-        decibel_convert = audtr.AmplitudeToDB(stype="power")
-        image = decibel_convert(image)
+        # decibel_convert = audtr.AmplitudeToDB(stype="power")
+        # image = decibel_convert(image)
         
         # Normalize Image
         # Inspired by
