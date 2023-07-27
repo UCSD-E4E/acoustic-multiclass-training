@@ -11,7 +11,7 @@ import torch
 
 from pyha_analyzer import config
 from pyha_analyzer import utils
-from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
+from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup,
                                          HighpassFilter, SyntheticNoise)
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
@@ -43,7 +43,6 @@ class TestAugmentations(unittest.TestCase):
         for col in noise_colors:
             cfg.noise_type = col # type: ignore
             augs.append(SyntheticNoise(cfg))
-        augs.append(RandomEQ(cfg))
         augs.append(BackgroundNoise(cfg))
         augs.append(LowpassFilter(cfg))
         augs.append(HighpassFilter(cfg))

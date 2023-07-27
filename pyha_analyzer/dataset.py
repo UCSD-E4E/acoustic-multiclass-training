@@ -22,7 +22,7 @@ from tqdm import tqdm
 
 from pyha_analyzer import config
 from pyha_analyzer import utils
-from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
+from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup,
                                          HighpassFilter, SyntheticNoise)
 
 cfg = config.cfg
@@ -74,7 +74,6 @@ class PyhaDFDataset(Dataset):
         self.mixup = Mixup(self.samples, self.class_to_idx, cfg)
         audio_augs = {
                 SyntheticNoise  : cfg.noise_p,
-                RandomEQ        : cfg.rand_eq_p,
                 LowpassFilter   : cfg.lowpass_p,
                 HighpassFilter  : cfg.highpass_p,
                 BackgroundNoise : cfg.bg_noise_p
