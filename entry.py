@@ -7,6 +7,6 @@ if __name__ == '__main__':
     torch.multiprocessing.set_start_method('spawn')
     DO_TRAIN = True
     if DO_TRAIN:
-        pa.train.main()
+        pa.train.main(in_sweep=False)
     else:
         pa.sweeps.main()
