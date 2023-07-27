@@ -226,8 +226,7 @@ class PyhaDFDataset(Dataset):
         audio, target = utils.get_annotation(
                 df = self.samples,
                 index = index,
-                class_to_idx = self.class_to_idx,
-                device = self.device)
+                class_to_idx = self.class_to_idx)
 
         if self.train:
             audio, target = self.mixup(audio, target)

@@ -26,8 +26,7 @@ dataset, valid_ds = get_datasets()
 class TestAugmentations(unittest.TestCase):
     def test_augs(self):
         """ Test all augmentations and verify output is correct size """
-        audio, label = utils.get_annotation(dataset.samples,0,
-                                            dataset.class_to_idx,cfg.prepros_device)
+        audio, label = utils.get_annotation(dataset.samples, 0, dataset.class_to_idx)
         TestUtils.assert_one_hot(label, dataset.num_classes)
         label_id = (label == 1.0).nonzero()[0].item()
         cfg.mixup_alpha_range = [0.25, 0.25] # type: ignore
@@ -164,7 +163,7 @@ class TestUtils(unittest.TestCase):
         """ Tests get_annotation 100 times """
         num_samples = 5 * cfg.sample_rate
         for i in range(20):
-            audio, label = utils.get_annotation(dataset.samples, i, dataset.class_to_idx, "cpu")
+            audio, label = utils.get_annotation(dataset.samples, i, dataset.class_to_idx)
             assert audio.shape[0] == num_samples, "audio should be num_samples long"
             self.assert_one_hot(label,dataset.num_classes)
             assert str(audio.device) == "cpu", "get annotation returned wrong device"
