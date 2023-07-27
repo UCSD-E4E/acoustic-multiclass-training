@@ -25,7 +25,6 @@ overlap: 1/2
 device: "auto" # Options: cuda, cpu, auto 
 prepros_device: "cpu" # Options: cuda, CPU
 agent_run_count: 5
-chunk_length: 5
 
 # Training params
 train_batch_size: 4
@@ -126,4 +125,3 @@ bg_noise_path: ""
 hop_length: 512
 n_mels: 194
 n_fft: 1400
-max_time: 5
