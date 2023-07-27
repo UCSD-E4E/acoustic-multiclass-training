@@ -1,7 +1,5 @@
-
-""" Stores default argument information for the argparser
-    Methods:
-        get_config: returns an ArgumentParser with the default arguments
+""" 
+Stores default argument information for the argparser
 """
 import argparse
 import logging
@@ -11,6 +9,7 @@ from pathlib import Path
 # "Repo" is not exported from module "git" Import from "git.repo" instead
 # https://gitpython.readthedocs.io/en/stable/tutorial.html?highlight=repo#meet-the-repo-type
 import git
+import pandas as pd
 import yaml
 from git import Repo  # pyright: ignore [reportPrivateImportUsage]
 from torch.cuda import is_available
@@ -47,6 +46,7 @@ class Config():
         
         # Set up singleton class design template
         if not hasattr(cls, 'instance'):
+            cls.instance = None
             cls.instance = super(Config, cls).__new__(cls)
         else:
             return cls.instance
@@ -59,6 +59,10 @@ class Config():
 
         default_keys = set()
         for (key, value) in cls.config_dict.items():
+            if isinstance(key, pd.Series):
+                print("Series!!!!!!")
+                raise RuntimeError("Series in config file")
+               
             setattr(cls, key, value)
             default_keys.add(key)
 
@@ -188,15 +192,11 @@ class Config():
         if self.config_dict["device"] is None:
             raise ValueError('The required parameter "device" is not defined in yaml')
         if self.config_dict["device"] == "auto":
-            self.device = "cuda" if is_available() else "cpu"
-
+            device = "cuda" if is_available() else "cpu"
+            # For whatever reason you have to use cfg.device instead of self.device
+            # even though that doesn't make any sense at all
+            self.device = device
         self.config_dict["device"] = self.device
-
-def get_config():
-    """ Returns a config variable with the command line arguments or defaults
-    Decrepated, returns Config to prevent largescale code breaks
-    """
-    return cfg
 
 def testing():
     """
@@ -214,11 +214,11 @@ def testing():
     assert config == config2
     logger.info("%s", str(config.dataframe_csv))
     logger.info("%s", str(config.logging))
-    get_config()
 
 
 #Expose variable to page scope
 cfg = Config()
+
 
 if __name__ == "__main__":
     testing()
