@@ -110,7 +110,7 @@ class Config():
         if config_path is not None:
             if config_path.is_file():
                 return Path(str(config_path))
-        config_path = cls.package_root.joinpath("..", "config.yml")
+        config_path = cls.package_root.joinpath("../config.yml")
         if config_path is not None and config_path.is_file():
             return Path(str(config_path))
 
