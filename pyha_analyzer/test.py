@@ -6,6 +6,7 @@ To run: `python -m pyha_analyzer.test`
 # pylint: disable=missing-class-docstring
 import os
 import unittest
+from pathlib import Path
 
 import torch
 import importlib_resources as pkg_resources
@@ -184,10 +185,12 @@ if __name__=="__main__":
     unittest.main(exit=False)
     print("Running pylint")
     main_dir = pkg_resources.files("pyha_analyzer")
-    if (main_dir / ".." / ".pylintrc").is_file():
+    pylint_path = Path(str(main_dir), "..", ".pylintrc")
+    if pylint_path.is_file():
+    #if (main_dir / ".." / ".pylintrc").is_file():
         os.system(f"pylint \"{main_dir}/../entry.py\" " + \
                   f"\"{main_dir}/*.py\" \"{main_dir}/**/*.py\"" +
-                  f" --rcfile=\"{str(main_dir / '..' / '.pylintrc')}\"")
+                  f" --rcfile=\"{pylint_path}\"")
     else:
         print("Pylintrc not found, skipping pylint")
     print("Running pyright")

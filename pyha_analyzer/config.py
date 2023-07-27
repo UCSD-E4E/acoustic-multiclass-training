@@ -7,7 +7,7 @@ import argparse
 import logging
 import shutil
 import sys
-
+from pathlib import Path
 # "Repo" is not exported from module "git" Import from "git.repo" instead
 # https://gitpython.readthedocs.io/en/stable/tutorial.html?highlight=repo#meet-the-repo-type
 import git
@@ -64,10 +64,9 @@ class Config():
 
         #Set User Custom Values
         config_path = cls.package_root.joinpath("config.yml")
-        if not config_path.is_file():
-            config_path = (cls.package_root / ".." / "config.yml").joinpath()
-
-        if config_path.is_file():
+        if config_path is not None and not config_path.is_file():
+            config_path = Path(str(cls.package_root), "..", "config.yml")
+        if config_path is not None and config_path.is_file():
             # Pyright is wrong, this function does exist
             with config_path.open('r', encoding='utf-8') as file: #type: ignore
                 cls.config_personal_dict = yaml.safe_load(file)
