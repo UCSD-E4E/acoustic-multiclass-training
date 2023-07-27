@@ -75,7 +75,6 @@ These parameters are stored in the `config.yml` file. Default values can be foun
 `noise_p`: probability of applying synthetic noise augmentation\
 `freq_mask_p`: probability of applying frequency masking augmentation\
 `time_mask_p`: probability of applying time masking augmentation\
-`rand_eq_p`: probability of applying random equalization augmentation\
 `lowpass_p`: probability of applying lowpass filter augmentation\
 `highpass_p`: probability of applying highpass filter augmentation\
 `bg_noise_p`: probability of applying background noise augmentation
@@ -94,10 +93,6 @@ If a parameter specifies a range, then it is always a length two list with the f
 `time_mask_param`: How many sequential pixels to mask in the TimeMasking augmentation\
 `mixup_alpha_range`: Range for the alpha parameter of Mixup. The alpha parameter gives the strength of the other clip in the augmented clip after applying Mixup. Min/max values are between 0 and 1\
 `bg_noise_alpha_range`: Range for the alpha parameter of BackgroundNoise. The alpha parameter gives the strength of the other clip in the augmented clip after applying BackgroundNoise. Min/max values are between 0 and 1\
-`rand_eq_f_range`: Range for the frequency parameter of RandomEQ. Min/max must be greater than zero\
-`rand_eq_q_range`: Range for the Q parameter of RandomEQ. Must be greater than zero\
-`rand_eq_g_range`: Range for the gain parameter of RandomEQ\
-`rand_eq_iters`: Number of times to apply RandomEQ to any given clip. All RandomEQ parameters are resampled at each application. Must be nonnegative\
 `lowpass_cutoff`: Cutoff frequency for the LowpassFilter augmentation\
 `lowpass_q_val`: Q value for the LowpassFilter augmentation\
 `highpass_cutoff`: Cutoff frequency for the HighpassFilter augmentation\
