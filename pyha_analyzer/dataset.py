@@ -283,12 +283,14 @@ def get_datasets():
         cfg.file_name_col,
         cfg.manual_id_col,
         cfg.offset_col,
-        cfg.duration_col
+        cfg.duration_col,
+        "CLIP LENGTH"
     ], dtype={
         cfg.file_name_col: str,
         cfg.manual_id_col: str,
         cfg.offset_col: float,
-        cfg.duration_col: float})
+        cfg.duration_col: float,
+        "CLIP LENGTH": float})
 
     if cfg.is_unchunked:
         if cfg.does_center_chunking:
