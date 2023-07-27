@@ -23,7 +23,6 @@ class Mixup(torch.nn.Module):
         proportion of new audio in augmented clip
         p: Probability of mixing
     """
-    # pylint: disable-next=too-many-arguments
     def __init__(
             self, 
             df: pd.DataFrame, 
@@ -59,8 +58,7 @@ class Mixup(torch.nn.Module):
             other_clip, other_target = utils.get_annotation(
                     df = self.df,
                     index = other_idx, 
-                    class_to_idx = self.class_to_idx, 
-                    device = clip.device)
+                    class_to_idx = self.class_to_idx)
         except RuntimeError:
             logger.error('Error loading other clip, mixup not performed')
             return clip, target
