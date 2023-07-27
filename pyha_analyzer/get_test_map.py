@@ -1,3 +1,5 @@
+""" Gets the testing mAP of a model on soundscapes """
+
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
@@ -11,7 +13,8 @@ from pyha_analyzer.models.timm_model import TimmModel
 
 cfg = config.cfg
 
-def main():
+def get_test_map():
+    """ Returns the testing mAP for the specified data and class list """
     torch.multiprocessing.set_start_method('spawn')
     print(f"Device is: {cfg.device}, Preprocessing Device is {cfg.prepros_device}")
     utils.set_seed(cfg.seed)
@@ -20,7 +23,7 @@ def main():
     # Get dataset
     df = pd.read_csv(cfg.dataframe_csv, index_col=0)
     if cfg.class_list is None:
-        raise ValueError("Class list must be specified")
+        raise ValueError("Class list must be specified in config")
     test_ds = dataset.PyhaDFDataset(df,train=False, species=cfg.class_list)
     dataloader = DataLoader(
         test_ds,
@@ -35,19 +38,16 @@ def main():
     model_for_run.create_loss_fn(test_ds)
     try:
         model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))
-    except FileNotFoundError:
-        print("Model not found, exiting")
-        print("Looked for:",cfg.model_path)
-        exit(1)
+    except FileNotFoundError as exc:
+        raise FileNotFoundError("Model not found: " + cfg.model_checkpoint) from exc
     
     # Testing
     train.BEST_VALID_MAP = 1.0
     model_for_run.eval()
-    test_map = train.valid(model_for_run, dataloader, 0.0)
-    
-    print(f"Test mAP: {test_map}")
-    
-    
+    return train.valid(model_for_run, dataloader, 0.0)
+
+
 if __name__ == "__main__":
-    main()
+    test_map = get_test_map()
+    print(f"Test mAP: {test_map}")
     

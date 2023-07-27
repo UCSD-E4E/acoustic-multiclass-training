@@ -9,7 +9,7 @@
 """
 import logging
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import List, Tuple
 import ast
 
 import numpy as np
@@ -42,8 +42,8 @@ class PyhaDFDataset(Dataset):
     # pylint: disable-next=too-many-arguments
     def __init__(self,
                  df: pd.DataFrame,
-                 train: bool=True,
-                 species: List[str]=None
+                 train: bool,
+                 species: List[str]
                  ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
         self.num_samples = cfg.sample_rate * cfg.max_time

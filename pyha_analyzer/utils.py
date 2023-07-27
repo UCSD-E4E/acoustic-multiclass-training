@@ -1,13 +1,8 @@
-""" 
-    Stores useful functions for the classification module 
-    Methods:
-
-"""
+""" Stores useful functions for the pyha_analyzer module """
 
 from pathlib import Path
 from typing import Any, Dict, Tuple
 import math
-import ast
 
 import numpy as np
 import pandas as pd
