@@ -21,15 +21,16 @@ sweep_config = {
     'metric'            : {'goal': 'maximize', 'name' : 'valid/map'},
     'parameters'        : {
         # General
-        'epochs' : {'values':[3]},
+        'epochs' : {'values':[2]},
         'model' : {'values':["eca_nfnet_l0"]},
-        'chunk_length_s': {'values':[5]},
         'is_unchunked': {'values':[True]},
-        'include_last': {'values':[True, False]},
-        'does_center_chunking': {'values':[True, False]},
-        'drop_rate': {'max': 0.8, 'min': 0.},
+        'does_center_chunking': {'values':[False]},
         'overlap': {'max': 1.0, 'min': 0.},
-        'min_length_s': {'max': 2.0, 'min': 0.},
+        'min_length_s': {'max': 0.5, 'min': 0.},
+        'n_fft': {'max':1024, 'min':256, 'distribution': 'int_uniform'},
+        'chunk_length_s': {'max':7, 'min':1, 'distribution': 'int_uniform'},
+        'n_mels': {'max':256, 'min':64, 'distribution': 'int_uniform'},
+        'hop_length': {'max':512, 'min':64, 'distribution': 'int_uniform'},
     }
 }
 
