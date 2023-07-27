@@ -3,6 +3,8 @@ Sweeps file:
     Run it to start a new sweep or start another agent for an existing
 sweep. If the former, set the sweep_id option in config
 """
+
+import torch
 import wandb
 
 from pyha_analyzer import config
@@ -103,9 +105,12 @@ def main():
             project=sweep_project)
     else:
         sweep_id = f"{cfg.wandb_entity}/{sweep_project}/{cfg.sweep_id}"
-    wandb.agent(sweep_id, function = train_main, count=1)
+    
+    for _ in range(cfg.agent_run_count):
+        wandb.agent(sweep_id, function = train_main, count=1)
+        print("HOPEFULLY AGENT IS DONE ================================")
 
 if __name__ == "__main__":
-    main()
-if __name__ == "__main__":
+    torch.multiprocessing.set_sharing_strategy('file_system')
+    torch.multiprocessing.set_start_method('spawn')
     main()

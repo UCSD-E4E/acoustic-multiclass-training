@@ -9,12 +9,16 @@ offset_col: "OFFSET"
 duration_col: "DURATION"
 file_name_col: "FILE NAME"
 manual_id_col: "MANUAL ID"
+# Device Settings
+device: "auto" # Options: cuda, cpu, auto 
+prepros_device: "cpu" # Options: cuda, CPU
+
 
 # Device Settings
-device: auto # Options: cuda, cpu, auto 
-prepros_device: cpu # Options: cuda, CPU
-
-
+device: "auto" # Options: cuda, cpu, auto 
+prepros_device: "cpu" # Options: cuda, CPU
+agent_run_count: 5
+chunk_length: 5
 # Training params
 
 train_batch_size: 4
@@ -109,11 +113,6 @@ bg_noise_alpha_range: [0.1, 0.2]
 # Make sure to delete all bird clips so it is only background noise
 # If path is blank and p=0, background noise will not be used
 bg_noise_path: ""
-
-# Transforms settings
-imbalance_sampler: false
-pos_weight: 1
-smoothing: 0.05
 
 # FFT Settings
 hop_length: 512

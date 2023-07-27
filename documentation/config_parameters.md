@@ -43,6 +43,7 @@ These parameters are stored in the `config.yml` file. Default values can be foun
  - "rexnet\_200"
  - "mobilenetv3\_large\_100\_miil\_in21k"  
 
+
  In addition, any model compatible with `timm` can be used. An input size of 224x224 is required.\
 `model_checkpoint`: Path from which to load starting model weights. Optional.
 
@@ -103,6 +104,6 @@ If a parameter specifies a range, then it is always a length two list with the f
 `highpass_q_val`: Q value for the HighpassFilter augmentation
 
 ## Spectrogram conversion settings
-`n_hops`: Hop size in samples for fft. Do not change
+`n_hops`: Hop size in samples for fft. Do not change\
 `n_mels`: Number of mel filterbanks to use in converting audio to spectrogram\
 `n_fft`: Size of FFT in mel spectrogram conversion. Creates n\_fft // 2 + 1 bins
