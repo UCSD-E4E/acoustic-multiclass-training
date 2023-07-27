@@ -250,6 +250,12 @@ def logging_setup() -> None:
 def main(in_sweep=True) -> None:
     """ Main function
     """
+    # pylint: disable-next=global-statement
+    global EPOCH
+    # pylint: disable-next=global-statement
+    global BEST_VALID_MAP
+    EPOCH = 0
+    BEST_VALID_MAP = 0
     logger.info("Device is: %s, Preprocessing Device is %s", cfg.device, cfg.prepros_device)
     set_seed(cfg.seed)
     if in_sweep:
@@ -284,8 +290,6 @@ def main(in_sweep=True) -> None:
     
     # MAIN LOOP
     for _ in range(cfg.epochs):
-        # pylint: disable-next=global-statement
-        global EPOCH
         logger.info("Epoch %d", EPOCH)
 
         train(model_for_run, train_dataloader, val_dataloader, optimizer, scheduler)

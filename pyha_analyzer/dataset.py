@@ -296,11 +296,18 @@ def get_datasets():
         if cfg.does_center_chunking:
             logger.info("Chunking with center")
             data = center_chunks.center_chunking(
-                data, chunk_length_s=cfg.chunk_length_s, min_length_s=cfg.min_length_s, include_last=cfg.include_last)
+                data,
+                chunk_length_s=cfg.chunk_length_s,
+                min_length_s=cfg.min_length_s,
+                include_last=cfg.include_last)
         else:
             logger.info("Chunking with sliding windows")
             data = sliding_chunks.dynamic_yan_chunking(
-                data, chunk_length_s=cfg.chunk_length_s, min_length_s=cfg.min_length_s,overlap=cfg.overlap, only_slide=False)
+                data,
+                chunk_length_s=cfg.chunk_length_s,
+                min_length_s=cfg.min_length_s,
+                overlap=cfg.overlap,
+                only_slide=False)
 
     logger.info("Chunking completed")
     #for each species, get a random sample of files for train/valid split
