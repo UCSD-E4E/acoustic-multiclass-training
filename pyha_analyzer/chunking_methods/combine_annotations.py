@@ -15,7 +15,7 @@ def combine_annotations(df: pd.DataFrame, max_gap_s: float = 0.5) -> pd.DataFram
         off_col = df.columns.get_loc("OFFSET")
         dur_col = df.columns.get_loc("DURATION")
         # Can't use a for loop because combining annotations changes the length of the dataframe :(
-        while i < len(sorted.index) - 1:
+        while i < len(df.index) - 1:
             gap_length = df.iloc[i+1,off_col] - df.iloc[i,off_col] - df.iloc[i,dur_col]
             if gap_length < max_gap_s:
                 # Combine the two annotations by increasing the firsts duration
