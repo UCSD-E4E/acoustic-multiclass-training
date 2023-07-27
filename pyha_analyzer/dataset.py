@@ -46,7 +46,7 @@ class PyhaDFDataset(Dataset):
                  species: Optional[Tuple[List[str], Dict[str, int]]]=None
                  ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
-        self.num_samples = cfg.sample_rate * cfg.max_time
+        self.num_samples = cfg.sample_rate * cfg.chunk_length
         self.train = train
         self.device = cfg.prepros_device
 
@@ -71,6 +71,7 @@ class PyhaDFDataset(Dataset):
         self.serialize_data()
 
 
+        #Data augmentations
         self.mixup = Mixup(self.samples, self.class_to_idx, cfg)
         audio_augs = {
                 SyntheticNoise  : cfg.noise_p,
@@ -220,15 +221,15 @@ class PyhaDFDataset(Dataset):
         # image = torch.sigmoid(image)
         return image
 
+
     def __getitem__(self, index): #-> Any:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
-
+        assert isinstance(index, int)
         audio, target = utils.get_annotation(
                 df = self.samples,
                 index = index,
-                class_to_idx = self.class_to_idx,
-                device = self.device)
+                class_to_idx = self.class_to_idx)
 
         if self.train:
             audio, target = self.mixup(audio, target)
@@ -240,9 +241,10 @@ class PyhaDFDataset(Dataset):
         if image.isnan().any():
             logger.error("ERROR IN ANNOTATION #%s", index)
             self.bad_files.append(index)
-            #try again with a diff annotation to avoid training breaking
-            logger.error(self.samples.sample(1).index)
-            image, target = self[self.samples.sample(1).index]
+            image = torch.zeros(image.shape)
+            target = torch.zeros(target.shape)
+
+            
 
         return image, target
 
@@ -323,6 +325,11 @@ def get_datasets():
     valid_ds = PyhaDFDataset(valid,train=False, species=species)
     return train_ds, valid_ds
 
+def set_torch_file_sharing(_) -> None:
+    """
+    Sets torch.multiprocessing to use file sharing
+    """
+    torch.multiprocessing.set_sharing_strategy("file_system")
 def make_dataloaders(train_dataset, val_dataset
         )-> Tuple[DataLoader, DataLoader]:
     """
@@ -344,14 +351,16 @@ def make_dataloaders(train_dataset, val_dataset
             train_dataset,
             cfg.train_batch_size,
             sampler=sampler,
-            num_workers=cfg.jobs
+            num_workers=cfg.jobs,
+            worker_init_fn=set_torch_file_sharing
         )
     else:
         train_dataloader = DataLoader(
             train_dataset,
             cfg.train_batch_size,
             shuffle=True,
-            num_workers=cfg.jobs
+            num_workers=cfg.jobs,
+            worker_init_fn=set_torch_file_sharing
         )
 
     val_dataloader = DataLoader(
