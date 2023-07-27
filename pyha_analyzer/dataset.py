@@ -206,18 +206,18 @@ class PyhaDFDataset(Dataset):
         
         # Convert to decibels
         # Log scale the power
-        # decibel_convert = audtr.AmplitudeToDB(stype="power")
-        # image = decibel_convert(image)
+        decibel_convert = audtr.AmplitudeToDB(stype="power")
+        image = decibel_convert(image)
         
         # Normalize Image
         # Inspired by
         # https://medium.com/@hasithsura/audio-classification-d37a82d6715
-        mean = image.mean()
-        std = image.std()
-        image = (image - mean) / (std + 1e-6)
+        # mean = image.mean()
+        # std = image.std()
+        # image = (image - mean) / (std + 1e-6)
         
-        # Sigmoid to get 0 to 1 scaling (0.5 becomes mean)
-        image = torch.sigmoid(image)
+        # # Sigmoid to get 0 to 1 scaling (0.5 becomes mean)
+        # image = torch.sigmoid(image)
         return image
 
     def __getitem__(self, index): #-> Any:
