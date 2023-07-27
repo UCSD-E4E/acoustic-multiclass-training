@@ -5,11 +5,11 @@ import argparse
 import logging
 import shutil
 import sys
+import os
 from pathlib import Path
 # "Repo" is not exported from module "git" Import from "git.repo" instead
 # https://gitpython.readthedocs.io/en/stable/tutorial.html?highlight=repo#meet-the-repo-type
 import git
-import pandas as pd
 import yaml
 from git import Repo  # pyright: ignore [reportPrivateImportUsage]
 from torch.cuda import is_available
@@ -59,58 +59,71 @@ class Config():
 
         default_keys = set()
         for (key, value) in cls.config_dict.items():
-            if isinstance(key, pd.Series):
-                print("Series!!!!!!")
-                raise RuntimeError("Series in config file")
-               
             setattr(cls, key, value)
             default_keys.add(key)
 
         #Set User Custom Values
-        config_path = cls.package_root.joinpath("config.yml")
-        if config_path is not None and not config_path.is_file():
-            config_path = Path(str(cls.package_root), "..", "config.yml")
-        if config_path is not None and config_path.is_file():
-            # Pyright is wrong, this function does exist
-            with config_path.open('r', encoding='utf-8') as file: #type: ignore
-                cls.config_personal_dict = yaml.safe_load(file)
+        config_path = cls.get_conf_path()
+        # Pyright is wrong, this function does exist
+        with config_path.open('r', encoding='utf-8') as file: #type: ignore
+            cls.config_personal_dict = yaml.safe_load(file)
 
-            for (key, value) in cls.config_personal_dict.items():
-                setattr(cls, key, value)
-                
-            cls.config_dict.update(cls.config_personal_dict)
+        for (key, value) in cls.config_personal_dict.items():
+            setattr(cls, key, value)
             
-            attrs_to_append = []
+        cls.config_dict.update(cls.config_personal_dict)
+        
+        attrs_to_append = []
 
-            for key in default_keys:
-                if key in cls.config_personal_dict: 
-                    continue
-                
-                value = cls.config_dict[key]
-                appending_attrs = {
-                    key: value
-                }
+        for key in default_keys:
+            if key in cls.config_personal_dict: 
+                continue
+            
+            value = cls.config_dict[key]
+            appending_attrs = {
+                key: value
+            }
 
-                #https://media.tenor.com/dxPl_UoR8J0AAAAC/fire-writing.gif
-                attrs_to_append.append(appending_attrs) 
+            #https://media.tenor.com/dxPl_UoR8J0AAAAC/fire-writing.gif
+            attrs_to_append.append(appending_attrs) 
 
 
-            if len(attrs_to_append) != 0:
-                logger.warning("There are new updates in default config")
-                logger.warning("please manually update these keys from the new config")
-                logger.warning("%s", str(attrs_to_append))
-        else:
-            with cls.package_root.joinpath("config.yml").open("w") as config_file: # type: ignore
-                with cls.package_root.joinpath("default_config.yml") \
-                        .open("r",encoding="utf-8") as default_config_file: #type: ignore
-                    shutil.copyfileobj(default_config_file, config_file)
-            logger.error("No config file found, creating one for you")
-            logger.error("Config file to edit: %s", str(cls.package_root / "config.yml"))
-            logger.error("Add your data path and csv file to the config.yml")
-            sys.exit(1)
+        if len(attrs_to_append) != 0:
+            logger.warning("There are new updates in default config")
+            logger.warning("please manually update these keys from the new config")
+            logger.warning("%s", str(attrs_to_append))
 
-            # Update personal dict with new keys
+        # Update personal dict with new keys
         return cls.instance
+    
+    @classmethod
+    def get_conf_path(cls) -> Path:
+        """ Get pathlib path to config file """
+        # Check for local configs first
+        local_paths = ["pyha_analyzer/config.yml","config.yml","../config.yml","../../config.yml"]
+        for path in local_paths:
+            if os.path.exists(path):
+                return Path(path)
+
+        # Check for package configs second
+        config_path = cls.package_root.joinpath("config.yml")
+        if config_path is not None:
+            if config_path.is_file():
+                return Path(str(config_path))
+            config_path = cls.package_root.joinpath("..").joinpath("config.yml")
+            if config_path is not None and config_path.is_file():
+                return Path(str(config_path))
+
+        # Copy default_config to config.yml and exit
+        # Pyright is wrong, this function does exist
+        with cls.package_root.joinpath("config.yml").open("w") as config_file: # type: ignore
+            with cls.package_root.joinpath("default_config.yml") \
+                    .open("r",encoding="utf-8") as default_config_file: #type: ignore
+                shutil.copyfileobj(default_config_file, config_file)
+        logger.error("No config file found, creating one for you")
+        logger.error("Config file to edit: %s", str(cls.package_root / "config.yml"))
+        logger.error("Add your data path and csv file to the config.yml")
+        sys.exit(1)
 
     def cli_values(self):
         """ 
