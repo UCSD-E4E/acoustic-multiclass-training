@@ -69,7 +69,7 @@ num_fold: 5
 #     mobilenetv3_large_100_miil_in21k (70 MB)
 model: "eca_nfnet_l0"
 epochs: 10
-learning_rate: 0.0001
+learning_rate: 0.0016236112516297928
 # Loss function options:
 #   CE: Cross entropy
 #   BCE: Binary cross entropy
@@ -89,31 +89,31 @@ patience: 3
 min_valid_map_delta: 0.01
 
 # Data augmentation probabilities
-mixup_p: 0.4
-time_shift_p: 0
-noise_p: 0
-freq_mask_p: 0.4
-time_mask_p: 0.4
-rand_eq_p: 0
-lowpass_p: 0.00
+mixup_p: 0.252941798851437
+time_shift_p: 0.11438871199134353
+noise_p: 0.2315724140361261
+freq_mask_p: 0.26520973909816087
+time_mask_p: 0.5553678233487952
+rand_eq_p: 0.16364015823566114
+lowpass_p: 0.05227213344692256
 highpass_p: 0.00
-bg_noise_p: 0
+bg_noise_p: 0.06650380563174248
 
 # Data augmentation parameters
-noise_type: "pink"
-noise_alpha: 0.05
-freq_mask_param: 10 # Number of frequencies masked
-time_mask_param: 25 # Number of samples masked
-mixup_alpha_range: [0.1, 0.4]
-rand_eq_f_range: [100, 8000]
-rand_eq_q_range: [1, 9]
-rand_eq_g_range: [-8, 8]
-rand_eq_iters: 3
-lowpass_cutoff: 15000
-lowpass_q_val: 0.7
+noise_type: "violet"
+noise_alpha: 0.06553331359704387
+freq_mask_param: 39 # Number of frequencies masked
+time_mask_param: 38 # Number of samples masked
+mixup_alpha_range: [0.0, 0.6]
+rand_eq_f_range: [20, 8000]
+rand_eq_q_range: [0.3, 3]
+rand_eq_g_range: [-2, 8]
+rand_eq_iters: 2
+lowpass_cutoff: 7199.907528297954
+lowpass_q_val: 0.44563928229286287
 highpass_cutoff: 1000
 highpass_q_val: 0.7
-bg_noise_alpha_range: [0.1, 0.3]
+bg_noise_alpha_range: [0.0, 0.4]
 
 # Background noise params
 # Expects background_path to lead to a directory with only audio files
