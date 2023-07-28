@@ -1,8 +1,4 @@
-""" 
-    Stores useful functions for the classification module 
-    Methods:
-
-"""
+""" Stores useful functions for the pyha_analyzer module """
 
 from pathlib import Path
 from typing import Any, Dict, Tuple
@@ -96,15 +92,18 @@ def get_annotation(
     target_num_samples = cfg.sample_rate * cfg.max_time
     annotation = df.iloc[index]
     file_name = annotation[cfg.file_name_col]
+    num_classes = len(set(class_to_idx.values()))
 
     # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
     class_name = annotation[cfg.manual_id_col]
-
-
-    num_classes = len(set(class_to_idx.values()))
-    target = one_hot(
-            torch.tensor(class_to_idx[class_name]),
-            num_classes)[0]
+    if isinstance(class_name, dict):
+        target = torch.zeros(num_classes)
+        for name, alpha in class_name.items():
+            target[class_to_idx[name]] = alpha
+    else:
+        target = one_hot(
+                torch.tensor(class_to_idx[class_name]),
+                num_classes)[0]
     target = target.float()
 
     try:

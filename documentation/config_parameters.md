@@ -10,7 +10,8 @@ These parameters are stored in the `config.yml` file. Default values can be foun
 `offset_col`: Name of the column with the within-clip offset of each chunk in seconds\
 `duration_col`: Name of the column with the length of the chunk in seconds\
 `file_name_col`: Name of the column with the name of the file the chunk came from\
-`manual_id_col`: Name of the column with the manual id of the chunk
+`manual_id_col`: Name of the column with the manual id of the chunk\
+`class_list`: Ordered list of class names to use for get_test_map.py. If left blank, will use automatically generated
 
 ## Audio parameters
 `chunk_length`: Chunk length in seconds\
