@@ -66,7 +66,7 @@ class Config():
             default_keys.add(key)
 
         #Set User Custom Values
-        conf_path = Path(pyha_project_directory)/"config.yml"
+        conf_path = Path(pyha_project_directory)/"config copy.yml" #TODO FIX
         if conf_path.exists():
             with open(conf_path, 'r', encoding='utf-8') as file:
                 cls.config_personal_dict = yaml.safe_load(file)
