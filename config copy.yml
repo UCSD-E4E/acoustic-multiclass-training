@@ -37,7 +37,7 @@ mixed_precision: true
 valid_dataset_ratio: 0.3
 does_weighted_sampling: False
 drop_rate: 0.5
-max_offset: 0 #seconds
+max_offset: 0.1 #seconds
 
 # Logging
 logging: true
