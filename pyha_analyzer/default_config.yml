@@ -32,14 +32,13 @@ does_weighted_sampling: False
 drop_rate: 0.5
 max_offset: 1 #seconds
 
-#chunking settings
+# Chunking settings
 is_unchunked: false
-does_center_chunking: true
 chunk_length_s: 5
 min_length_s: 0.4
 include_last: false
 overlap: 0.5 # Proportion of chunk length
-chunk_margin_s: 0.4
+chunk_margin_s: 0.4 # Margin on either side of annotation
 
 # Logging
 logging: true
