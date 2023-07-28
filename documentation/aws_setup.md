@@ -25,6 +25,14 @@ If you didn't make an SSH key on the previous step, open the find Network & Secu
 
 Store the key file in a secure location and on linux run `sudo chmod 400 {filename}.pem` to make it read only for just your user. To connect run `ssh -i "path/to/key.pem" ubuntu@{servername}.compute.amazonaws.com`. You can find the domain name in the EC2 dashboard.
 
+In addition, you should also update your ssh config to make login easier. The ssh config file can be found at `~/.ssh/config` on UNIX systems and at `C:\Users\\{User}\\.ssh\\config` on Windows systems. Add the following lines to your ssh config
+
+```
+Host aws
+  HostName {server address}
+  User ubuntu
+  IdentityFile {path/to/pem}
+```
 
 ## Creating IAM roles
 
@@ -41,10 +49,9 @@ git clone https://github.com/UCSD-E4E/acoustic-multiclass-training.git
 cd acoustic-multiclass-training
 ```
 
-Run the setup and mount scripts using
+Run the setup scripts using
 ```bash
 bash documentation/aws/setup.sh
-bash documentation/aws/mount.sh
 ```
 
 This setup script will
@@ -54,24 +61,26 @@ This setup script will
 4. Configure aws setup so you can enter access keys
 
 
-## Manual setup
+### Manual setup
 
 Below are the instructions for manual setup if you need to reference them.
 
-### EC2 setup 
-
-Before starting anything, run `sudo apt-get update -y` followed by `sudo apt-get upgrade -y` to ensure that apt's repository cache is up to date.
-
-Install the aws tools using the command: `sudo apt-get install awscli s3fs`.
+1. Run `sudo apt-get update -y` followed by `sudo apt-get upgrade -y` to ensure that apt's repository cache is up to date.
+2. Install the aws tools using the command: `sudo apt-get install awscli s3fs`.
+3. Install a Miniconda installation script from [docs.conda.io](https://docs.conda.io/en/latest/miniconda.html#linux-installers).
+4. Run the Miniconda installation script and ask for init
+5. Run the comand `bash` to update your environment variables
+6. Run `conda env create -f environment.yml` to create the conda environment
+7. Activate the environment with `conda activate asid`
+8. Run `pip install -e .` to install a reference to this repository to your path
+9. Run `python -m pyha_analyzer.config` to generate a custom copy of your config file
 
 ## IAM roles
 
-Open up your SSH session and run the command `aws configure`. Paste in the access key from this user and the secret access key. The region and output format can be left blank.
+Open up your SSH session and run the command `aws configure`. Paste in the access key from this user and the secret access key. The region and output format can be left blank. Although it is recommended that you make an IAM role to have AmazonS3FullAccess and assign it to the EC2 instance
 
-Alternatively, you can make an IAM role to have AmazonS3FullAccess and assign it to the EC2 instance, but I kept getting permission denied errors.
+## File systems
 
-### Mounting S3 in EC2
+AWS EC2 instances usually come with extra storage that you should take advantage of. Run `lsblk` to find unmounted devices and mount them with the `mount` command.
 
-Create an empty directory for the mount to go. Such as, `mkdir ~/s3-mount`.
-
-Run the command `s3fs {S3 bucket name} ~/s3-mount`.
+Next, you will want your data on the EC2 drive from S3. refer to the AWS CLI S3 reference and use the `aws s3 sync` command to download files from there.
