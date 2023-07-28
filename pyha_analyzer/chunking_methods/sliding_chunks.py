@@ -5,7 +5,7 @@ from typing import Dict, List
 import pandas as pd
 
 
-# pylint: disable-next: too-many-arguments
+# pylint: disable-next=too-many-arguments
 def convolving_chunk(row:dict, 
                      chunk_length_s: int, 
                      min_length_s: float, 
@@ -73,7 +73,7 @@ def convolving_chunk(row:dict,
         rows.append(new_row)
     return rows
 
-# pylint: disable-next: too-many-arguments
+# pylint: disable-next=too-many-arguments
 def dynamic_yan_chunking(df: pd.DataFrame,
                          chunk_length_s: int,
                          min_length_s: float,
