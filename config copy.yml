@@ -8,7 +8,7 @@ data_path: "/mnt/data/data/132_peru_xc_BC_2020"
 offset_col: "OFFSET"
 duration_col: "DURATION"
 file_name_col: "FILE NAME"
-manual_id_col: "MANUAL ID"
+manual_id_col: "Species eBird Code"
 # Device Settings
 device: "auto" # Options: cuda, cpu, auto 
 prepros_device: "cpu" # Options: cuda, CPU
