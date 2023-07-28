@@ -18,9 +18,8 @@ prepros_device: "cpu" # Options: cuda, CPU
 device: "auto" # Options: cuda, cpu, auto 
 prepros_device: "cpu" # Options: cuda, CPU
 agent_run_count: 5
-chunk_length: 5
-# Training params
 
+# Training params
 train_batch_size: 4
 validation_batch_size: 4
 jobs: 2
@@ -28,7 +27,17 @@ valid_freq: 2000
 mixed_precision: true
 valid_dataset_ratio: 0.3
 does_weighted_sampling: False
+drop_rate: 0.5
 max_offset: 1 #seconds
+
+#chunking settings
+is_unchunked: false
+does_center_chunking: true
+chunk_length_s: 5
+min_length_s: 0.4
+include_last: false
+overlap: 0.5 # Proportion of chunk length
+chunk_margin_s: 0.4
 
 # Logging
 logging: true
@@ -118,4 +127,3 @@ bg_noise_path: ""
 hop_length: 512
 n_mels: 194
 n_fft: 1400
-max_time: 5
