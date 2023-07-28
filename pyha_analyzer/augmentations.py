@@ -151,6 +151,42 @@ class SyntheticNoise(torch.nn.Module):
         return (1 - self.alpha) * clip + self.alpha* noise
 
 
+class RandomEQ(torch.nn.Module):
+    """
+    Implementation of part of the data augmentation described in:
+        https://arxiv.org/pdf/1604.07160.pdf
+    Attributes:
+        f_range: tuple of upper and lower bounds for the frequency, in Hz
+        g_range: tuple of upper and lower bounds for the gain, in dB
+        q_range: tuple of upper and lower bounds for the Q factor
+        iters: number of times to randomly EQ a part of the clip
+        sample_rate: sampling rate of audio
+    """
+    def __init__(self, cfg: config.Config):
+        super().__init__()
+        self.f_range = (cfg.rand_eq_min_f, cfg.rand_eq_min_f + cfg.rand_eq_f_addition)
+        self.g_range = (cfg.rand_eq_min_g, cfg.rand_eq_min_q + cfg.rand_eq_g_addition)
+        self.q_range = (cfg.rand_eq_min_q, cfg.rand_eq_min_q + cfg.rand_eq_q_addition)
+        self.iterations = cfg.rand_eq_iters
+        self.sample_rate = cfg.sample_rate
+
+    def forward(self, clip: torch.Tensor) -> torch.Tensor:
+        """
+        Randomly equalizes a part of the clip an arbitrary number of times
+        Args:
+            clip: Tensor of audio data to be equalized
+
+        Returns: Tensor of audio data with equalizations randomly applied
+        according to object parameters
+        """
+        for _ in range(self.iterations):
+            frequency = utils.log_rand(*self.f_range)
+            gain = utils.rand(*self.g_range)
+            q_val = utils.rand(*self.q_range)
+            clip = torchaudio.functional.equalizer_biquad(
+                clip, self.sample_rate, frequency, gain, q_val)
+        return clip
+
 # Mald about it pylint!
 # pylint: disable-next=too-many-instance-attributes
 class BackgroundNoise(torch.nn.Module):

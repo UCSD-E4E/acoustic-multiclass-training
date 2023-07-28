@@ -1,0 +1,244 @@
+# Acoustic Multiclass Training config file
+
+# Required path related config
+dataframe_csv: "/share/acoustic_species_id/132PeruXC_Chunks_Minimal.csv"
+data_path: "/share/acoustic_species_id/132_peru_xc_BC_2020/"
+
+# Dataframe column names
+offset_col: "OFFSET"
+duration_col: "DURATION"
+file_name_col: "FILE NAME"
+manual_id_col: "SCIENTIFIC"
+
+
+#chunking settings
+is_unchunked: False
+does_center_chunking: False
+chunk_length_s: 5
+chunk_length: 5
+max_time: 5
+min_length_s: 0.4
+include_last: False
+overlap: 0.5
+
+# Device Settings
+device: "auto" # Options: cuda, cpu, auto 
+prepros_device: "cpu" # Options: cuda, CPU
+agent_run_count: 5
+
+# Training params
+train_batch_size: 32
+validation_batch_size: 24
+jobs: 3
+valid_freq: 2000
+mixed_precision: False
+valid_dataset_ratio: 0.3
+does_weighted_sampling: False
+drop_rate: 0.5
+max_offset: 0.1 #seconds
+
+# Logging
+logging: True
+logging_freq: 20 # Batches per log
+wandb_entity: "acoustic-species-identification"
+wandb_project: "acoustic-species-reu2023"
+wandb_run_name: "test z_score_sigmoid_pink"
+debug: False
+
+# Functional settings
+seed: 0
+sample_rate: 32_000
+map_debug: False
+train_test_split: 0.8
+num_fold: 5
+
+# Model hyperparameters
+# Specifies default model architecture from timm library
+# Options:
+#     eca_nfnet_l0 (90 MB)
+#     tf_efficientnet_b4 (70 MB)
+#     convnext_nano (60 MB)
+#     convnext_tiny (110 MB)
+#     resnetv2_50 (100 MB)
+#     resnetv2_101 (170 MB)
+#     seresnext50_32x4d (100 MB)
+#     seresnext101_32x4d (200 MB)
+#     rexnet_200 (70 MB)
+#     mobilenetv3_large_100_miil_in21k (70 MB)
+model: "eca_nfnet_l0"
+epochs: 10
+learning_rate: 0.001
+# Loss function options:
+#   CE: Cross entropy
+#   BCE: Binary cross entropy
+#   BCEWL: Binary cross entropy with logits
+loss_fnc: "CE"
+imb: False
+
+# Hyperparameter sweep settings
+sweep_id: 
+
+# Specify path to load a checkpoint
+model_checkpoint: ""
+
+# Patience
+early_stopping: False
+patience: 3
+min_valid_map_delta: 0.01
+
+# Data augmentation probabilities
+mixup_p: 0.252941798851437
+time_shift_p: 0.11438871199134353
+noise_p: 0.2315724140361261
+freq_mask_p: 0.26520973909816087
+time_mask_p: 0.5553678233487952
+rand_eq_p: 0.16364015823566114
+lowpass_p: 0.05227213344692256
+highpass_p: 0.00
+bg_noise_p: 0.06650380563174248
+
+# Data augmentation parameters
+noise_type: "violet"
+noise_alpha: 0.06553331359704387
+freq_mask_param: 39 # Number of frequencies masked time_mask_param: 38 # Number of samples masked
+mixup_alpha_range: [0.0, 0.6]
+rand_eq_f_range: [20, 8000]
+rand_eq_min_f: 0
+rand_eq_f_addition: 1e-4
+rand_eq_min_g: 0
+rand_eq_g_addition: 1e-4
+rand_eq_min_q: 0
+rand_eq_q_addition: 1e-4
+rand_eq_q_range: [0.3, 3]
+rand_eq_g_range: [-2, 8]
+rand_eq_iters: 2
+lowpass_cutoff: 7199.907528297954
+lowpass_q_val: 0.44563928229286287
+highpass_cutoff: 1000
+highpass_q_val: 0.7
+bg_noise_alpha_range: [0.0, 0.4]
+
+# Background noise params
+# Expects background_path to lead to a directory with only audio files
+# Example dataset: BirdVOX at https://dcase.community/challenge2018/task-bird-audio-detection
+# Make sure to delete all bird clips so it is only background noise
+# If path is blank and p=0, background noise will not be used
+bg_noise_path: "/mnt/data/data/background_files"
+
+# FFT Settings
+hop_length: 512
+n_mels: 194
+n_fft: 1400
+#chunking settings
+is_unchunked: False
+does_center_chunking: False
+chunk_length_s: 5
+chunk_length: 5
+max_time: 5
+min_length_s: 0.4
+include_last: False
+overlap: 0.5
+
+# Device Settings
+device: "auto" # Options: cuda, cpu, auto 
+prepros_device: "cpu" # Options: cuda, CPU
+agent_run_count: 10
+
+# Training params
+train_batch_size: 32
+validation_batch_size: 24
+jobs: 8
+valid_freq: 2000
+mixed_precision: False
+valid_dataset_ratio: 0.3
+does_weighted_sampling: False
+drop_rate: 0.5
+max_offset: 0.1 #seconds
+
+# Logging
+logging: True
+logging_freq: 20 # Batches per log
+wandb_entity: "acoustic-species-identification"
+wandb_project: "acoustic-species-reu2023"
+wandb_run_name: "test z_score_sigmoid_pink"
+debug: False
+
+# Functional settings
+seed: 0
+sample_rate: 32_000
+map_debug: False
+train_test_split: 0.8
+num_fold: 5
+
+# Model hyperparameters
+# Specifies default model architecture from timm library
+# Options:
+#     eca_nfnet_l0 (90 MB)
+#     tf_efficientnet_b4 (70 MB)
+#     convnext_nano (60 MB)
+#     convnext_tiny (110 MB)
+#     resnetv2_50 (100 MB)
+#     resnetv2_101 (170 MB)
+#     seresnext50_32x4d (100 MB)
+#     seresnext101_32x4d (200 MB)
+#     rexnet_200 (70 MB)
+#     mobilenetv3_large_100_miil_in21k (70 MB)
+model: "eca_nfnet_l0"
+epochs: 10
+learning_rate: 0.001
+# Loss function options:
+#   CE: Cross entropy
+#   BCE: Binary cross entropy
+#   BCEWL: Binary cross entropy with logits
+loss_fnc: "CE"
+imb: False
+
+# Hyperparameter sweep settings
+sweep_id: 
+
+# Specify path to load a checkpoint
+model_checkpoint: ""
+
+# Patience
+early_stopping: False
+patience: 3
+min_valid_map_delta: 0.01
+
+# Data augmentation probabilities
+mixup_p: 0.252941798851437
+time_shift_p: 0.11438871199134353
+noise_p: 0.2315724140361261
+freq_mask_p: 0.26520973909816087
+time_mask_p: 0.5553678233487952
+rand_eq_p: 0.16364015823566114
+lowpass_p: 0.05227213344692256
+highpass_p: 0.00
+bg_noise_p: 0.06650380563174248
+
+# Data augmentation parameters
+noise_type: "violet"
+noise_alpha: 0.06553331359704387
+freq_mask_param: 39 # Number of frequencies masked
+time_mask_param: 38 # Number of samples masked
+mixup_alpha_range: [0.0, 0.6]
+rand_eq_f_range: [20, 8000]
+rand_eq_q_range: [0.3, 3]
+rand_eq_g_range: [-2, 8]
+rand_eq_iters: 2
+lowpass_cutoff: 7199.907528297954
+lowpass_q_val: 0.44563928229286287
+highpass_cutoff: 1000
+highpass_q_val: 0.7
+bg_noise_alpha_range: [0.0, 0.4]
+
+# Background noise params
+# Expects background_path to lead to a directory with only audio files
+# Example dataset: BirdVOX at https://dcase.community/challenge2018/task-bird-audio-detection
+# Make sure to delete all bird clips so it is only background noise
+# If path is blank and p=0, background noise will not be used
+bg_noise_path: "/share/acoustic-/data/data/background_files"
+
+# FFT Settings
+hop_length: 512
+n_mels: 194
+n_fft: 1400
