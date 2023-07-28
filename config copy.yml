@@ -14,13 +14,13 @@ device: "auto" # Options: cuda, cpu, auto
 prepros_device: "cpu" # Options: cuda, CPU
 
 #chunking settings
-is_unchunked: false
-does_center_chunking: false
+is_unchunked: False
+does_center_chunking: False
 chunk_length_s: 5
 chunk_length: 5
 max_time: 5
 min_length_s: 0.4
-include_last: false
+include_last: False
 overlap: 0.5
 
 # Device Settings
@@ -33,24 +33,24 @@ train_batch_size: 32
 validation_batch_size: 24
 jobs: 3
 valid_freq: 2000
-mixed_precision: false
+mixed_precision: False
 valid_dataset_ratio: 0.3
 does_weighted_sampling: False
 drop_rate: 0.5
 max_offset: 0.1 #seconds
 
 # Logging
-logging: true
+logging: True
 logging_freq: 20 # Batches per log
 wandb_entity: "acoustic-species-identification"
 wandb_project: "acoustic-species-reu2023"
 wandb_run_name: "test z_score_sigmoid_pink"
-debug: false
+debug: False
 
 # Functional settings
 seed: 0
 sample_rate: 32_000
-map_debug: false
+map_debug: False
 train_test_split: 0.8
 num_fold: 5
 
@@ -75,7 +75,7 @@ learning_rate: 0.0001
 #   BCE: Binary cross entropy
 #   BCEWL: Binary cross entropy with logits
 loss_fnc: "CE"
-imb: false
+imb: False
 
 # Hyperparameter sweep settings
 sweep_id: 
@@ -84,7 +84,7 @@ sweep_id:
 model_checkpoint: ""
 
 # Patience
-early_stopping: false
+early_stopping: False
 patience: 3
 min_valid_map_delta: 0.01
 
