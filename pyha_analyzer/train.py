@@ -268,7 +268,6 @@ def main(in_sweep=True) -> None:
             project=cfg.wandb_project,
             config=cfg.config_dict,
             mode="online" if cfg.logging else "disabled")
-        print(cfg.config_dict)
         set_name(run)
 
     logger.info("Loading Model...")
