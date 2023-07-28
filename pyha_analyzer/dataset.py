@@ -281,20 +281,21 @@ def get_datasets():
     train_p = cfg.train_test_split
     path = cfg.dataframe_csv
     # Load the dataset
-    data = pd.read_csv(path, usecols = [
-        cfg.file_name_col,
-        cfg.manual_id_col,
-        cfg.offset_col,
-        cfg.duration_col,
-        "CLIP LENGTH"
-    ], dtype={
-        cfg.file_name_col: str,
-        cfg.manual_id_col: str,
-        cfg.offset_col: float,
-        cfg.duration_col: float,
-        "CLIP LENGTH": float})
+    
 
     if cfg.is_unchunked:
+        data = pd.read_csv(path, usecols = [
+            cfg.file_name_col,
+            cfg.manual_id_col,
+            cfg.offset_col,
+            cfg.duration_col,
+            "CLIP LENGTH"
+        ], dtype={
+            cfg.file_name_col: str,
+            cfg.manual_id_col: str,
+            cfg.offset_col: float,
+            cfg.duration_col: float,
+            "CLIP LENGTH": float})
         if cfg.does_center_chunking:
             logger.info("Chunking with center")
             data = center_chunks.center_chunking(
@@ -310,6 +311,19 @@ def get_datasets():
                 min_length_s=cfg.min_length_s,
                 overlap=cfg.overlap,
                 only_slide=False)
+    else:
+        data = pd.read_csv(path, usecols = [
+            cfg.file_name_col,
+            cfg.manual_id_col,
+            cfg.offset_col,
+            cfg.duration_col,
+           
+        ], dtype={
+            cfg.file_name_col: str,
+            cfg.manual_id_col: str,
+            cfg.offset_col: float,
+            cfg.duration_col: float,
+           })
 
     logger.info("Chunking completed")
     #for each species, get a random sample of files for train/valid split
