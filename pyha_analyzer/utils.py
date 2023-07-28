@@ -87,7 +87,7 @@ def get_annotation(
         df: pd.DataFrame, 
         index: int,
         class_to_idx: Dict[str, Any], 
-        offset: bool = True,
+        offset: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
     """ Returns tuple of audio waveform and its one-hot label
     """

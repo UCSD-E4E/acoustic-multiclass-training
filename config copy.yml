@@ -89,15 +89,15 @@ patience: 3
 min_valid_map_delta: 0.01
 
 # Data augmentation probabilities
-mixup_p: 0
+mixup_p: 0.4
 time_shift_p: 0
-noise_p: 0.35
-freq_mask_p: 0.5
-time_mask_p: 0.5
+noise_p: 0
+freq_mask_p: 0.4
+time_mask_p: 0.4
 rand_eq_p: 0
 lowpass_p: 0.00
 highpass_p: 0.00
-bg_noise_p: 0.3
+bg_noise_p: 0
 
 # Data augmentation parameters
 noise_type: "pink"
