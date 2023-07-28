@@ -103,7 +103,7 @@ class PyhaDFDataset(Dataset):
         missing_files = missing_files[missing_files != "good"].unique()
         if missing_files.shape[0] > 0:
             logger.info("ignoring %d missing files", missing_files.shape[0])
-            logger.debug("Missing files are: %s", missing_files)
+            logger.debug("Missing files are: %s", str(missing_files))
         self.samples = self.samples[
             ~self.samples[cfg.file_name_col].isin(missing_files)
         ]
