@@ -34,5 +34,10 @@ include = ["pyha_analyzer"]
 [tool.setuptools]
 packages = ["pyha_analyzer"]
 
+
+[tool.setuptools.package-data]
+pyha_analyzer = ["default_config.yml", "config.yml", "models/*","chunking_methods/*"]
+exclude = ["*.pyc"]
+
 # ... other project metadata fields as specified in:
 #     https://packaging.python.org/en/latest/specifications/declaring-project-metadata/

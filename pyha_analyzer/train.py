@@ -258,6 +258,12 @@ def main(in_sweep=True) -> None:
     BEST_VALID_MAP = 0
     logger.info("Device is: %s, Preprocessing Device is %s", cfg.device, cfg.prepros_device)
     set_seed(cfg.seed)
+
+    # Load in dataset
+    logger.info("Loading Dataset...")
+    train_dataset, val_dataset = get_datasets()
+    train_dataloader, val_dataloader = make_dataloaders(train_dataset, val_dataset)
+
     if in_sweep:
         run = wandb.init()
         for key, val in dict(wandb.config).items():
@@ -270,12 +276,6 @@ def main(in_sweep=True) -> None:
             config=cfg.config_dict,
             mode="online" if cfg.logging else "disabled")
         set_name(run)
-
-
-    # Load in dataset
-    logger.info("Loading Dataset...")
-    train_dataset, val_dataset = get_datasets()
-    train_dataloader, val_dataloader = make_dataloaders(train_dataset, val_dataset)
 
     logger.info("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 

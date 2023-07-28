@@ -9,7 +9,8 @@
 """
 import logging
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import List, Tuple
+import ast
 
 import numpy as np
 import pandas as pd
@@ -42,8 +43,8 @@ class PyhaDFDataset(Dataset):
     # pylint: disable-next=too-many-arguments
     def __init__(self,
                  df: pd.DataFrame,
-                 train: bool=True,
-                 species: Optional[Tuple[List[str], Dict[str, int]]]=None
+                 train: bool,
+                 species: List[str]
                  ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
         self.num_samples = cfg.sample_rate * cfg.chunk_length
@@ -60,16 +61,14 @@ class PyhaDFDataset(Dataset):
         self.bad_files = []
 
         #Preprocessing start
-        if species is not None:
-            self.classes, self.class_to_idx = species
-        else:
-            self.classes = self.samples[cfg.manual_id_col].unique()
-            class_idx = np.arange(len(self.classes))
-            self.class_to_idx = dict(zip(self.classes, class_idx))
+        self.samples[cfg.manual_id_col] = self.samples[cfg.manual_id_col].apply(
+            lambda x: ast.literal_eval(x) if isinstance(x, str) and x.startswith("{") else x
+        )
+        self.classes = species
+        self.class_to_idx = dict(zip(species, np.arange(len(species))))
 
-        self.num_classes = len(self.classes)
+        self.num_classes = len(species)
         self.serialize_data()
-
 
         #Data augmentations
         self.mixup = Mixup(self.samples, self.class_to_idx, cfg)
@@ -248,11 +247,6 @@ class PyhaDFDataset(Dataset):
 
         return image, target
 
-    def get_classes(self) -> Tuple[List[str], Dict[str, int]]:
-        """ Returns tuple of class list and class to index dictionary
-        """
-        return self.classes, self.class_to_idx
-
     def get_num_classes(self) -> int:
         """ Returns number of classes
         """
@@ -317,6 +311,24 @@ def get_datasets():
             cfg.duration_col: float,
            })
 
+    # Get classes list
+    data[cfg.manual_id_col] = data[cfg.manual_id_col].apply(
+        lambda x: ast.literal_eval(x) if isinstance(x, str) and x.startswith("{") else x
+    )
+    if cfg.class_list is not None:
+        classes = cfg.class_list
+    else:
+        classes = set()
+        for species in data[cfg.manual_id_col]:
+            if isinstance(species, dict):
+                classes.update(species.keys())
+            else:
+                classes.add(species)
+        classes = list(classes)
+        classes.sort()
+        # pylint: disable-next=attribute-defined-outside-init
+        cfg.config_dict["class_list"] = classes
+
     #for each species, get a random sample of files for train/valid split
     train_files = data.groupby(cfg.manual_id_col, as_index=False).apply(
         lambda x: pd.Series(x[cfg.file_name_col].unique()).sample(frac=train_p)
@@ -324,10 +336,9 @@ def get_datasets():
     train = data[data[cfg.file_name_col].isin(train_files)]
 
     valid = data[~data.index.isin(train.index)]
-    train_ds = PyhaDFDataset(train)
-    species = train_ds.get_classes()
+    train_ds = PyhaDFDataset(train, train=True, species=classes)
 
-    valid_ds = PyhaDFDataset(valid,train=False, species=species)
+    valid_ds = PyhaDFDataset(valid, train=False, species=classes)
     return train_ds, valid_ds
 
 def set_torch_file_sharing(_) -> None:
@@ -341,17 +352,19 @@ def make_dataloaders(train_dataset, val_dataset
         Loads datasets and dataloaders for train and validation
     """
 
-    # Code used from:
-    # https://www.kaggle.com/competitions/birdclef-2023/discussion/412808
-    # Get Sample Weights
-    weights_list = train_dataset.get_sample_weights()
-    sampler = WeightedRandomSampler(weights_list, len(weights_list))
 
     # Create our dataloaders
     # if sampler function is "specified, shuffle must not be specified."
     # https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
     
     if cfg.does_weighted_sampling:
+        if train_dataset.samples[cfg.manual_id_col].any(lambda x: isinstance(x,dict)):
+            raise NotImplementedError("Weighted sampling not implemented for overlapping targets")
+        # Code used from:
+        # https://www.kaggle.com/competitions/birdclef-2023/discussion/412808
+        # Get Sample Weights
+        weights_list = train_dataset.get_sample_weights()
+        sampler = WeightedRandomSampler(weights_list, len(weights_list))
         train_dataloader = DataLoader(
             train_dataset,
             cfg.train_batch_size,

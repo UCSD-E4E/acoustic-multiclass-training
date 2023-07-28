@@ -3,6 +3,8 @@
 # Required path related config
 dataframe_csv:
 data_path:
+# Optional, automatically generates class order if not given
+class_list:
 
 # Dataframe column names
 offset_col: "OFFSET"
@@ -98,7 +100,7 @@ rand_eq_p: 0
 noise_p: 1
 lowpass_p: 0.02
 highpass_p: 0.02
-bg_noise_p: 1
+bg_noise_p: 0
 
 # Data augmentation parameters
 noise_type: "white"
