@@ -80,7 +80,7 @@ def rand_offset():
     Return a random offset in samples
     """
     max_offset = int(cfg.max_offset * cfg.sample_rate)
-    return 0 #randint(-max_offset, max_offset)
+    return 0#randint(-max_offset, max_offset)
 
 #pylint: disable-next = too-many-arguments
 def get_annotation(

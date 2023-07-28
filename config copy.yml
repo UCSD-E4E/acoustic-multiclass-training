@@ -29,7 +29,7 @@ prepros_device: "cpu" # Options: cuda, CPU
 agent_run_count: 5
 
 # Training params
-train_batch_size: 32
+train_batch_size: 64
 validation_batch_size: 24
 jobs: 3
 valid_freq: 2000
