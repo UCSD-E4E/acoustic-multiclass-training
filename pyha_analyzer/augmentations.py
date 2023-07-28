@@ -180,7 +180,7 @@ class RandomEQ(torch.nn.Module):
         according to object parameters
         """
         for _ in range(self.iterations):
-            frequency = utils.log_rand(*self.f_range)
+            frequency = utils.rand(*self.f_range)
             gain = utils.rand(*self.g_range)
             q_val = utils.rand(*self.q_range)
             clip = torchaudio.functional.equalizer_biquad(
