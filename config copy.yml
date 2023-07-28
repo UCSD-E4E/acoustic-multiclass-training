@@ -18,6 +18,7 @@ is_unchunked: false
 does_center_chunking: false
 chunk_length_s: 5
 chunk_length: 5
+max_time: 5
 min_length_s: 0.4
 include_last: false
 overlap: 0.5
