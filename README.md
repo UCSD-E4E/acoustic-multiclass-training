@@ -36,9 +36,9 @@ We recommend that you use Miniconda for all package management. Once Miniconda i
 conda env create -f environment.yml
 ```
 
-For further setup, you can run `pip install -e .` in the directory to install the `pyha_analyzer` package. In order to generate the `config.yml` file, run `train.py` or copy `documentation/default_config.yml` into `./config.yml`.
+For further setup, you can run `pip install -e .` in the directory to install the `pyha_analyzer` package. From there, scripts can be run as modules such as `python -m pyha_analyzer.train` or `python -m pyha_analyzer.chunking_methods.gen_csv_labels`. In order to generate the `config.yml` file, run `config.py` or copy `documentation/default_config.yml` into `./config.yml`.
 
-To recreate our results, [PyHa](https://github.com/UCSD-E3E/PyHa) needs to be installed and set up. Furthermore, our results are based on the [BirdCLEF2023 dataset](https://www.kaggle.com/competitions/birdclef-2023). You may also find it useful to use a  [no-call dataset](https://www.kaggle.com/code/sprestrelski/birdclef23-uniform-no-call-sound-chunks) compiled from previous competitions.
+To recreate our results, [PyHa](https://github.com/UCSD-E4E/PyHa) needs to be installed and set up. Furthermore, our results are based on the [BirdCLEF2023 dataset](https://www.kaggle.com/competitions/birdclef-2023). You may also find it useful to use a  [no-call dataset](https://www.kaggle.com/code/sprestrelski/birdclef23-uniform-no-call-sound-chunks) compiled from previous competitions.
 
 ### Quick Start Dataset
 You can download a sample dataset and labels .csv here: https://drive.google.com/file/d/1DrFlOGmlbXaStgDn2tFTklfpbBM4uim4/view?usp=sharing. This contains 18 `.mp3` files for 3 Amazonian species and a metadata `.csv` with 531 annotations. These files can be directly fed into the [classification pipeline]((#classification))
@@ -76,9 +76,9 @@ python gen_csv_labels.py -l 5 -f .ogg -w -a ~/example_dataset
 If using simple chunks, ie. if the `sliding_window` is not used, it will only create one `.csv` for `chunk_labels`.
 
 ## Classification
-The main file is `train.py`, which has the main training loop and uses functions from `dataset.py` and `models/timm_model.py`. This has several hyperparameters related to training, logging, and data augmentation which are processed in `config.yml`.  
+The main file is `train.py`, which has the main training loop and uses functions from `dataset.py` and `models/timm_model.py`. This has several hyperparameters related to training, logging, and data augmentation which are stored in `config.yml`.  
 
-To select a model, change the `model` parameter in `config.yml`, or edit the `timm_model.py` file directly. `timm_model.py` loads in models using the [Pytorch Image Models library (timm)](https://timm.fast.ai/) and supports a variety of models including EfficientNets, ResNets, and DenseNets. To directly load local models, you would add another parameter for the checkpoint path:
+To select a model, change the `model` parameter in `config.yml`. `timm_model.py` loads in models using the [Pytorch Image Models library (timm)](https://timm.fast.ai/) and supports a variety of models including EfficientNets, ResNets, and DenseNets. To directly load local models, you would add another parameter for the checkpoint path:
 ```py
 self.model = timm.create_model('tf_efficientnet_b0', checkpoint_path='./models/tf_efficientnet_b1_aa-ea7a6ee0.pth')
 ```

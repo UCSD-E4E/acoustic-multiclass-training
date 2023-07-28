@@ -110,8 +110,8 @@ def train(model: TimmModel,
             loss.backward()
             optimizer.step()
 
-        if scheduler is not None:
-            scheduler.step()
+            if scheduler is not None:
+                scheduler.step()
 
         log_map += map_metric(outputs, labels, model.num_classes)
         log_loss += loss.item()
@@ -190,8 +190,8 @@ def valid(model: Any,
                 
             running_loss += loss.item()
             
-            log_pred.append(outputs.cpu().detach())
-            log_label.append(labels.cpu().detach())
+            log_pred.append(torch.clone(outputs.cpu()).detach())
+            log_label.append(torch.clone(labels.cpu()).detach())
 
 
     # softmax predictions
@@ -250,8 +250,7 @@ def logging_setup() -> None:
 def main(in_sweep=True) -> None:
     """ Main function
     """
-    torch.multiprocessing.set_start_method('spawn')
-    logger.info("Device is: %s, Preprocessing Device is %s", cfg.device, cfg.prepros_device)
+    logger.info("Device is: %s", cfg.device)
     set_seed(cfg.seed)
     if in_sweep:
         run = wandb.init()
@@ -299,4 +298,6 @@ def main(in_sweep=True) -> None:
             break
 
 if __name__ == '__main__':
+    torch.multiprocessing.set_sharing_strategy('file_system')
+    torch.multiprocessing.set_start_method('spawn')
     main(in_sweep=False)

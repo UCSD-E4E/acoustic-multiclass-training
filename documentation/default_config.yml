@@ -9,12 +9,16 @@ offset_col: "OFFSET"
 duration_col: "DURATION"
 file_name_col: "FILE NAME"
 manual_id_col: "MANUAL ID"
+# Device Settings
+device: "auto" # Options: cuda, cpu, auto 
+prepros_device: "cpu" # Options: cuda, CPU
+
 
 # Device Settings
-device: auto # Options: cuda, cpu, auto 
-prepros_device: cpu # Options: cuda, CPU
-
-
+device: "auto" # Options: cuda, cpu, auto 
+prepros_device: "cpu" # Options: cuda, CPU
+agent_run_count: 5
+chunk_length: 5
 # Training params
 
 train_batch_size: 4
@@ -24,6 +28,7 @@ valid_freq: 2000
 mixed_precision: true
 valid_dataset_ratio: 0.3
 does_weighted_sampling: False
+max_offset: 1 #seconds
 
 # Logging
 logging: true
@@ -83,7 +88,8 @@ time_mask_p: 0.5
 rand_eq_p: 0
 noise_p: 1
 lowpass_p: 0
-bg_noise_p: 0
+highpass_p: 0
+bg_noise_p: 0.0
 
 # Data augmentation parameters
 noise_type: "white"
@@ -97,6 +103,8 @@ rand_eq_g_range: [-8, 8]
 rand_eq_iters: 3
 lowpass_cutoff: 15000
 lowpass_q_val: 0.7
+highpass_cutoff: 1000
+highpass_q_val: 0.7
 bg_noise_alpha_range: [0.1, 0.2]
 
 # Background noise params
@@ -105,11 +113,6 @@ bg_noise_alpha_range: [0.1, 0.2]
 # Make sure to delete all bird clips so it is only background noise
 # If path is blank and p=0, background noise will not be used
 bg_noise_path: ""
-
-# Transforms settings
-imbalance_sampler: false
-pos_weight: 1
-smoothing: 0.05
 
 # FFT Settings
 hop_length: 512
