@@ -262,6 +262,7 @@ def main(in_sweep=True) -> None:
         run = wandb.init()
         for key, val in dict(wandb.config).items():
             setattr(cfg, key, val)
+        wandb.config.update(cfg.config_dict)
     else:
         run = wandb.init(
             entity=cfg.wandb_entity,
