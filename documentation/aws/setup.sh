@@ -33,4 +33,8 @@ echo "Installing AWS and s3fs"
 sudo apt-get install awscli
 sudo apt-get install s3fs
 
-echo "System setup done. Please run documentation/aws/mount.sh to mount your s3 bucket."
+# Initialize repository install
+pip install -e .
+python -m pyha_analyzer.config
+
+echo "System setup done."
