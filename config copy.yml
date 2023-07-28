@@ -69,7 +69,7 @@ num_fold: 5
 #     mobilenetv3_large_100_miil_in21k (70 MB)
 model: "eca_nfnet_l0"
 epochs: 10
-learning_rate: 0.001
+learning_rate: 0.0001
 # Loss function options:
 #   CE: Cross entropy
 #   BCE: Binary cross entropy
@@ -95,9 +95,8 @@ noise_p: 0.35
 freq_mask_p: 0.5
 time_mask_p: 0.5
 rand_eq_p: 0
-noise_p: 1
-lowpass_p: 0.02
-highpass_p: 0.02
+lowpass_p: 0.00
+highpass_p: 0.00
 bg_noise_p: 0.3
 
 # Data augmentation parameters
@@ -114,7 +113,7 @@ lowpass_cutoff: 15000
 lowpass_q_val: 0.7
 highpass_cutoff: 1000
 highpass_q_val: 0.7
-bg_noise_alpha_range: [0.1, 0.2]
+bg_noise_alpha_range: [0.1, 0.3]
 
 # Background noise params
 # Expects background_path to lead to a directory with only audio files
