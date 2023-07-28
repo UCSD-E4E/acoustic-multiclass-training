@@ -1,8 +1,8 @@
 # Acoustic Multiclass Training config file
 
 # Required path related config
-dataframe_csv:
-data_path:
+dataframe_csv: "/mnt/data/data/aws_data.csv"
+data_path: "/mnt/data/data/132_peru_xc_BC_2020"
 
 # Dataframe column names
 offset_col: "OFFSET"
@@ -42,7 +42,7 @@ logging: true
 logging_freq: 20 # Batches per log
 wandb_entity: "acoustic-species-identification"
 wandb_project: "acoustic-species-reu2023"
-wandb_run_name: "auto"
+wandb_run_name: "test z_score_sigmoid_pink"
 debug: false
 
 # Functional settings
@@ -119,7 +119,7 @@ bg_noise_alpha_range: [0.1, 0.2]
 # Example dataset: BirdVOX at https://dcase.community/challenge2018/task-bird-audio-detection
 # Make sure to delete all bird clips so it is only background noise
 # If path is blank and p=0, background noise will not be used
-bg_noise_path: "/mnt/data/background_files"
+bg_noise_path: "/mnt/data/data/background_files"
 
 # FFT Settings
 hop_length: 512
