@@ -20,7 +20,7 @@ sweep_config = {
     'metric'            : {'goal': 'maximize', 'name' : 'valid/map'},
     'parameters'        : {
         # General
-        'lr' : {
+        'learning_rate' : {
             'max': 0.01,
             'min': 5e-4,
             'distribution': 'log_uniform_values'
