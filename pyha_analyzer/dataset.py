@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torchaudio
+import wandb
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from torchaudio import transforms as audtr
 from torchvision.transforms import RandomApply
@@ -328,6 +329,7 @@ def get_datasets():
         classes.sort()
         # pylint: disable-next=attribute-defined-outside-init
         cfg.config_dict["class_list"] = classes
+        wandb.config.update({"class_list": classes}, allow_val_change=True)
 
     #for each species, get a random sample of files for train/valid split
     train_files = data.groupby(cfg.manual_id_col, as_index=False).apply(
