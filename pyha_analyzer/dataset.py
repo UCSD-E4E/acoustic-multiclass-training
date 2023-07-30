@@ -301,7 +301,7 @@ def get_datasets():
     else:
         classes = set()
         print(classes)
-        for species in data[cfg.manual_id_col].unique():
+        for species in data[cfg.manual_id_col].dropna().unique():
             if isinstance(species, dict):
                 print("THIS SHOULDN'T RUN")
                 classes.update(species.keys())
