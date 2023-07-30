@@ -300,11 +300,12 @@ def get_datasets():
         classes = cfg.class_list
     else:
         classes = set()
+        print(classes)
         for species in data[cfg.manual_id_col]:
             if isinstance(species, dict):
+                print("THIS SHOULDN'T RUN")
                 classes.update(species.keys())
             else:
-                print(species)
                 if not species is None:
                     classes.add(species)
         print(classes)
