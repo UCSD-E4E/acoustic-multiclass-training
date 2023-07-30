@@ -305,6 +305,7 @@ def get_datasets():
                 classes.update(species.keys())
             else:
                 classes.add(species)
+        print(pd.isnull(classes).sum())
         classes = list(classes)
         classes.sort()
         # pylint: disable-next=attribute-defined-outside-init
