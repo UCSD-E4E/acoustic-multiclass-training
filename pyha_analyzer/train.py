@@ -284,9 +284,14 @@ def main(in_sweep=True) -> None:
     early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
     
     # MAIN LOOP
+    # pylint: disable-next=global-statement
+    global EPOCH
+    # pylint: disable-next=global-statement
+    global BEST_VALID_MAP
+    EPOCH = 0
+    BEST_VALID_MAP = 0
+
     for _ in range(cfg.epochs):
-        # pylint: disable-next=global-statement
-        global EPOCH
         logger.info("Epoch %d", EPOCH)
 
         train(model_for_run, train_dataloader, val_dataloader, optimizer, scheduler)
