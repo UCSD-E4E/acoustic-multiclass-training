@@ -304,7 +304,8 @@ def get_datasets():
             if isinstance(species, dict):
                 classes.update(species.keys())
             else:
-                classes.add(species)
+                if not np.isnan(species):
+                    classes.add(species)
         print(classes)
         classes = list(classes)
         classes.sort()
