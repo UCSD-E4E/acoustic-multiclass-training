@@ -300,11 +300,12 @@ def get_datasets():
         classes = cfg.class_list
     else:
         classes = set()
-        for species in data[cfg.manual_id_col]:
+        for species in data[cfg.manual_id_col].dropna():
             if isinstance(species, dict):
                 classes.update(species.keys())
             else:
-                classes.add(species)
+                if not species is None:
+                    classes.add(species)
         classes = list(classes)
         classes.sort()
         # pylint: disable-next=attribute-defined-outside-init
