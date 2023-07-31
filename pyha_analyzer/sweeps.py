@@ -5,9 +5,9 @@ sweep. If the former, set the sweep_id option in config
 """
 
 import torch
-import wandb
 import yaml
 
+import wandb
 from pyha_analyzer import config
 from pyha_analyzer.train import main as train_main
 
@@ -22,8 +22,8 @@ def main():
     sweep_project = f"{cfg.wandb_project}-sweep"
     if not sweep_id:
         print("Starting a new sweep")
-        f = open("sweep.yml", 'r')
-        sweep_config = yaml.safe_load(f)
+        with open("sweep.yml", 'r', encoding="utf-8") as sweep_file:
+            sweep_config = yaml.safe_load(sweep_file)
         sweep_id = wandb.sweep(
             sweep_config,
             entity=cfg.wandb_entity,
