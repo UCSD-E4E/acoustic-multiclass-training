@@ -58,7 +58,7 @@ def convolving_chunk(row:dict,
             starts.append(end_s - chunk_length_s)
     # calculate valid offsets for long annotations
     else:
-        clip_num = int(duration_s / chunk_self_time)
+        clip_num = int(round(duration_s / chunk_self_time))
         for i in range(clip_num-1):
             if (offset_s + chunk_length_s) + (i * chunk_self_time) < row['CLIP LENGTH']:
                 starts.append(offset_s + i * chunk_self_time)
