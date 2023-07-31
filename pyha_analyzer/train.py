@@ -176,15 +176,20 @@ def valid(model: Any,
         dataset_ratio = 1.0
 
     num_valid_samples = int(len(data_loader)*dataset_ratio)
-
-    # tqdm is a progress bar
-    dl_iter = tqdm(data_loader, position=5, total=num_valid_samples)
-
     with torch.no_grad():
-        for index, (mels, labels) in enumerate(dl_iter):
+        for index, (mels, labels) in enumerate(data_loader):
             if index > num_valid_samples:
                 # Stop early if not doing full validation
                 break
+
+            # Janky progress bar
+            # Using instead tqdm b/c of https://github.com/wandb/wandb/issues/1265
+            if index == int(1/4 * num_valid_samples):
+                logger.info("Validation 25% complete")
+            if index == int(1/2 * num_valid_samples):
+                logger.info("Validation 50% complete")
+            if index == int(3/4 * num_valid_samples):
+                logger.info("Validation 75% complete")
 
             loss, outputs = run_batch(model, mels, labels)
                 
