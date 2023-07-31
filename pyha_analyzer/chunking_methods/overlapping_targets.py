@@ -13,6 +13,7 @@ Example target:
 import os.path
 
 import pandas as pd
+from tqdm import tqdm
 from pyha_analyzer import config
 
 cfg = config.cfg
@@ -49,7 +50,7 @@ def get_targets(df: pd.DataFrame):
     unique_files = df[cfg.file_name_col].unique()
     groups = []
     groups = [by_file.get_group(file) for file in unique_files]
-    processed_groups = [group.apply(
+    processed_groups = [group.progress_apply(
         lambda row,g=group: apply_overlapping_target(row,g),axis=1
         ) for group in groups]
     return pd.concat(processed_groups)
@@ -57,6 +58,7 @@ def get_targets(df: pd.DataFrame):
 def main():
     """ Main function """
     df = pd.read_csv(cfg.dataframe_csv, index_col=0)
+    tqdm.pandas()
     df_mixed = get_targets(df)
     # Delete manual id column so it is not accidentally used
     del df_mixed[cfg.manual_id_col]

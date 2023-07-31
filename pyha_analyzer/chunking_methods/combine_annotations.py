@@ -3,12 +3,13 @@
 import argparse
 
 import pandas as pd
+from tqdm import tqdm
 
 def combine_annotations(df: pd.DataFrame, max_gap_s: float = 0.5) -> pd.DataFrame:
     """ Combine any annotations that have a gap length less than max_gap seconds"""
     groups = df.groupby("IN FILE")
     out_groups = []
-    for _, group in groups:
+    for _, group in tqdm(groups):
         group.reset_index(drop=True, inplace=True)
         df = group.sort_values(by=["OFFSET"])
         i = 0
