@@ -8,7 +8,8 @@
 - [Data Setup](#data-setup)
 - [Data Processing](#data-processing)
 - [Classification](#classification)
-    - [Logging](#logging)
+- [Sweeps](#sweeps)
+- [Logging](#logging)
 
 ## Project Overview
 
@@ -41,9 +42,9 @@ For further setup, you can run `pip install -e .` in the directory to install th
 To recreate our results, [PyHa](https://github.com/UCSD-E4E/PyHa) needs to be installed and set up. Furthermore, our results are based on the [BirdCLEF2023 dataset](https://www.kaggle.com/competitions/birdclef-2023). You may also find it useful to use a  [no-call dataset](https://www.kaggle.com/code/sprestrelski/birdclef23-uniform-no-call-sound-chunks) compiled from previous competitions.
 
 ### Quick Start Dataset
-You can download a sample dataset and labels .csv here: https://drive.google.com/file/d/1DrFlOGmlbXaStgDn2tFTklfpbBM4uim4/view?usp=sharing. This contains 18 `.mp3` files for 3 Amazonian species and a metadata `.csv` with 531 annotations. These files can be directly fed into the [classification pipeline]((#classification))
+You can download a sample dataset and labels .csv here: https://drive.google.com/file/d/1DrFlOGmlbXaStgDn2tFTklfpbBM4uim4/view?usp=sharing. This contains 18 `.mp3` files for 3 Amazonian species and a metadata `.csv` with 531 annotations. These files can be directly fed into the [classification pipeline](#classification)
 
-## Data Setup
+### Data Setup
 The data processing pipeline assumes a folder directory structure as follows
 ```
 data
@@ -83,7 +84,7 @@ To select a model, change the `model` parameter in `config.yml`. `timm_model.py`
 self.model = timm.create_model('tf_efficientnet_b0', checkpoint_path='./models/tf_efficientnet_b1_aa-ea7a6ee0.pth')
 ```
 
-### Logging
+## Logging
 This project is set up with [Weights and Biases](https://wandb.ai), a dashboard to keep track of hyperparameters and system metrics. You’ll need to make an account and log in locally to use it. WandB is extremely helpful for comparing models live and visualizing the training process.
 
 ![](images/SampleWandBOutputs.PNG)
@@ -93,12 +94,13 @@ If you do not want to enable WandB logging, set `logging: false` in `config.yml`
 ```
 python train.py -l
 ```
-## Sweeps
-[Weights and Biases](https://wandb.ai) can also be used to perform hyperparameter sweeps.
-To configure sweeps, edit the `sweeps.yml` file in the project root. For more information on how to do this, see the WandB [sweep docs](https://docs.wandb.ai/guides/sweeps). If no such file is found, the default sweep config found in `documentation/default_sweeps.yml` will be used instead.
-Then, you can run the sweeps from the project root using `python pyha_analyzer/sweeps`, or else using `python -m pyha_analyzer.sweeps` if you've already installed the project as a python package.
 
 ## Inference 
 The `inference.ipynb` notebook can be directly uploaded to and run on Kaggle. In the import section, the notebook takes in a local path to a pretrained checkpoint (can be replaced with a `timm` fetched model) with the model architecture and to the final model. Replicate any changes you made to the BirdCLEFModel class, or directly import from `train.py` if running on a local machine.
 
 Under the inference section, modify the `pd.read_csv` line to your training metadata file. This is used to get a list of labels to predict. Also, change the `filepaths` variable to where your test data is stored. The given notebook removes two classes from the predictions, as there was no training data actually used (chunks were not able to generate), but these can be removed. The final output is `submission.csv`, which outputs probabilistic predictions for each class for every 5 second chunk of the training data.
+
+## Sweeps
+[Weights and Biases](https://wandb.ai) can also be used to perform hyperparameter sweeps.
+To configure sweeps, edit the `sweeps.yml` file in the project root. For more information on how to do this, see the WandB [sweep docs](https://docs.wandb.ai/guides/sweeps). If no such file is found, the default sweep config found in `documentation/default_sweeps.yml` will be used instead.
+Then, you can run the sweeps from the project root using `python pyha_analyzer/sweeps`, or else using `python -m pyha_analyzer.sweeps` if you've already installed the project as a python package.
