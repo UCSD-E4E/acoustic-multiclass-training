@@ -22,7 +22,7 @@ def main():
     sweep_project = f"{cfg.wandb_project}-sweep"
     if not sweep_id:
         print("Starting a new sweep")
-        with open("sweep.yml", 'r', encoding="utf-8") as sweep_file:
+        with open("sweeps.yml", 'r', encoding="utf-8") as sweep_file:
             sweep_config = yaml.safe_load(sweep_file)
         sweep_id = wandb.sweep(
             sweep_config,
