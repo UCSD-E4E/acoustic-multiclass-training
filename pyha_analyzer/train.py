@@ -184,12 +184,13 @@ def valid(model: Any,
 
             # Janky progress bar
             # Using instead tqdm b/c of https://github.com/wandb/wandb/issues/1265
-            if index == int(1/4 * num_valid_samples):
-                logger.info("Validation 25% complete")
-            if index == int(1/2 * num_valid_samples):
-                logger.info("Validation 50% complete")
-            if index == int(3/4 * num_valid_samples):
-                logger.info("Validation 75% complete")
+            logging_points = [0.25, 0.5, 0.75]
+            for proportion in logging_points:
+                if index == int(proportion * num_valid_samples):
+                    logger.info(
+                            "Validation is {}% complete"\
+                            .format(int(100*proportion))
+                    )
 
             loss, outputs = run_batch(model, mels, labels)
                 
