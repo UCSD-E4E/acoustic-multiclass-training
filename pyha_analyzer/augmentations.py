@@ -1,6 +1,6 @@
 """
-Instead, use the mixup function as a wrapper, passing the other augmentations
-to the mixup function in a torch.nn.Sequential object.
+File containing data augmentations implemented as torch.nn.Module
+Each augmentation is initialized with only a Config object
 """
 import logging
 import os
@@ -159,7 +159,7 @@ class RandomEQ(torch.nn.Module):
         f_range: tuple of upper and lower bounds for the frequency, in Hz
         g_range: tuple of upper and lower bounds for the gain, in dB
         q_range: tuple of upper and lower bounds for the Q factor
-        iters: number of times to randomly EQ a part of the clip
+        iterations: number of times to randomly EQ a part of the clip
         sample_rate: sampling rate of audio
     """
     def __init__(self, cfg: config.Config):
