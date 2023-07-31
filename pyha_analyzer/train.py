@@ -8,6 +8,7 @@
 import datetime
 import logging
 import os
+import time
 from typing import Any, Tuple
 
 import numpy as np
@@ -18,13 +19,13 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torchmetrics.classification import MultilabelAveragePrecision
 from tqdm import tqdm
-import wandb
 
+import wandb
 from pyha_analyzer import config
 from pyha_analyzer.dataset import get_datasets, make_dataloaders
-from pyha_analyzer.utils import set_seed
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
+from pyha_analyzer.utils import set_seed
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
@@ -259,12 +260,6 @@ def logging_setup() -> None:
 def main(in_sweep=True) -> None:
     """ Main function
     """
-     # pylint: disable-next=global-statement
-    global EPOCH
-    # pylint: disable-next=global-statement
-    global BEST_VALID_MAP
-    EPOCH = 0
-    BEST_VALID_MAP = 0
     logger.info("Device is: %s, Preprocessing Device is %s", cfg.device, cfg.prepros_device)
     set_seed(cfg.seed)
 
