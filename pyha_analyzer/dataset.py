@@ -16,11 +16,11 @@ import numpy as np
 import pandas as pd
 import torch
 import torchaudio
-import wandb
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from torchaudio import transforms as audtr
 from torchvision.transforms import RandomApply
 from tqdm import tqdm
+import wandb
 
 from pyha_analyzer import config
 from pyha_analyzer import utils

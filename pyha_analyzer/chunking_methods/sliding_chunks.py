@@ -152,6 +152,6 @@ def dynamic_yan_chunking_old(df: pd.DataFrame,
     to uniform chunks using a sliding window """
     return_dicts = []
     for _, row in df.iterrows():
-        rows_dict = convolving_chunk(row.to_dict(), chunk_length_s, min_length_s, only_slide)
+        rows_dict = convolving_chunk_old(row.to_dict(), chunk_length_s, min_length_s, only_slide)
         return_dicts.extend(rows_dict)
     return pd.DataFrame(return_dicts)

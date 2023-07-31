@@ -10,6 +10,7 @@ from pathlib import Path
 
 import torch
 import importlib_resources as pkg_resources
+import wandb
 
 from pyha_analyzer import config
 from pyha_analyzer import utils
@@ -21,6 +22,7 @@ from pyha_analyzer.dataset import get_datasets, make_dataloaders
 from pyha_analyzer.train import run_batch, map_metric, save_model
 
 cfg = config.cfg
+wandb.init(mode="disabled")
 dataset, valid_ds = get_datasets()
 
 
