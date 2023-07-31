@@ -14,6 +14,10 @@ config.yml
 data/*
 *.mp3
 *.wav
+*.flac
+*.ogg
+*.m4a
+*.opus
 *.csv
 *.log
 *.pt

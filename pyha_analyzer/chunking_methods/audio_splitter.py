@@ -4,6 +4,7 @@ import os
 import pandas as pd
 import torch
 import torchaudio
+from tqdm import tqdm
 
 CONFIG = {
     "metadata_csv": "annotations_chunked.csv",
@@ -28,7 +29,6 @@ def output_file_name(path: str, index: int, file_format: str) -> str:
 
 def split_audio_file(path: str):
     """ Splits audio file into smaller chunks """
-    print("splitting", path)
     split_len = CONFIG["chunk_length_s"]
     
     # Load audio file
@@ -69,7 +69,7 @@ def edit_metadata(df: pd.DataFrame):
 def split_all(input_dir: str):
     """ Splits all audio files in the input directory """
     input_dir = os.path.abspath(input_dir)
-    for path in os.listdir(input_dir):
+    for path in tqdm(os.listdir(input_dir)):
         audio_path = os.path.join(input_dir, path)
         split_audio_file(audio_path)
 
