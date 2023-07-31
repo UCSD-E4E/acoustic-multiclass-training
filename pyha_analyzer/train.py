@@ -176,6 +176,8 @@ def valid(model: Any,
         dataset_ratio = 1.0
 
     num_valid_samples = int(len(data_loader)*dataset_ratio)
+    start_time = time.time()
+
     with torch.no_grad():
         for index, (mels, labels) in enumerate(data_loader):
             if index > num_valid_samples:
@@ -184,8 +186,7 @@ def valid(model: Any,
 
             # Janky progress bar
             # Using instead tqdm b/c of https://github.com/wandb/wandb/issues/1265
-            logging_points = [0.25, 0.5, 0.75]
-            for proportion in logging_points:
+            for proportion in [0.25, 0.5, 0.75]:
                 if index == int(proportion * num_valid_samples):
                     logger.info(
                             "Validation is {}% complete"\
@@ -198,7 +199,9 @@ def valid(model: Any,
             
             log_pred.append(torch.clone(outputs.cpu()).detach())
             log_label.append(torch.clone(labels.cpu()).detach())
-
+    # Print duration of validation
+    end_time = time.time()
+    logger.info("Validation took %d seconds", int(end_time - start_time))
 
     # softmax predictions
     log_pred = F.softmax(torch.cat(log_pred)).to(cfg.device)
