@@ -96,7 +96,7 @@ python train.py -l
 ## Sweeps
 [Weights and Biases](https://wandb.ai) can also be used to perform hyperparameter sweeps.
 To configure sweeps, edit the `sweeps.yml` file in the project root. For more information on how to do this, see the WandB [sweep docs](https://docs.wandb.ai/guides/sweeps).
-Then, you can run the sweeps from the project root using `python pyha_analyzer/sweeps`, or else using `python -m pyha_analyzer.sweeps`.
+Then, you can run the sweeps from the project root using `python pyha_analyzer/sweeps`, or else using `python -m pyha_analyzer.sweeps` if you've already installed the project as a python package.
 
 ## Inference 
 The `inference.ipynb` notebook can be directly uploaded to and run on Kaggle. In the import section, the notebook takes in a local path to a pretrained checkpoint (can be replaced with a `timm` fetched model) with the model architecture and to the final model. Replicate any changes you made to the BirdCLEFModel class, or directly import from `train.py` if running on a local machine.
