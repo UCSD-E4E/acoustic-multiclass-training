@@ -48,7 +48,7 @@ class PyhaDFDataset(Dataset):
                  species: List[str]
                  ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
-        self.num_samples = cfg.sample_rate * cfg.chunk_length
+        self.num_samples = cfg.sample_rate * cfg.chunk_length_s
         self.train = train
         self.device = cfg.prepros_device
 
