@@ -250,12 +250,6 @@ def logging_setup() -> None:
 def main(in_sweep=True) -> None:
     """ Main function
     """
-     # pylint: disable-next=global-statement
-    global EPOCH
-    # pylint: disable-next=global-statement
-    global BEST_VALID_MAP
-    EPOCH = 0
-    BEST_VALID_MAP = 0
     logger.info("Device is: %s, Preprocessing Device is %s", cfg.device, cfg.prepros_device)
     set_seed(cfg.seed)
 
