@@ -50,15 +50,14 @@ def get_targets(df: pd.DataFrame):
     unique_files = df[cfg.file_name_col].unique()
     groups = []
     groups = [by_file.get_group(file) for file in unique_files]
-    processed_groups = [group.progress_apply(
+    processed_groups = [group.apply(
         lambda row,g=group: apply_overlapping_target(row,g),axis=1
-        ) for group in groups]
+        ) for group in tqdm(groups)]
     return pd.concat(processed_groups)
 
 def main():
     """ Main function """
     df = pd.read_csv(cfg.dataframe_csv, index_col=0)
-    tqdm.pandas()
     df_mixed = get_targets(df)
     # Delete manual id column so it is not accidentally used
     del df_mixed[cfg.manual_id_col]
