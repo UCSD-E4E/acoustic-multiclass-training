@@ -10,17 +10,20 @@ from pathlib import Path
 
 import torch
 import importlib_resources as pkg_resources
+import wandb
 
 from pyha_analyzer import config
 from pyha_analyzer import utils
 from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
                                          HighpassFilter, SyntheticNoise)
+from pyha_analyzer.chunking_methods.sliding_chunks import convolving_chunk
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
 from pyha_analyzer.dataset import get_datasets, make_dataloaders
 from pyha_analyzer.train import run_batch, map_metric, save_model
 
 cfg = config.cfg
+wandb.init(mode="disabled")
 dataset, valid_ds = get_datasets()
 
 
@@ -134,6 +137,25 @@ class TestTrain(unittest.TestCase):
         model = TimmModel(10,"tf_efficientnet_b4",True)
         save_model(model)
 
+
+class TestChunking(unittest.TestCase):
+    def test_yan_chunking(self):
+        """ Test yan chunking methods for expected values """
+        conv = convolving_chunk({"OFFSET": 4, "DURATION": 3,"CLIP LENGTH": 10}, 5, 0.4, 0.3, 0)
+        assert len(conv) == 3, "convolving_chunk should return 3 chunks"
+        for row in conv:
+            assert row["DURATION"] == 5, "convolving_chunk should return correct duration"
+        assert conv[0]["OFFSET"] == 4, "convolving_chunk should return correct offset"
+        assert conv[1]["OFFSET"] == 4.5, "convolving_chunk should return correct offset"
+        assert conv[2]["OFFSET"] == 2, "convolving_chunk should return correct offset"
+        conv = convolving_chunk({"OFFSET": 3, "DURATION": 0.1, "CLIP LENGTH": 20}, 5, 0.4, 0.3, 0)
+        assert len(conv) == 0, "convolving_chunk should return 0 chunks when under minimum"
+        conv = convolving_chunk({"OFFSET": 10, "DURATION": 20, "CLIP LENGTH": 50}, 5, 0.4, 0.3, 0)
+        assert len(conv) == 5, "convolving_chunk should return 5 chunks"
+        for row in conv:
+            assert row["DURATION"] == 5, "convolving_chunk should return correct duration"
+        for i, row in enumerate(conv):
+            assert row["OFFSET"] == 10 + i * 3.5, "convolving_chunk should return correct offset"
 
 class TestUtils(unittest.TestCase):
     def test_rand(self):
