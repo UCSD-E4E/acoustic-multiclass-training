@@ -189,10 +189,8 @@ def valid(model: Any,
             # Using instead tqdm b/c of https://github.com/wandb/wandb/issues/1265
             for proportion in [0.25, 0.5, 0.75]:
                 if index == int(proportion * num_valid_samples):
-                    logger.info(
-                            "Validation is {}% complete"\
-                            .format(int(100*proportion))
-                    )
+                    logger.info("Validation is %d%% complete", 
+                                int(100 * proportion))
 
             loss, outputs = run_batch(model, mels, labels)
                 
