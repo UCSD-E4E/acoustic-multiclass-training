@@ -6,6 +6,7 @@ Miniconda3-*.sh
 classification/wandb/*
 wandb/*
 config.yml
+sweep.yml
 *.tflite
 
 
