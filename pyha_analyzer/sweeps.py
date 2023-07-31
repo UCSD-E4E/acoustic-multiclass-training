@@ -27,7 +27,7 @@ def main():
                 sweep_config = yaml.safe_load(sweep_file)
         except FileNotFoundError:
             print("sweeps.yml not found, loading default sweep config")
-            with open("documentation/sweeps.yml", 'r', encoding="utf-8") as sweep_file:
+            with open("documentation/default_sweeps.yml", 'r', encoding="utf-8") as sweep_file:
                 sweep_config = yaml.safe_load(sweep_file)
 
         sweep_id = wandb.sweep(

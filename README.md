@@ -95,7 +95,7 @@ python train.py -l
 ```
 ## Sweeps
 [Weights and Biases](https://wandb.ai) can also be used to perform hyperparameter sweeps.
-To configure sweeps, edit the `sweeps.yml` file in the project root. For more information on how to do this, see the WandB [sweep docs](https://docs.wandb.ai/guides/sweeps). If no such file is found, the default sweep config found in `documentation/default_sweep.yml` will be used instead.
+To configure sweeps, edit the `sweeps.yml` file in the project root. For more information on how to do this, see the WandB [sweep docs](https://docs.wandb.ai/guides/sweeps). If no such file is found, the default sweep config found in `documentation/default_sweeps.yml` will be used instead.
 Then, you can run the sweeps from the project root using `python pyha_analyzer/sweeps`, or else using `python -m pyha_analyzer.sweeps` if you've already installed the project as a python package.
 
 ## Inference 
