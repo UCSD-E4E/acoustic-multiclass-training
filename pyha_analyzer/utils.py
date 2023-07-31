@@ -76,6 +76,8 @@ def rand_offset():
     Return a random offset in samples
     """
     max_offset = int(cfg.max_offset * cfg.sample_rate)
+    if max_offset == 0:
+        return 0
     return randint(-max_offset, max_offset)
 
 #pylint: disable-next = too-many-arguments

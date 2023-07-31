@@ -203,7 +203,7 @@ class BackgroundNoise(torch.nn.Module):
         self.noise_path_str = cfg.bg_noise_path
         self.alpha_range = cfg.bg_noise_alpha_range
         self.sample_rate = cfg.sample_rate
-        self.length = cfg.max_time
+        self.length = cfg.chunk_length_s
         self.device = cfg.prepros_device
         self.norm = norm
         if self.noise_path_str != "" and cfg.bg_noise_p > 0.0:

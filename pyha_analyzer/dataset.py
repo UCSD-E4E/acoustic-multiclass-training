@@ -20,11 +20,13 @@ from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from torchaudio import transforms as audtr
 from torchvision.transforms import RandomApply
 from tqdm import tqdm
+import wandb
 
 from pyha_analyzer import config
 from pyha_analyzer import utils
 from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
                                          HighpassFilter, SyntheticNoise)
+from pyha_analyzer.chunking_methods import sliding_chunks
 
 cfg = config.cfg
 
@@ -237,8 +239,8 @@ class PyhaDFDataset(Dataset):
                 class_to_idx = self.class_to_idx)
 
         if self.train:
-            audio, target = self.mixup(audio, target)
             audio = self.audio_augmentations(audio)
+            audio, target = self.mixup(audio, target)
         image = self.to_image(audio)
         if self.train:
             image = self.image_augmentations(image)
@@ -281,16 +283,41 @@ def get_datasets():
     train_p = cfg.train_test_split
     path = cfg.dataframe_csv
     # Load the dataset
-    data = pd.read_csv(path, usecols = [
-        cfg.file_name_col,
-        cfg.manual_id_col,
-        cfg.offset_col,
-        cfg.duration_col
-    ], dtype={
-        cfg.file_name_col: str,
-        cfg.manual_id_col: str,
-        cfg.offset_col: float,
-        cfg.duration_col: float})
+    if cfg.is_unchunked:
+        data = pd.read_csv(path, usecols = [
+            cfg.file_name_col,
+            cfg.manual_id_col,
+            cfg.offset_col,
+            cfg.duration_col,
+            "CLIP LENGTH"
+        ], dtype={
+            cfg.file_name_col: str,
+            cfg.manual_id_col: str,
+            cfg.offset_col: float,
+            cfg.duration_col: float,
+            "CLIP LENGTH": float})
+        logger.info("Chunking with sliding windows")
+        data = sliding_chunks.dynamic_yan_chunking(
+            data,
+            chunk_length_s=cfg.chunk_length_s,
+            min_length_s=cfg.min_length_s,
+            overlap=cfg.overlap,
+            chunk_margin_s=cfg.chunk_margin_s,
+            only_slide=False)
+        logger.info("Chunking completed")
+    else:
+        data = pd.read_csv(path, usecols = [
+            cfg.file_name_col,
+            cfg.manual_id_col,
+            cfg.offset_col,
+            cfg.duration_col,
+
+        ], dtype={
+            cfg.file_name_col: str,
+            cfg.manual_id_col: str,
+            cfg.offset_col: float,
+            cfg.duration_col: float,
+           })
 
     # Get classes list
     data[cfg.manual_id_col] = data[cfg.manual_id_col].apply(
@@ -310,6 +337,7 @@ def get_datasets():
         classes.sort()
         # pylint: disable-next=attribute-defined-outside-init
         cfg.config_dict["class_list"] = classes
+        wandb.config.update({"class_list": classes}, allow_val_change=True)
 
     #for each species, get a random sample of files for train/valid split
     train_files = data.groupby(cfg.manual_id_col, as_index=False).apply(

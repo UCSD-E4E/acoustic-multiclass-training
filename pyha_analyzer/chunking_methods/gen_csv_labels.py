@@ -104,19 +104,6 @@ def attach_labels(metadata_df: pd.DataFrame, binary_df: pd.DataFrame) -> pd.Data
                                           'Scientific Name': 'SCIENTIFIC'})
     return strong_df
 
-def generate_sliding_chunks(strong_df: pd.DataFrame, chunk_length_s: int=5) -> pd.DataFrame:
-    """Wrapper function. Creates sliding window chunks out of previously made annotations
-    to make more training data and better capture calls.
-    Args: 
-        strong_df (DataFrame)
-            - DataFrame with time-specific labels
-        chunk_length_s (int)
-            - Length of desired file chunks in seconds
-        
-    Returns a DataFrame with sliding window chunked annotations
-    """
-    return dynamic_yan_chunking(strong_df, chunk_length_s, only_slide=False)
-
 def generate_raw_chunks(directory: str, metadata_df: pd.DataFrame, chunk_length_s: int=5,
                         filetype: str='.wav') -> pd.DataFrame:
     """Create simple chunks by dividing the file into equal length
@@ -200,7 +187,12 @@ def main():
         strong_labels.to_csv(cfg.strong_labels)
         
         print('Generating sliding chunks...')
-        chunks_df = generate_sliding_chunks(strong_labels, cfg.chunk_length_s)
+        chunks_df = dynamic_yan_chunking(strong_labels, 
+                                         cfg.chunk_length_s,
+                                         cfg.min_length_s,
+                                         cfg.overlap,
+                                         cfg.chunk_margin_s,
+                                         only_slide=False)
         chunks_df.to_csv(cfg.chunk_labels)
     else:
         print('Generating raw chunks...')
