@@ -22,8 +22,14 @@ def main():
     sweep_project = f"{cfg.wandb_project}-sweep"
     if not sweep_id:
         print("Starting a new sweep")
-        with open("sweeps.yml", 'r', encoding="utf-8") as sweep_file:
-            sweep_config = yaml.safe_load(sweep_file)
+        try:
+            with open("sweeps.yml", 'r', encoding="utf-8") as sweep_file:
+                sweep_config = yaml.safe_load(sweep_file)
+        except FileNotFoundError:
+            print("sweeps.yml not found, loading default sweep config")
+            with open("documentation/sweeps.yml", 'r', encoding="utf-8") as sweep_file:
+                sweep_config = yaml.safe_load(sweep_file)
+
         sweep_id = wandb.sweep(
             sweep_config,
             entity=cfg.wandb_entity,
