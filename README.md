@@ -84,7 +84,7 @@ self.model = timm.create_model('tf_efficientnet_b0', checkpoint_path='./models/t
 ```
 
 ### Logging
-This project is set up with [WandB](https://wandb.ai), a dashboard to keep track of hyperparameters and system metrics. You’ll need to make an account and log in locally to use it. WandB is extremely helpful for comparing models live and visualizing the training process.
+This project is set up with [Weights and Biases](https://wandb.ai), a dashboard to keep track of hyperparameters and system metrics. You’ll need to make an account and log in locally to use it. WandB is extremely helpful for comparing models live and visualizing the training process.
 
 ![](images/SampleWandBOutputs.PNG)
 
@@ -93,6 +93,10 @@ If you do not want to enable WandB logging, set `logging: false` in `config.yml`
 ```
 python train.py -l
 ```
+## Sweeps
+[Weights and Biases](https://wandb.ai) can also be used to perform hyperparameter sweeps.
+To configure sweeps, edit the `sweeps.yml` file in the project root. For more information on how to do this, see the WandB [sweep docs](https://docs.wandb.ai/guides/sweeps).
+Then, you can run the sweeps from the project root using `python pyha_analyzer/sweeps`, or else using `python -m pyha_analyzer.sweeps`.
 
 ## Inference 
 The `inference.ipynb` notebook can be directly uploaded to and run on Kaggle. In the import section, the notebook takes in a local path to a pretrained checkpoint (can be replaced with a `timm` fetched model) with the model architecture and to the final model. Replicate any changes you made to the BirdCLEFModel class, or directly import from `train.py` if running on a local machine.
