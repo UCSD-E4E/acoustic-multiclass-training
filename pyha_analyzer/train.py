@@ -113,7 +113,8 @@ def train(model: TimmModel,
             if scheduler is not None:
                 scheduler.step()
 
-        log_map += map_metric(outputs, labels, model.num_classes)
+        log_pred = F.sigmoid(outputs)
+        log_map += map_metric(log_pred, labels, model.num_classes)
         log_loss += loss.item()
         log_n += 1
 
@@ -195,7 +196,7 @@ def valid(model: Any,
 
 
     # softmax predictions
-    log_pred = F.softmax(torch.cat(log_pred)).to(cfg.device)
+    log_pred = F.sigmoid(torch.cat(log_pred)).to(cfg.device)
 
     valid_map = map_metric(log_pred, torch.cat(log_label), model.num_classes)
 
