@@ -114,7 +114,6 @@ class PyhaDFDataset(Dataset):
         """
         Save waveform of audio file as a tensor and save that tensor to .pt
         """
-
         exts = "." + file_name.split(".")[-1]
         new_name = file_name.replace(exts, ".pt")
         if os.path.join(cfg.data_path, new_name) in self.data_dir:
@@ -171,8 +170,9 @@ class PyhaDFDataset(Dataset):
         files = pd.DataFrame(self.samples[cfg.file_name_col].unique(),
             columns=["files"]
         )
-        files = files["files"].progress_apply(self.process_audio_file)
 
+
+        files = files["files"].progress_apply(self.process_audio_file)
         logger.debug("%s", str(files.shape))
 
         num_files = files.shape[0]
@@ -238,9 +238,9 @@ class PyhaDFDataset(Dataset):
                 index = index,
                 class_to_idx = self.class_to_idx)
 
+        audio, target = self.mixup(audio, target)
         if self.train:
             audio = self.audio_augmentations(audio)
-            audio, target = self.mixup(audio, target)
         image = self.to_image(audio)
         if self.train:
             image = self.image_augmentations(image)
