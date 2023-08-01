@@ -113,7 +113,7 @@ def train(model: TimmModel,
             if scheduler is not None:
                 scheduler.step()
 
-        log_pred = F.softmax(outputs)
+        log_pred = F.sigmoid(outputs)
         log_map += map_metric(log_pred, labels, model.num_classes)
         log_loss += loss.item()
         log_n += 1
