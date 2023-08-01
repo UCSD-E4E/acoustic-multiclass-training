@@ -35,7 +35,7 @@ class TestAugmentations(unittest.TestCase):
         label_id = (label == 1.0).nonzero()[0].item()
         mixup_alpha = 0.25
         cfg.mixup_alpha_range = [mixup_alpha, mixup_alpha] # type: ignore
-        cfg.mixup_ceil_interval = 1.
+        cfg.mixup_ceil_interval = 1. # type: ignore
         mixup = Mixup(dataset.samples, dataset.class_to_idx, cfg)
         new_audio, new_label = mixup(audio, label)
         # Assert mixup output
