@@ -34,6 +34,7 @@ class Mixup(torch.nn.Module):
         self.class_to_idx = class_to_idx
         self.alpha_range = cfg.mixup_alpha_range
         self.prob = cfg.mixup_p
+        self.ceil_interval = cfg.mixup_ceil_interval
 
     def forward(self,
         clip: torch.Tensor,
@@ -64,6 +65,7 @@ class Mixup(torch.nn.Module):
             return clip, target
         mixed_clip = (1 - alpha) * clip + alpha * other_clip
         mixed_target = (1 - alpha) * target + alpha * other_target
+        mixed_target = utils.ceil(mixed_target, interval = self.ceil_interval)
         return mixed_clip, mixed_target
 
 
