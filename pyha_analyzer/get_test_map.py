@@ -42,9 +42,9 @@ def get_test_map():
         raise FileNotFoundError("Model not found: " + cfg.model_checkpoint) from exc
     
     # Testing
-    train.BEST_VALID_MAP = 1.0
     model_for_run.eval()
-    return train.valid(model_for_run, dataloader, 0.0)
+    valid_map, _ = train.valid(model_for_run, dataloader, 0.0, 1.0)
+    return valid_map
 
 
 if __name__ == "__main__":

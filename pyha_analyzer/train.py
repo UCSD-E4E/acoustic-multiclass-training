@@ -31,9 +31,6 @@ time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
 
-EPOCH: int = 0
-BEST_VALID_MAP: float = 0.0
-
 def run_batch(model: TimmModel,
                 mels: torch.Tensor,
                 labels: torch.Tensor,
@@ -72,13 +69,17 @@ def map_metric(outputs: torch.Tensor, labels: torch.Tensor, num_classes: int) ->
         return 0
     return map_out
 
+# pylint: disable=too-many-arguments
 def train(model: TimmModel,
         data_loader: DataLoader,
         valid_loader: DataLoader,
         optimizer: torch.optim.Optimizer,
-        scheduler
-       ) -> None:
+        scheduler,
+        epoch: int,
+        best_valid_map: float,
+       ) -> float:
     """ Trains the model
+    Returns new best valid map
     """
     logger.debug('size of data loader: %d', len(data_loader))
     model.train()
@@ -126,13 +127,13 @@ def train(model: TimmModel,
                 "train/loss": log_loss / log_n,
                 "train/mAP": log_map / log_n,
                 "i": i,
-                "epoch": EPOCH,
+                "epoch": epoch,
                 "clips/sec": annotations / duration,
-                "epoch_progress": EPOCH + float(i)/len(data_loader),
+                "epoch_progress": epoch + float(i)/len(data_loader),
             })
             logger.info("i: %s   epoch: %s   clips/s: %s   Loss: %s   mAP: %s",
                 str(i).zfill(5),
-                str(round(EPOCH+float(i)/len(data_loader),3)).ljust(5, '0'),
+                str(round(epoch+float(i)/len(data_loader),3)).ljust(5, '0'),
                 str(round(annotations / duration,3)).ljust(7), 
                 str(round(log_loss / log_n,3)).ljust(5), 
                 str(round(log_map / log_n,3)).ljust(5)
@@ -148,15 +149,21 @@ def train(model: TimmModel,
             del labels
 
             valid_start_time = datetime.datetime.now()
-            valid(model, valid_loader, EPOCH + i / len(data_loader))
+            _, best_valid_map = valid(model,
+                                      valid_loader,
+                                      epoch + i / len(data_loader),
+                                      best_valid_map)
             model.train()
             # Ignore the time it takes to validate in annotations/sec
             start_time += datetime.datetime.now() - valid_start_time
 
+    return best_valid_map
+
 def valid(model: Any,
           data_loader: DataLoader,
           epoch_progress: float,
-          ) -> float:
+          best_valid_map: float = 1.0,
+          ) -> Tuple[float, float]:
     """ Run a validation loop
     Arguments:
         model: the model to validate
@@ -210,13 +217,11 @@ def valid(model: Any,
                 running_loss/len(data_loader),
                 valid_map)
 
-    # pylint: disable-next=global-statement
-    global BEST_VALID_MAP
-    if valid_map > BEST_VALID_MAP:
+    if valid_map > best_valid_map:
         logger.info("Model saved in: %s", save_model(model))
-        logger.info("Validation mAP Improved - %f ---> %f", BEST_VALID_MAP, valid_map)
-        BEST_VALID_MAP = valid_map
-    return valid_map
+        logger.info("Validation mAP Improved - %f ---> %f", best_valid_map, valid_map)
+        best_valid_map = valid_map
+    return valid_map, best_valid_map
 
 def save_model(model: TimmModel) -> str:
     """ Saves model in the models directory as a pt file, returns path """
@@ -282,25 +287,27 @@ def main(in_sweep=True) -> None:
     
     logger.info("Training...")
     early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
-    
-    # MAIN LOOP
-    # pylint: disable-next=global-statement
-    global EPOCH
-    # pylint: disable-next=global-statement
-    global BEST_VALID_MAP
-    EPOCH = 0
-    BEST_VALID_MAP = 0
 
-    for _ in range(cfg.epochs):
-        logger.info("Epoch %d", EPOCH)
+    best_valid_map = 0.0
 
-        train(model_for_run, train_dataloader, val_dataloader, optimizer, scheduler)
-        EPOCH += 1
-        valid_map = valid( model_for_run, val_dataloader, EPOCH)
-        logger.info("Best validation map: %f", BEST_VALID_MAP)
+    for epoch in range(cfg.epochs):
+        logger.info("Epoch %d", epoch)
+
+        best_valid_map = train(model_for_run,
+                               train_dataloader,
+                               val_dataloader,
+                               optimizer,
+                               scheduler,
+                               epoch,
+                               best_valid_map)
+        valid_map, best_valid_map = valid(model_for_run,
+                                          val_dataloader,
+                                          epoch + 1.0,
+                                          best_valid_map)
+        logger.info("Best validation map: %f", best_valid_map)
 
         if cfg.early_stopping and early_stopper.early_stop(valid_map):
-            logger.info("Early stopping has triggered on epoch %d", EPOCH)
+            logger.info("Early stopping has triggered on epoch %d", epoch)
             break
 
 if __name__ == '__main__':
