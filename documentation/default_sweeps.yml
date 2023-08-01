@@ -1,0 +1,26 @@
+method: "bayes"
+early_terminate:
+    min_iter: 3
+    type: "hyperband"
+metric:
+    goal: "maximize"
+    name: "valid/map"
+parameters:
+    batch_size:
+        values: [4, 8, 16, 32, 64]
+    epochs:
+        values: [5, 10, 15]
+    model:
+        values: [
+            "eca_nfnet_l0", 
+            "eca_nfnet_l1", 
+            "eca_nfnet_l2"
+        ]
+    n_fft:
+        distribution: "int_uniform"
+        max: 1024
+        min: 256
+    n_mels:
+        distribution: "int_uniform"
+        max: 256
+        min: 64
