@@ -48,6 +48,10 @@ def log_rand(low: float, high: float) -> float:
     return math.exp(rand_exp)
 
 def ceil(audio: torch.Tensor, interval: float = 1.):
+    """
+    Rounds every element of tensor up. 
+    Rounding interval given by `interval`
+    """
     audio = audio / interval
     audio = torch.ceil(audio)
     return audio*interval
