@@ -33,14 +33,15 @@ class TestAugmentations(unittest.TestCase):
         audio, label = utils.get_annotation(dataset.samples, 0, dataset.class_to_idx)
         TestUtils.assert_one_hot(label, dataset.num_classes)
         label_id = (label == 1.0).nonzero()[0].item()
-        cfg.mixup_alpha_range = [0.25, 0.25] # type: ignore
+        mixup_alpha = 0.25
+        cfg.mixup_alpha_range = [mixup_alpha, mixup_alpha] # type: ignore
+        cfg.mixup_ceil_interval = 1.
         mixup = Mixup(dataset.samples, dataset.class_to_idx, cfg)
         new_audio, new_label = mixup(audio, label)
         # Assert mixup output
         assert new_audio.shape == audio.shape, "Mixup should not change shape"
-        assert new_label[label_id] == 0.75 or new_label[label_id] == 1.0, \
-            "Mixup label should be equal to alpha"
-        assert new_label.sum() == 1.0, "Mixup label should sum to 1"
+        assert new_label[label_id] == 1., "Mixup labels should be rounded to nearest interval (1 in this case)"
+        assert new_label.sum() == 2., "Mixup label should add to two 2"
 
         augs = []
         noise_colors = ["white", "pink", "brown", "blue", "violet"]
