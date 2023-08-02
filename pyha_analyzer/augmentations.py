@@ -5,7 +5,7 @@ Each augmentation is initialized with only a Config object
 import logging
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, Tuple, List, Maybe
+from typing import Any, Callable, Dict, Tuple, List, Optional
 
 import pandas as pd
 import numpy as np
@@ -59,12 +59,12 @@ class Mixup(torch.nn.Module):
                 cfg.mixup_num_clips_range[1] + 1))
         self.num_clips_distribution = hyperbolic(possible_num_clips)
 
-    def get_rand_clip() -> Optional[torch.Tensor]:
+    def get_rand_clip(self) -> Optional[torch.Tensor]:
         idx = utils.randint(0, len(self.df))
         try:
             clip, target = utils.get_annotation(
                     df = self.df,
-                    index = other_idx, 
+                    index = idx, 
                     class_to_idx = self.class_to_idx)
             return clip, target
         except RuntimeError:
@@ -72,7 +72,7 @@ class Mixup(torch.nn.Module):
             return None
 
     #TODO: Check assumption that clips should always be mixed at same rate
-    def mix_clips(clip, target, other_annotations):
+    def mix_clips(self, clip, target, other_annotations):
         mix_factor = 1/(len(other_annotations)+1)
         clips, targets = zip(*other_annotations)
         clips += (clip,)
@@ -100,10 +100,10 @@ class Mixup(torch.nn.Module):
         if utils.rand(0,1) < self.prob:
             return clip, target
 
-        num_other_clips = utils.randint(sample(self.num_clips))
-        other_annotations = [get_annotation() for _ in range(num_other_clips)]
+        num_other_clips = sample(self.num_clips_distribution)
+        other_annotations = [self.get_rand_clip() for _ in range(num_other_clips)]
         other_annotations = list(filter(None, other_annotations))
-        return mix_clips(clip, target, other_annotations)
+        return self.mix_clips(clip, target, other_annotations)
 
 
 def gen_noise(num_samples: int, psd_shape_func: Callable) -> torch.Tensor:
