@@ -50,8 +50,10 @@ class PyhaDFDataset(Dataset):
                  ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
         if onehot:
-            assert self.samples.iloc[0][species].shape[0] == len(species), "make sure class list is fully onehot encoded"
-
+            if self.samples.iloc[0][species].shape[0] != len(species):
+                logger.error(species)
+                logger.error("make sure class list is fully onehot encoded")
+                raise RuntimeError("One hot values differ from species list")
 
         self.num_samples = cfg.sample_rate * cfg.chunk_length_s
         self.train = train
@@ -431,16 +433,16 @@ def main() -> None:
     """
     testing function.
     """
-    run = wandb.init(
-            entity=cfg.wandb_entity,
-            project=cfg.wandb_project,
-            config=cfg.config_dict,
-            mode="online" if cfg.logging else "disabled")
-    run.name = "inferance testing"
-    torch.multiprocessing.set_start_method('spawn')
-    utils.set_seed(cfg.seed)
-    train_dataloader, val_dataloader, infer_dataloader = get_datasets()
-    for index, (mels, labels) in enumerate(infer_dataloader):
-        break
+    # run = wandb.init(
+    #         entity=cfg.wandb_entity,
+    #         project=cfg.wandb_project,
+    #         config=cfg.config_dict,
+    #         mode="online" if cfg.logging else "disabled")
+    # run.name = "inferance testing"
+    # torch.multiprocessing.set_start_method('spawn')
+    # utils.set_seed(cfg.seed)
+    # _, _, infer_dataloader = get_datasets()
+    # for _, (_, _) in enumerate(infer_dataloader):
+    #     break
 if __name__ == '__main__':
     main()

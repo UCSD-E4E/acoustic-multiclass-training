@@ -134,7 +134,7 @@ def plot(mels: List[Tuple[np.ndarray,str,Tuple[int,int]]], n_clips: int,
 
 def run_test(n_clips, norms, cfg): 
     """ Main function """
-    train_ds, _ = get_datasets()
+    train_ds, _, _ = get_datasets()
     # Get audio
     audio = get_audio(train_ds, n_clips)
     # Get augs

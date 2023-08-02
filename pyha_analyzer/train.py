@@ -233,7 +233,9 @@ def inferance_valid(model: Any,
     """ Test Domain Shift To Soundscapes
 
     """
-    
+    if data_loader is None:
+        return
+
     model.eval()
 
     log_pred, log_label = [], []
@@ -314,7 +316,9 @@ def main(in_sweep=True) -> None:
     # Load in dataset
     logger.info("Loading Dataset...")
     train_dataset, val_dataset, infer_dataset = get_datasets()
-    train_dataloader, val_dataloader, infer_dataloader = make_dataloaders(train_dataset, val_dataset, infer_dataset)
+    train_dataloader, val_dataloader, infer_dataloader = make_dataloaders(
+        train_dataset, val_dataset, infer_dataset
+    )
 
     logger.info("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
@@ -339,7 +343,14 @@ def main(in_sweep=True) -> None:
     for _ in range(cfg.epochs):
         logger.info("Epoch %d", EPOCH)
 
-        train(model_for_run, train_dataloader, val_dataloader, infer_dataloader, optimizer, scheduler)
+        train(
+            model_for_run,
+            train_dataloader,
+            val_dataloader,
+            infer_dataloader,
+            optimizer,
+            scheduler
+        )
         EPOCH += 1
         valid_map = valid( model_for_run, val_dataloader, infer_dataloader, EPOCH)
         logger.info("Best validation map: %f", BEST_VALID_MAP)
