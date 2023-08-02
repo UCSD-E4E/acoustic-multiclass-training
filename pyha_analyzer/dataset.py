@@ -286,7 +286,7 @@ class PyhaDFDataset(Dataset):
         return weight_list
 
 
-def get_datasets():
+def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, PyhaDFDataset]:
     """ Returns train and validation datasets
     does random sampling for train/valid split
     adds transforms to dataset
@@ -379,7 +379,7 @@ def set_torch_file_sharing(_) -> None:
 
 
 def make_dataloaders(train_dataset, val_dataset, infer_dataset
-        )-> Tuple[DataLoader, DataLoader]:
+        )-> Tuple[DataLoader, DataLoader, DataLoader]:
     """
         Loads datasets and dataloaders for train and validation
     """
