@@ -5,7 +5,7 @@ Each augmentation is initialized with only a Config object
 import logging
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict, Tuple, List, Maybe
 
 import pandas as pd
 import numpy as np
@@ -17,26 +17,20 @@ from pyha_analyzer import config
 from pyha_analyzer import utils
 
 logger = logging.getLogger("acoustic_multiclass_training")
-def invert(seq: list[numbers.Integral]):
+def invert(seq: List[numbers.Integral]):
     if 0 in seq: 
         raise ValueError('Passed iterable cannot contain zero')
     return [1/x for x in seq]
 
-def hyperbolic(seq: list[numbers.Integral]):
+def hyperbolic(seq: List[numbers.Integral]):
     norm_factor = sum(invert(seq))
     probabilities = [x/norm_factor for x in invert(seq)]
     return dict(zip(probabilities, seq))
 
 def sample(distribution: Dict[numbers.Integral, numbers.Integral]):
-    return np.random.choice(distribution.values(), p = distribution.keys())
-
-l = [1, 2, 3, 4, 5]
-dist = hyperbolic(l)
-print(f"{dist=}")
-for i in range(1000):
-    sample(dist)
-
-
+    probabilities = list(distribution.keys())
+    values = list(distribution.values())
+    return np.random.choice(values, p = probabilities)
 
 class Mixup(torch.nn.Module):
     """
@@ -58,7 +52,35 @@ class Mixup(torch.nn.Module):
         self.alpha_range = cfg.mixup_alpha_range
         self.prob = cfg.mixup_p
         self.ceil_interval = cfg.mixup_ceil_interval
-        self.num_clips_range = cfg.mixup_num_clips_range
+
+        # Get probability distribution for how many clips to mix
+        possible_num_clips = list(range(
+                cfg.mixup_num_clips_range[0],
+                cfg.mixup_num_clips_range[1] + 1))
+        self.num_clips_distribution = hyperbolic(possible_num_clips)
+
+    def get_rand_clip() -> Optional[torch.Tensor]:
+        idx = utils.randint(0, len(self.df))
+        try:
+            clip, target = utils.get_annotation(
+                    df = self.df,
+                    index = other_idx, 
+                    class_to_idx = self.class_to_idx)
+            return clip, target
+        except RuntimeError:
+            logger.error('Error loading other clip, ommitted from mixup')
+            return None
+
+    #TODO: Check assumption that clips should always be mixed at same rate
+    def mix_clips(clip, target, other_annotations):
+        mix_factor = 1/(len(other_annotations)+1)
+        clips, targets = zip(*other_annotations)
+        clips += (clip,)
+        targets += (target,)
+        mixed_clip = sum([clip * mix_factor for clip in clips])
+        mixed_target = sum([target * mix_factor for target in targets])
+        mixed_target = utils.ceil(mixed_target, interval = self.ceil_interval)
+        return mixed_clip, mixed_target
 
     def forward(
             self,
@@ -78,20 +100,10 @@ class Mixup(torch.nn.Module):
         if utils.rand(0,1) < self.prob:
             return clip, target
 
-        # Generate random index in dataset
-        other_idx = utils.randint(0, len(self.df))
-        try:
-            other_clip, other_target = utils.get_annotation(
-                    df = self.df,
-                    index = other_idx, 
-                    class_to_idx = self.class_to_idx)
-        except RuntimeError:
-            logger.error('Error loading other clip, mixup not performed')
-            return clip, target
-        mixed_clip = (1 - alpha) * clip + alpha * other_clip
-        mixed_target = (1 - alpha) * target + alpha * other_target
-        mixed_target = utils.ceil(mixed_target, interval = self.ceil_interval)
-        return mixed_clip, mixed_target
+        num_other_clips = utils.randint(sample(self.num_clips))
+        other_annotations = [get_annotation() for _ in range(num_other_clips)]
+        other_annotations = list(filter(None, other_annotations))
+        return mix_clips(clip, target, other_annotations)
 
 
 def gen_noise(num_samples: int, psd_shape_func: Callable) -> torch.Tensor:
