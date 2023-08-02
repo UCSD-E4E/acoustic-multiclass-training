@@ -31,3 +31,6 @@ jobs:
         conda run pip install pyright==1.1.318
     - run: |
         conda run python3 -m pyright $(git ls-files '*.py')
+    - name: Run Code Tests
+      run: |
+        conda run python3 pyha_analyzer\train.py
