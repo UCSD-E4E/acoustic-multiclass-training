@@ -36,24 +36,26 @@ class TestAugmentations(unittest.TestCase):
         mixup_alpha = 0.25
         cfg.mixup_alpha_range = [mixup_alpha, mixup_alpha] # type: ignore
         cfg.mixup_ceil_interval = 1. # type: ignore
+        num_clips_range = list(range(cfg.mixup_num_clips_range[0],
+                                     cfg.mixup_num_clips_range[1] + 1))
         mixup = Mixup(dataset.samples, dataset.class_to_idx, cfg)
         new_audio, new_label = mixup(audio, label)
         # Assert mixup output
         assert new_audio.shape == audio.shape, "Mixup should not change shape"
         assert new_label[label_id] == 1., \
                 "Mixup labels should be rounded up to nearest interval"
-        assert new_label.sum() == 2., "Mixup label should add to two 2"
+        assert float(new_label.sum()) in num_clips_range, "Mixup label should add to two 2"
 
         augs = []
         noise_colors = ["white", "pink", "brown", "blue", "violet"]
         for col in noise_colors:
             cfg.noise_type = col # type: ignore
             augs.append(SyntheticNoise(cfg))
-        augs.append(RandomEQ(cfg))
-        augs.append(BackgroundNoise(cfg))
-        augs.append(LowpassFilter(cfg))
-        augs.append(HighpassFilter(cfg))
-        augmented_audio = [aug.forward(audio) for aug in augs]
+        augs+= [RandomEQ(cfg),
+                BackgroundNoise(cfg),
+                LowpassFilter(cfg),
+                HighpassFilter(cfg)]
+        augmented_audio = [aug(audio) for aug in augs]
         for aug_audio in augmented_audio:
             assert aug_audio.shape == audio.shape, "Augmented audio should not change shape"
 

@@ -5,29 +5,39 @@ Each augmentation is initialized with only a Config object
 import logging
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, Tuple, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-import pandas as pd
 import numpy as np
-import numbers
-import numbers
+import pandas as pd
 import torch
 import torchaudio
-from pyha_analyzer import config
-from pyha_analyzer import utils
+
+from pyha_analyzer import config, utils
 
 logger = logging.getLogger("acoustic_multiclass_training")
-def invert(seq: List[numbers.Integral]):
+def invert(seq: Iterable[int]) -> List[float]:
+    """
+    Replace each element in list with its inverse
+    """
     if 0 in seq: 
         raise ValueError('Passed iterable cannot contain zero')
     return [1/x for x in seq]
 
-def hyperbolic(seq: List[numbers.Integral]):
+def hyperbolic(seq: Iterable[float]) -> Dict[float, float]:
+    """
+    Takes a list of numbers and assigns them a probability
+    distribution accourding to the inverse of their values
+    """
     norm_factor = sum(invert(seq))
     probabilities = [x/norm_factor for x in invert(seq)]
     return dict(zip(probabilities, seq))
 
-def sample(distribution: Dict[numbers.Integral, numbers.Integral]):
+def sample(distribution: Dict[float, float]) -> float:
+    """
+    Sample single value from distribution
+    distribution.keys() should be the probabilities,
+    and distribution.values() should be the values
+    """
     probabilities = list(distribution.keys())
     values = list(distribution.values())
     return np.random.choice(values, p = probabilities)
@@ -60,6 +70,9 @@ class Mixup(torch.nn.Module):
         self.num_clips_distribution = hyperbolic(possible_num_clips)
 
     def get_rand_clip(self) -> Optional[torch.Tensor]:
+        """
+        Get random clip from self.df
+        """
         idx = utils.randint(0, len(self.df))
         try:
             clip, target = utils.get_annotation(
@@ -71,14 +84,15 @@ class Mixup(torch.nn.Module):
             logger.error('Error loading other clip, ommitted from mixup')
             return None
 
-    #TODO: Check assumption that clips should always be mixed at same rate
     def mix_clips(self, clip, target, other_annotations):
-        mix_factor = 1/(len(other_annotations)+1)
-        clips, targets = zip(*other_annotations)
-        clips += (clip,)
-        targets += (target,)
-        mixed_clip = sum([clip * mix_factor for clip in clips])
-        mixed_target = sum([target * mix_factor for target in targets])
+        """
+        Mixup clips and targets of clip, target, other_annotations
+        """
+        annotations = other_annotations + [(clip, target)]
+        clips, targets = zip(*annotations)
+        mix_factor = 1/len(annotations)
+        mixed_clip = sum(clip * mix_factor for clip in clips)
+        mixed_target = sum(target * mix_factor for target in targets)
         mixed_target = utils.ceil(mixed_target, interval = self.ceil_interval)
         return mixed_clip, mixed_target
 
@@ -96,10 +110,10 @@ class Mixup(torch.nn.Module):
         chosen clip, Tensor of target mixed with the
         target of the randomly chosen file
         """
-        alpha = utils.rand(*self.alpha_range)
         if utils.rand(0,1) < self.prob:
             return clip, target
 
+        print(self.num_clips_distribution)
         num_other_clips = sample(self.num_clips_distribution)
         other_annotations = [self.get_rand_clip() for _ in range(num_other_clips)]
         other_annotations = list(filter(None, other_annotations))
