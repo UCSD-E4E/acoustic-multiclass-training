@@ -103,8 +103,8 @@ def get_min_max(mel_list: List[np.ndarray]) -> Tuple[float,float]:
     vmax = 0
     vmin = 0
     for mel in mel_list:
-        vmax = max(vmax, np.max(mel))
-        vmin = min(vmin, np.min(mel))
+        vmax = max(vmax, float(np.max(mel)))
+        vmin = min(vmin, float(np.min(mel)))
     return vmin, vmax
 
 def plot(mels: List[Tuple[np.ndarray,str,Tuple[int,int]]], n_clips: int,

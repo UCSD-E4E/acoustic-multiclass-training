@@ -74,7 +74,7 @@ def map_metric(outputs: torch.Tensor, labels: torch.Tensor, num_classes: int) ->
 
 def train(model: TimmModel,
         data_loader: DataLoader,
-        valid_loader: DataLoader,
+        valid_loader: DataLoader | None,
         infer_loader: DataLoader,
         optimizer: torch.optim.Optimizer,
         scheduler
@@ -157,7 +157,7 @@ def train(model: TimmModel,
 
 def valid(model: Any,
           data_loader: DataLoader,
-          infer_loader: DataLoader,
+          infer_loader: DataLoader | None,
           epoch_progress: float,
           ) -> float:
     """ Run a validation loop
@@ -226,7 +226,7 @@ def valid(model: Any,
 
 
 def inferance_valid(model: Any,
-          data_loader: DataLoader,
+          data_loader: DataLoader | None,
           epoch_progress: float,
           valid_map: float):
 
