@@ -21,7 +21,7 @@ from tqdm import tqdm
 import wandb
 
 from pyha_analyzer import config
-from pyha_analyzer.dataset import get_datasets, make_dataloaders, get_inferance
+from pyha_analyzer.dataset import get_datasets, make_dataloaders
 from pyha_analyzer.utils import set_seed
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
@@ -339,9 +339,9 @@ def main(in_sweep=True) -> None:
     for _ in range(cfg.epochs):
         logger.info("Epoch %d", EPOCH)
 
-        train(model_for_run, train_dataloader, val_dataloader, infer_loader, optimizer, scheduler)
+        train(model_for_run, train_dataloader, val_dataloader, infer_dataloader, optimizer, scheduler)
         EPOCH += 1
-        valid_map = valid( model_for_run, val_dataloader, infer_loader, EPOCH)
+        valid_map = valid( model_for_run, val_dataloader, infer_dataloader, EPOCH)
         logger.info("Best validation map: %f", BEST_VALID_MAP)
 
         if cfg.early_stopping and early_stopper.early_stop(valid_map):

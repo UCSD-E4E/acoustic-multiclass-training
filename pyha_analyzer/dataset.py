@@ -46,9 +46,13 @@ class PyhaDFDataset(Dataset):
                  df: pd.DataFrame,
                  train: bool,
                  species: List[str],
-                 onehot:bool = False
+                 onehot:bool = False,
                  ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
+        if onehot:
+            assert self.samples.iloc[0][species].shape[0] == len(species), "make sure class list is fully onehot encoded"
+
+
         self.num_samples = cfg.sample_rate * cfg.chunk_length_s
         self.train = train
         self.device = cfg.prepros_device
@@ -255,9 +259,8 @@ class PyhaDFDataset(Dataset):
         #If dataframe has saved onehot encodings, return those
         #Assume columns names are species names
         if  self.onehot:
-            target = self.samples.loc[index, self.classes].to_numpy() 
+            target = self.samples.loc[index, self.classes].values.astype(np.int32)
             target = torch.Tensor(target)
-            assert target.shape[0] > 0
 
         return image, target
 
@@ -359,7 +362,8 @@ def get_datasets():
 
 
     #Handle inferance datasets
-    infer_ds = PyhaDFDataset(valid, train=False, species=classes, onehot=True)
+    infer = pd.read_csv(cfg.infer_csv)
+    infer_ds = PyhaDFDataset(infer, train=False, species=classes, onehot=True)
 
 
 
@@ -416,7 +420,7 @@ def make_dataloaders(train_dataset, val_dataset, infer_dataset
 
     infer_dataloader = DataLoader(
             infer_dataset,
-            cfg.valid_batch_size,
+            cfg.validation_batch_size,
             shuffle=False,
             num_workers=cfg.jobs,
             worker_init_fn=set_torch_file_sharing
@@ -427,9 +431,16 @@ def main() -> None:
     """
     testing function.
     """
+    run = wandb.init(
+            entity=cfg.wandb_entity,
+            project=cfg.wandb_project,
+            config=cfg.config_dict,
+            mode="online" if cfg.logging else "disabled")
+    run.name = "inferance testing"
     torch.multiprocessing.set_start_method('spawn')
     utils.set_seed(cfg.seed)
-    get_datasets()
-
+    train_dataloader, val_dataloader, infer_dataloader = get_datasets()
+    for index, (mels, labels) in enumerate(infer_dataloader):
+        break
 if __name__ == '__main__':
     main()
