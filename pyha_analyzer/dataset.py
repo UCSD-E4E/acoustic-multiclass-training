@@ -9,7 +9,7 @@
 """
 import logging
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import ast
 
 import numpy as np
@@ -286,7 +286,7 @@ class PyhaDFDataset(Dataset):
         return weight_list
 
 
-def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, PyhaDFDataset]:
+def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset]]:
     """ Returns train and validation datasets
     does random sampling for train/valid split
     adds transforms to dataset
@@ -364,8 +364,11 @@ def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, PyhaDFDataset]:
 
 
     #Handle inferance datasets
-    infer = pd.read_csv(cfg.infer_csv)
-    infer_ds = PyhaDFDataset(infer, train=False, species=classes, onehot=True)
+    if (cfg.infer_csv is None):
+        infer_ds = None
+    else:
+        infer = pd.read_csv(cfg.infer_csv)
+        infer_ds = PyhaDFDataset(infer, train=False, species=classes, onehot=True)
 
 
 
@@ -379,7 +382,7 @@ def set_torch_file_sharing(_) -> None:
 
 
 def make_dataloaders(train_dataset, val_dataset, infer_dataset
-        )-> Tuple[DataLoader, DataLoader, DataLoader]:
+        )-> Tuple[DataLoader, DataLoader, Optional[DataLoader]]:
     """
         Loads datasets and dataloaders for train and validation
     """
@@ -419,14 +422,16 @@ def make_dataloaders(train_dataset, val_dataset, infer_dataset
         shuffle=False,
         num_workers=cfg.jobs,
     )
-
-    infer_dataloader = DataLoader(
-            infer_dataset,
-            cfg.validation_batch_size,
-            shuffle=False,
-            num_workers=cfg.jobs,
-            worker_init_fn=set_torch_file_sharing
-        )
+    if infer_dataset is None:
+        infer_dataloader is None
+    else:
+        infer_dataloader = DataLoader(
+                infer_dataset,
+                cfg.validation_batch_size,
+                shuffle=False,
+                num_workers=cfg.jobs,
+                worker_init_fn=set_torch_file_sharing
+            )
     return train_dataloader, val_dataloader, infer_dataloader
 
 def main() -> None:
