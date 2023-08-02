@@ -5,7 +5,7 @@ Each augmentation is initialized with only a Config object
 import logging
 import os
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Iterable
 
 import numpy as np
 import pandas as pd
@@ -23,7 +23,7 @@ def invert(seq: Iterable[int]) -> List[float]:
         raise ValueError('Passed iterable cannot contain zero')
     return [1/x for x in seq]
 
-def hyperbolic(seq: Iterable[float]) -> Dict[float, float]:
+def hyperbolic(seq: Iterable[int]) -> Dict[float, int]:
     """
     Takes a list of numbers and assigns them a probability
     distribution accourding to the inverse of their values
@@ -32,7 +32,7 @@ def hyperbolic(seq: Iterable[float]) -> Dict[float, float]:
     probabilities = [x/norm_factor for x in invert(seq)]
     return dict(zip(probabilities, seq))
 
-def sample(distribution: Dict[float, float]) -> float:
+def sample(distribution: Dict[float, int]) -> int:
     """
     Sample single value from distribution
     distribution.keys() should be the probabilities,
@@ -69,7 +69,7 @@ class Mixup(torch.nn.Module):
                 cfg.mixup_num_clips_range[1] + 1))
         self.num_clips_distribution = hyperbolic(possible_num_clips)
 
-    def get_rand_clip(self) -> Optional[torch.Tensor]:
+    def get_rand_clip(self) -> Optional[Tuple[torch.Tensor, torch.Tensor]]:
         """
         Get random clip from self.df
         """
@@ -93,6 +93,10 @@ class Mixup(torch.nn.Module):
         mix_factor = 1/len(annotations)
         mixed_clip = sum(clip * mix_factor for clip in clips)
         mixed_target = sum(target * mix_factor for target in targets)
+        assert isinstance(mixed_target, torch.Tensor)
+        assert isinstance(mixed_clip, torch.Tensor)
+        assert mixed_clip.shape == clip.shape
+        assert mixed_target.shape == target.shape
         mixed_target = utils.ceil(mixed_target, interval = self.ceil_interval)
         return mixed_clip, mixed_target
 
