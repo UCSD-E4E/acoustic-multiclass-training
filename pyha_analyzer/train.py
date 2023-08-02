@@ -21,7 +21,7 @@ from tqdm import tqdm
 import wandb
 
 from pyha_analyzer import config
-from pyha_analyzer.dataset import get_datasets, make_dataloaders
+from pyha_analyzer.dataset import get_datasets, make_dataloaders, get_inferance
 from pyha_analyzer.utils import set_seed
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
@@ -75,6 +75,7 @@ def map_metric(outputs: torch.Tensor, labels: torch.Tensor, num_classes: int) ->
 def train(model: TimmModel,
         data_loader: DataLoader,
         valid_loader: DataLoader,
+        infer_loader: DataLoader,
         optimizer: torch.optim.Optimizer,
         scheduler
        ) -> None:
@@ -149,13 +150,14 @@ def train(model: TimmModel,
             del labels
 
             valid_start_time = datetime.datetime.now()
-            valid(model, valid_loader, EPOCH + i / len(data_loader))
+            valid(model, valid_loader,infer_loader, EPOCH + i / len(data_loader))
             model.train()
             # Ignore the time it takes to validate in annotations/sec
             start_time += datetime.datetime.now() - valid_start_time
 
 def valid(model: Any,
           data_loader: DataLoader,
+          infer_loader: DataLoader,
           epoch_progress: float,
           ) -> float:
     """ Run a validation loop
@@ -217,7 +219,49 @@ def valid(model: Any,
         logger.info("Model saved in: %s", save_model(model))
         logger.info("Validation mAP Improved - %f ---> %f", BEST_VALID_MAP, valid_map)
         BEST_VALID_MAP = valid_map
+
+
+    inferance_valid(model, infer_loader, epoch_progress, valid_map)
     return valid_map
+
+
+def inferance_valid(model: Any,
+          data_loader: DataLoader,
+          epoch_progress: float,
+          valid_map: float):
+
+    """ Test Domain Shift To Soundscapes
+
+    """
+    
+    model.eval()
+
+    log_pred, log_label = [], []
+
+    num_valid_samples = int(len(data_loader))
+
+    # tqdm is a progress bar
+    dl_iter = tqdm(data_loader, position=5, total=num_valid_samples)
+
+    with torch.no_grad():
+        for _, (mels, labels) in enumerate(dl_iter):
+            _, outputs = run_batch(model, mels, labels)
+            log_pred.append(torch.clone(outputs.cpu()).detach())
+            log_label.append(torch.clone(labels.cpu()).detach())
+
+    # sigmoid predictions
+    log_pred = F.sigmoid(torch.cat(log_pred)).to(cfg.device)
+
+    infer_map = map_metric(log_pred, torch.cat(log_label), model.num_classes)
+    # Log to Weights and Biases
+    domain_shift = np.abs(valid_map - infer_map)
+    wandb.log({
+        "valid/domain_shift_diff": domain_shift,
+        "epoch_progress": epoch_progress,
+    })
+
+    logger.info("Domain Shift Difference:\t%f", domain_shift)
+    
 
 def save_model(model: TimmModel) -> str:
     """ Saves model in the models directory as a pt file, returns path """
@@ -269,8 +313,8 @@ def main(in_sweep=True) -> None:
 
     # Load in dataset
     logger.info("Loading Dataset...")
-    train_dataset, val_dataset = get_datasets()
-    train_dataloader, val_dataloader = make_dataloaders(train_dataset, val_dataset)
+    train_dataset, val_dataset, infer_dataset = get_datasets()
+    train_dataloader, val_dataloader, infer_dataloader = make_dataloaders(train_dataset, val_dataset, infer_dataset)
 
     logger.info("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
@@ -295,9 +339,9 @@ def main(in_sweep=True) -> None:
     for _ in range(cfg.epochs):
         logger.info("Epoch %d", EPOCH)
 
-        train(model_for_run, train_dataloader, val_dataloader, optimizer, scheduler)
+        train(model_for_run, train_dataloader, val_dataloader, infer_loader, optimizer, scheduler)
         EPOCH += 1
-        valid_map = valid( model_for_run, val_dataloader, EPOCH)
+        valid_map = valid( model_for_run, val_dataloader, infer_loader, EPOCH)
         logger.info("Best validation map: %f", BEST_VALID_MAP)
 
         if cfg.early_stopping and early_stopper.early_stop(valid_map):

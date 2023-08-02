@@ -45,13 +45,14 @@ class PyhaDFDataset(Dataset):
     def __init__(self,
                  df: pd.DataFrame,
                  train: bool,
-                 species: List[str]
+                 species: List[str],
+                 onehot:bool = False
                  ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
         self.num_samples = cfg.sample_rate * cfg.chunk_length_s
         self.train = train
         self.device = cfg.prepros_device
-
+        self.onehot = onehot
 
         # List data directory and confirm it exists
         if not os.path.exists(cfg.data_path):
@@ -251,7 +252,12 @@ class PyhaDFDataset(Dataset):
             image = torch.zeros(image.shape)
             target = torch.zeros(target.shape)
 
-            
+        #If dataframe has saved onehot encodings, return those
+        #Assume columns names are species names
+        if  self.onehot:
+            target = self.samples.loc[index, self.classes].to_numpy() 
+            target = torch.Tensor(target)
+            assert target.shape[0] > 0
 
         return image, target
 
@@ -349,14 +355,24 @@ def get_datasets():
     train_ds = PyhaDFDataset(train, train=True, species=classes)
 
     valid_ds = PyhaDFDataset(valid, train=False, species=classes)
-    return train_ds, valid_ds
+
+
+
+    #Handle inferance datasets
+    infer_ds = PyhaDFDataset(valid, train=False, species=classes, onehot=True)
+
+
+
+    return train_ds, valid_ds, infer_ds
 
 def set_torch_file_sharing(_) -> None:
     """
     Sets torch.multiprocessing to use file sharing
     """
     torch.multiprocessing.set_sharing_strategy("file_system")
-def make_dataloaders(train_dataset, val_dataset
+
+
+def make_dataloaders(train_dataset, val_dataset, infer_dataset
         )-> Tuple[DataLoader, DataLoader]:
     """
         Loads datasets and dataloaders for train and validation
@@ -397,7 +413,15 @@ def make_dataloaders(train_dataset, val_dataset
         shuffle=False,
         num_workers=cfg.jobs,
     )
-    return train_dataloader, val_dataloader
+
+    infer_dataloader = DataLoader(
+            infer_dataset,
+            cfg.valid_batch_size,
+            shuffle=False,
+            num_workers=cfg.jobs,
+            worker_init_fn=set_torch_file_sharing
+        )
+    return train_dataloader, val_dataloader, infer_dataloader
 
 def main() -> None:
     """
