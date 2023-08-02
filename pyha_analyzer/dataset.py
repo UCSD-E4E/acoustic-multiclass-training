@@ -364,7 +364,7 @@ def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset
 
 
     #Handle inference datasets
-    if (cfg.infer_csv is None):
+    if cfg.infer_csv is None:
         infer_ds = None
     else:
         infer = pd.read_csv(cfg.infer_csv)
