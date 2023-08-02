@@ -74,8 +74,8 @@ def map_metric(outputs: torch.Tensor, labels: torch.Tensor, num_classes: int) ->
 
 def train(model: TimmModel,
         data_loader: DataLoader,
-        valid_loader: Optional[DataLoader],
-        infer_loader: DataLoader,
+        valid_loader: DataLoader,
+        infer_loader: Optional[DataLoader],
         optimizer: torch.optim.Optimizer,
         scheduler
        ) -> None:
