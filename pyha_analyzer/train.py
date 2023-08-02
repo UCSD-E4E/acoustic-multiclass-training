@@ -221,11 +221,11 @@ def valid(model: Any,
         BEST_VALID_MAP = valid_map
 
 
-    inferance_valid(model, infer_loader, epoch_progress, valid_map)
+    inference_valid(model, infer_loader, epoch_progress, valid_map)
     return valid_map
 
 
-def inferance_valid(model: Any,
+def inference_valid(model: Any,
           data_loader: Optional[DataLoader],
           epoch_progress: float,
           valid_map: float):

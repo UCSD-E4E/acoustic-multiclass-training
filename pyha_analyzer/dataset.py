@@ -363,7 +363,7 @@ def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset
 
 
 
-    #Handle inferance datasets
+    #Handle inference datasets
     if (cfg.infer_csv is None):
         infer_ds = None
     else:
@@ -443,7 +443,7 @@ def main() -> None:
     #         project=cfg.wandb_project,
     #         config=cfg.config_dict,
     #         mode="online" if cfg.logging else "disabled")
-    # run.name = "inferance testing"
+    # run.name = "inference testing"
     # torch.multiprocessing.set_start_method('spawn')
     # utils.set_seed(cfg.seed)
     # _, _, infer_dataloader = get_datasets()
