@@ -100,11 +100,11 @@ def normalize(data: torch.Tensor, norms) -> np.ndarray:
 
 def get_min_max(mel_list: List[np.ndarray]) -> Tuple[float,float]:
     """ Get the min and max values of a list of mel spectrograms """
-    vmax = 0
-    vmin = 0
+    vmax = 0.0
+    vmin = 0.0
     for mel in mel_list:
-        vmax = max(vmax, np.max(mel))
-        vmin = min(vmin, np.min(mel))
+        vmax = max(vmax, mel.max())
+        vmin = min(vmin, mel.min())
     return vmin, vmax
 
 def plot(mels: List[Tuple[np.ndarray,str,Tuple[int,int]]], n_clips: int,
@@ -134,7 +134,7 @@ def plot(mels: List[Tuple[np.ndarray,str,Tuple[int,int]]], n_clips: int,
 
 def run_test(n_clips, norms, cfg): 
     """ Main function """
-    train_ds, _ = get_datasets()
+    train_ds, _, _ = get_datasets()
     # Get audio
     audio = get_audio(train_ds, n_clips)
     # Get augs

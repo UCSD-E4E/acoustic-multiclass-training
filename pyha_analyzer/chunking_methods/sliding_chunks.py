@@ -35,10 +35,10 @@ def convolving_chunk(row:dict,
         Array of labels of chunk_length_s duration
     """
     starts = []
-    offset_s = max(row['OFFSET']-chunk_margin_s, 0)
-    duration_s = row['DURATION']    # length of annotation
+    offset_s = max(float(row['OFFSET'])-chunk_margin_s, 0)
+    duration_s = float(row['DURATION'])    # length of annotation
     duration_s += 2 * chunk_margin_s
-    end_s = min(offset_s + duration_s, row["CLIP LENGTH"])
+    end_s = float(min(offset_s + duration_s, float(row["CLIP LENGTH"])))
     chunk_self_time = chunk_length_s * (1 - overlap)
     
     #Ignore small duration (could be errors, play with this value)
@@ -48,7 +48,7 @@ def convolving_chunk(row:dict,
     # calculate valid offsets for short annotations
     if (duration_s <= chunk_length_s) and not only_slide:
         # start of clip
-        if (offset_s + chunk_length_s) < row['CLIP LENGTH']:
+        if (offset_s + chunk_length_s) < float(row['CLIP LENGTH']):
             starts.append(offset_s)
         # middle of clip
         if end_s - chunk_length_s/2.0 > 0 and end_s + chunk_length_s/2.0 < row['CLIP LENGTH']:

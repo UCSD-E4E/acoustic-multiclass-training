@@ -3,6 +3,7 @@
 # Required path related config
 dataframe_csv:
 data_path:
+infer_csv: 
 # Optional, automatically generates class order if not given
 class_list:
 
