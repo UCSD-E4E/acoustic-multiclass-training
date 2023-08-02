@@ -8,12 +8,35 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Tuple
 
 import pandas as pd
+import numpy as np
+import numbers
+import numbers
 import torch
 import torchaudio
 from pyha_analyzer import config
 from pyha_analyzer import utils
 
 logger = logging.getLogger("acoustic_multiclass_training")
+def invert(seq: list[numbers.Integral]):
+    if 0 in seq: 
+        raise ValueError('Passed iterable cannot contain zero')
+    return [1/x for x in seq]
+
+def hyperbolic(seq: list[numbers.Integral]):
+    norm_factor = sum(invert(seq))
+    probabilities = [x/norm_factor for x in invert(seq)]
+    return dict(zip(probabilities, seq))
+
+def sample(distribution: Dict[numbers.Integral, numbers.Integral]):
+    return np.random.choice(distribution.values(), p = distribution.keys())
+
+l = [1, 2, 3, 4, 5]
+dist = hyperbolic(l)
+print(f"{dist=}")
+for i in range(1000):
+    sample(dist)
+
+
 
 class Mixup(torch.nn.Module):
     """
@@ -35,10 +58,12 @@ class Mixup(torch.nn.Module):
         self.alpha_range = cfg.mixup_alpha_range
         self.prob = cfg.mixup_p
         self.ceil_interval = cfg.mixup_ceil_interval
+        self.num_clips_range = cfg.mixup_num_clips_range
 
-    def forward(self,
-        clip: torch.Tensor,
-        target: torch.Tensor
+    def forward(
+            self,
+            clip: torch.Tensor,
+            target: torch.Tensor
         ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
