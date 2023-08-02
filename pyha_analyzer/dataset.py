@@ -423,7 +423,7 @@ def make_dataloaders(train_dataset, val_dataset, infer_dataset
         num_workers=cfg.jobs,
     )
     if infer_dataset is None:
-        infer_dataloader is None
+        infer_dataloader = None
     else:
         infer_dataloader = DataLoader(
                 infer_dataset,
