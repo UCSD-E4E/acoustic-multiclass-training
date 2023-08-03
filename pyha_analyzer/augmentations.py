@@ -46,14 +46,14 @@ def gen_uniform_values(n: int):
     step = 1/(n-1)
     min_dist = 0.05
     rand_points = np.arange(0, 1, step = step)
-    rand_points = [p + utils.rand(0, step-min_dist) for p in rand_points]
-    probabilities = (
+    rand_points = [0] + [p + utils.rand(0, step- min_dist) for p in rand_points]
+    alphas = (
             [1 - rand_points[-1]]
             + [rand_points[i] - rand_points[i-1] for i in range(1, n)]
         )
-    assert sum(probabilities) <=1.00005
-    assert sum(probabilities) >=0.99995
-    return probabilities
+    assert sum(alphas) <=1.00005
+    assert sum(alphas) >=0.99995
+    return alphas
 
 class Mixup(torch.nn.Module):
     """
@@ -109,8 +109,8 @@ class Mixup(torch.nn.Module):
         clips, targets = zip(*annotations)
         mix_factors = gen_uniform_values(len(annotations))
 
-        mixed_clip = sum(np.multiply(clips, mix_factors))
-        mixed_target = sum(np.multiply(targets, mix_factors))
+        mixed_clip = sum(c * f for c, f in zip(clips, mix_factors))
+        mixed_target = sum(t * f for t, f in zip(targets, mix_factors))
         assert isinstance(mixed_target, torch.Tensor)
         assert isinstance(mixed_clip, torch.Tensor)
         assert mixed_clip.shape == clip.shape
@@ -135,7 +135,6 @@ class Mixup(torch.nn.Module):
         if utils.rand(0,1) < self.prob:
             return clip, target
 
-        print(self.num_clips_distribution)
         num_other_clips = sample(self.num_clips_distribution)
         other_annotations = [self.get_rand_clip() for _ in range(num_other_clips)]
         other_annotations = list(filter(None, other_annotations))
@@ -195,8 +194,6 @@ def pink_noise(vec: torch.Tensor):
     """Pink noise PSD shape"""
     return 1/torch.where(vec == 0, float('inf'), torch.sqrt(vec))
 
-# For some reason this class can't be printed in the repl,
-# but works fine in scripts?
 class SyntheticNoise(torch.nn.Module):
     """
     Attributes:
