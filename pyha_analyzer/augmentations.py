@@ -197,7 +197,7 @@ class BackgroundNoise(torch.nn.Module):
         sample_rate: Sample rate (Hz)
         length: Length of audio clip (s)
     """
-    def __init__(self, cfg: config.Config, norm=True):
+    def __init__(self, cfg: config.Config, norm=False):
         super().__init__()
         self.noise_path = Path(cfg.bg_noise_path)
         self.noise_path_str = cfg.bg_noise_path
@@ -210,6 +210,9 @@ class BackgroundNoise(torch.nn.Module):
             files = list(os.listdir(self.noise_path))
             audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere",".pt")
             self.noise_clips = [f for f in files if f.endswith(audio_extensions)]
+            if len(self.noise_clips) == 0:
+                raise RuntimeError("Background noise path specified, but no audio files found. " \
+                                   + "Check supported format list in augmentations.py")
         elif cfg.bg_noise_p!=0.0:
             raise RuntimeError("Background noise probability is non-zero, "
             + "yet no background path was specified. Please update config.yml")
@@ -236,7 +239,7 @@ class BackgroundNoise(torch.nn.Module):
             logger.warning('Error loading noise clip, background noise augmentation not performed')
             logger.error(e)
             return clip
-        return (1 - alpha*clip) + alpha*noise_clip
+        return (1 - alpha)*clip + alpha*noise_clip
 
     def choose_random_noise(self):
         """
