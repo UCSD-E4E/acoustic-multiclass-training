@@ -15,6 +15,7 @@ import torchaudio
 from pyha_analyzer import config, utils
 
 logger = logging.getLogger("acoustic_multiclass_training")
+
 def invert(seq: Iterable[int]) -> List[float]:
     """
     Replace each element in list with its inverse
@@ -42,14 +43,20 @@ def sample(distribution: Dict[float, int]) -> int:
     values = list(distribution.values())
     return np.random.choice(values, p = probabilities)
 
-def gen_uniform_values(n: int):
+def gen_uniform_values(n: int, min_value=0.05) -> List[float] :
+    """
+    Generates n values uniformly such that their sum is 1
+    Args:
+        n: number of values to generate, must be at least two
+        min_value: Minimum possible value in list. Must be less than 1/(n-1)
+    Returns: List of n values
+    """
     step = 1/(n-1)
-    min_dist = 0.05
     rand_points = np.arange(0, 1, step = step)
-    rand_points = [0] + [p + utils.rand(0, step- min_dist) for p in rand_points]
+    rand_points =  [0.] + [p + utils.rand(0, step-min_value) for p in rand_points]
     alphas = (
-            [1 - rand_points[-1]]
-            + [rand_points[i] - rand_points[i-1] for i in range(1, n)]
+        [1 - rand_points[-1]] +
+        [rand_points[i] - rand_points[i-1] for i in range(1, n)]
         )
     assert sum(alphas) <=1.00005
     assert sum(alphas) >=0.99995
