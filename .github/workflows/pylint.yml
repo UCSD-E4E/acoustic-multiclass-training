@@ -15,6 +15,9 @@ jobs:
         activate-environment: asid
         environment-file: environment.yml
         auto-activate-base: false
+    - name: Check files existance
+      run: |
+        conda run echo $(git ls-files '*.py')
     - name: install pylint
       run: |
         conda install pylint
@@ -32,7 +35,5 @@ jobs:
     - run: |
         conda run python3 -m pyright $(git ls-files '*.py')
     - name: Run Code Tests
-      run: |
-        conda run echo $(git ls-files '*.py')
       run: |
         conda run python3 ./pyha_analyzer/test.py
