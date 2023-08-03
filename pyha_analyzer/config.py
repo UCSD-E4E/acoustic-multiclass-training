@@ -171,8 +171,8 @@ class Config():
         """
         try:
             return self.config_dict[attr]
-        except KeyError:
-            raise AttributeError(f"Config has no attribute {attr}")
+        except KeyError as exc:
+            raise AttributeError(f"Config has no attribute {attr}") from exc
 
     def get_git_hash(self):
         """
