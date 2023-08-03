@@ -33,4 +33,6 @@ jobs:
         conda run python3 -m pyright $(git ls-files '*.py')
     - name: Run Code Tests
       run: |
-        conda run python3 .pyha_analyzer/train.py
+        conda run echo $(git ls-files '*.py')
+      run: |
+        conda run python3 ./pyha_analyzer/test.py
