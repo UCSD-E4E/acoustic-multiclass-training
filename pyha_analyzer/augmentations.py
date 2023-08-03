@@ -24,7 +24,7 @@ def invert(seq: Iterable[int]) -> List[float]:
         raise ValueError('Passed iterable cannot contain zero')
     return [1/x for x in seq]
 
-def hyperbolic(seq: Iterable[int]) -> Dict[float, int]:
+def hyperbolic(seq: Iterable[int]) -> List[Tuple[float, int]]:
     """
     Takes a list of numbers and assigns them a probability
     distribution accourding to the inverse of their values
@@ -32,16 +32,13 @@ def hyperbolic(seq: Iterable[int]) -> Dict[float, int]:
     invert_seq = invert(seq)
     norm_factor = sum(invert_seq)
     probabilities = [x/norm_factor for x in invert_seq]
-    return dict(zip(probabilities, seq))
+    return list(zip(probabilities, seq))
 
-def sample(distribution: Dict[float, int]) -> int:
+def sample(distribution: List[Tuple[float, int]]) -> int:
     """
-    Sample single value from distribution
-    distribution.keys() should be the probabilities,
-    and distribution.values() should be the values
+    Sample single value from distribution given by list of tuples
     """
-    probabilities = list(distribution.keys())
-    values = list(distribution.values())
+    probabilities, values = zip(*distribution)
     return np.random.choice(values, p = probabilities)
 
 def gen_uniform_values(n: int, min_value=0.05) -> List[float] :
