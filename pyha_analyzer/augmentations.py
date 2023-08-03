@@ -34,6 +34,7 @@ class Mixup(torch.nn.Module):
         self.class_to_idx = class_to_idx
         self.alpha_range = cfg.mixup_alpha_range
         self.prob = cfg.mixup_p
+        self.cfg = cfg
 
     def forward(self,
         clip: torch.Tensor,
@@ -58,7 +59,8 @@ class Mixup(torch.nn.Module):
             other_clip, other_target = utils.get_annotation(
                     df = self.df,
                     index = other_idx, 
-                    class_to_idx = self.class_to_idx)
+                    class_to_idx = self.class_to_idx,
+                    conf = self.cfg)
         except RuntimeError:
             logger.error('Error loading other clip, mixup not performed')
             return clip, target

@@ -315,9 +315,9 @@ def main(in_sweep=True) -> None:
 
     # Load in dataset
     logger.info("Loading Dataset...")
-    train_dataset, val_dataset, infer_dataset = get_datasets()
+    train_dataset, val_dataset, infer_dataset = get_datasets(cfg)
     train_dataloader, val_dataloader, infer_dataloader = make_dataloaders(
-        train_dataset, val_dataset, infer_dataset
+        train_dataset, val_dataset, infer_dataset, cfg
     )
 
     logger.info("Loading Model...")

@@ -85,19 +85,20 @@ def get_annotation(
         df: pd.DataFrame, 
         index: int,
         class_to_idx: Dict[str, Any], 
+        conf,
         offset: bool = True,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
     """ Returns tuple of audio waveform and its one-hot label
     """
     assert isinstance(index, int)
-    sample_rate = cfg.sample_rate
-    target_num_samples = cfg.sample_rate * cfg.chunk_length_s
+    sample_rate = conf.sample_rate
+    target_num_samples = conf.sample_rate * conf.chunk_length_s
     annotation = df.iloc[index]
-    file_name = annotation[cfg.file_name_col]
+    file_name = annotation[conf.file_name_col]
     num_classes = len(set(class_to_idx.values()))
 
     # Turns target from integer to one hot tensor vector. I.E. 3 -> [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
-    class_name = annotation[cfg.manual_id_col]
+    class_name = annotation[conf.manual_id_col]
     if isinstance(class_name, dict):
         target = torch.zeros(num_classes)
         for name, alpha in class_name.items():
@@ -111,11 +112,11 @@ def get_annotation(
     try:
         # Get necessary variables from annotation
         annotation = df.iloc[index]
-        file_name = annotation[cfg.file_name_col]
-        frame_offset = int(annotation[cfg.offset_col] * sample_rate)
+        file_name = annotation[conf.file_name_col]
+        frame_offset = int(annotation[conf.offset_col] * sample_rate)
         if offset:
             frame_offset += rand_offset()
-        num_frames = int(annotation[cfg.duration_col] * sample_rate)
+        num_frames = int(annotation[conf.duration_col] * sample_rate)
 
         # Load audio
         audio = torch.load(Path(cfg.data_path)/file_name)
@@ -134,6 +135,6 @@ def get_annotation(
         print(file_name, index)
         raise RuntimeError("Bad Audio") from e
 
-    audio = audio.to(cfg.prepros_device)
-    target = target.to(cfg.prepros_device)
+    audio = audio.to(conf.prepros_device)
+    target = target.to(conf.prepros_device)
     return audio, target
