@@ -82,6 +82,7 @@ class Mixup(torch.nn.Module):
         self.class_to_idx = class_to_idx
         self.prob = cfg.mixup_p
         self.ceil_interval = cfg.mixup_ceil_interval
+        self.min_alpha = cfg.mixup_min_alpha
 
         # Get probability distribution for how many clips to mix
         possible_num_clips = list(range(
@@ -114,7 +115,7 @@ class Mixup(torch.nn.Module):
         """
         annotations = other_annotations + [(clip, target)]
         clips, targets = zip(*annotations)
-        mix_factors = gen_uniform_values(len(annotations), min_value = cfg.mixup_min_alpha)
+        mix_factors = gen_uniform_values(len(annotations), min_value = self.min_alpha)
 
         mixed_clip = sum(c * f for c, f in zip(clips, mix_factors))
         mixed_target = sum(t * f for t, f in zip(targets, mix_factors))
