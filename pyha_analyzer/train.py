@@ -70,6 +70,7 @@ def map_metric(outputs: torch.Tensor, labels: torch.Tensor, num_classes: int) ->
     return map_out
 
 # pylint: disable=too-many-arguments
+# pylint: disable=too-many-locals
 def train(model: TimmModel,
         data_loader: DataLoader,
         valid_loader: DataLoader,
@@ -223,12 +224,12 @@ def valid(model: Any,
 
     if valid_map > best_valid_map:
         logger.info("Model saved in: %s", save_model(model))
-        logger.info("Validation mAP Improved - %f ---> %f", BEST_VALID_MAP, valid_map)
-        BEST_VALID_MAP = valid_map
+        logger.info("Validation mAP Improved - %f ---> %f", best_valid_map, valid_map)
+        best_valid_map = valid_map
 
 
     inference_valid(model, infer_loader, epoch_progress, valid_map)
-    return valid_map
+    return valid_map, best_valid_map
 
 
 def inference_valid(model: Any,
@@ -338,7 +339,6 @@ def main(in_sweep=True) -> None:
     logger.info("Training...")
     early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
 
-
     best_valid_map = 0.0
 
     for epoch in range(cfg.epochs):
@@ -347,6 +347,7 @@ def main(in_sweep=True) -> None:
         best_valid_map = train(model_for_run,
                                train_dataloader,
                                val_dataloader,
+                               infer_dataloader,
                                optimizer,
                                scheduler,
                                epoch,
