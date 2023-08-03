@@ -29,8 +29,9 @@ def hyperbolic(seq: Iterable[int]) -> Dict[float, int]:
     Takes a list of numbers and assigns them a probability
     distribution accourding to the inverse of their values
     """
-    norm_factor = sum(invert(seq))
-    probabilities = [x/norm_factor for x in invert(seq)]
+    invert_seq = invert(seq)
+    norm_factor = sum(invert_seq)
+    probabilities = [x/norm_factor for x in invert_seq]
     return dict(zip(probabilities, seq))
 
 def sample(distribution: Dict[float, int]) -> int:
@@ -53,11 +54,11 @@ def gen_uniform_values(n: int, min_value=0.05) -> List[float] :
     """
     step = 1/(n-1)
     rand_points = np.arange(0, 1, step = step)
-    rand_points =  [0.] + [p + utils.rand(0, step-min_value) for p in rand_points]
+    rand_points = [0.] + [p + utils.rand(0, step-min_value) for p in rand_points]
     alphas = (
         [1 - rand_points[-1]] +
         [rand_points[i] - rand_points[i-1] for i in range(1, n)]
-        )
+    )
     assert sum(alphas) <=1.00005
     assert sum(alphas) >=0.99995
     return alphas
@@ -79,7 +80,6 @@ class Mixup(torch.nn.Module):
         super().__init__()
         self.df = df
         self.class_to_idx = class_to_idx
-        self.alpha_range = cfg.mixup_alpha_range
         self.prob = cfg.mixup_p
         self.ceil_interval = cfg.mixup_ceil_interval
 
@@ -114,7 +114,7 @@ class Mixup(torch.nn.Module):
         """
         annotations = other_annotations + [(clip, target)]
         clips, targets = zip(*annotations)
-        mix_factors = gen_uniform_values(len(annotations))
+        mix_factors = gen_uniform_values(len(annotations), min_value = cfg.mixup_min_alpha)
 
         mixed_clip = sum(c * f for c, f in zip(clips, mix_factors))
         mixed_target = sum(t * f for t, f in zip(targets, mix_factors))

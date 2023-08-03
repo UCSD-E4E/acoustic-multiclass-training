@@ -99,9 +99,9 @@ noise_type: "white"
 noise_alpha: 0.05
 freq_mask_param: 10 # Number of frequencies masked
 time_mask_param: 25 # Number of samples masked
-mixup_alpha_range: [0.1, 0.4]
 mixup_ceil_interval: 1.
 mixup_num_clips_range: [1, 5]
+mixup_min_alpha: 0.05
 rand_eq_f_range: [100, 8000]
 rand_eq_q_range: [1, 9]
 rand_eq_g_range: [-8, 8]
