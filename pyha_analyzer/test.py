@@ -44,7 +44,8 @@ class TestAugmentations(unittest.TestCase):
         assert new_audio.shape == audio.shape, "Mixup should not change shape"
         assert new_label[label_id] == 1., \
                 "Mixup labels should be rounded up to nearest interval"
-        assert float(new_label.sum()) in num_clips_range, "Mixup label should add to two 2"
+        assert float(new_label.sum()) in num_clips_range, \
+                "Mixup label sum should correspond to a possible number of clips"
 
         augs = []
         noise_colors = ["white", "pink", "brown", "blue", "violet"]
