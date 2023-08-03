@@ -43,8 +43,9 @@ def get_test_map():
     
     # Testing
     model_for_run.eval()
-    valid_map, _ = train.valid(model_for_run, dataloader, 0.0, 1.0)
+    valid_map, _ = train.valid(model_for_run, dataloader,None, 0.0, 1.0)
     return valid_map
+
 
 
 if __name__ == "__main__":

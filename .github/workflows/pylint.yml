@@ -28,6 +28,6 @@ jobs:
         conda run python3 -m pylint $(git ls-files '*.py') --rcfile=.pylintrc
     - name: install pyright
       run: |
-        conda run pip install pyright
+        conda run pip install pyright==1.1.318
     - run: |
         conda run python3 -m pyright $(git ls-files '*.py')

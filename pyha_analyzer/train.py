@@ -8,7 +8,7 @@
 import datetime
 import logging
 import os
-from typing import Any, Tuple
+from typing import Any, Tuple, Optional
 
 import numpy as np
 import torch
@@ -73,6 +73,7 @@ def map_metric(outputs: torch.Tensor, labels: torch.Tensor, num_classes: int) ->
 def train(model: TimmModel,
         data_loader: DataLoader,
         valid_loader: DataLoader,
+        infer_loader: Optional[DataLoader],
         optimizer: torch.optim.Optimizer,
         scheduler,
         epoch: int,
@@ -114,7 +115,8 @@ def train(model: TimmModel,
             if scheduler is not None:
                 scheduler.step()
 
-        log_map += map_metric(outputs, labels, model.num_classes)
+        log_pred = F.sigmoid(outputs)
+        log_map += map_metric(log_pred, labels, model.num_classes)
         log_loss += loss.item()
         log_n += 1
 
@@ -151,6 +153,7 @@ def train(model: TimmModel,
             valid_start_time = datetime.datetime.now()
             _, best_valid_map = valid(model,
                                       valid_loader,
+                                      infer_loader,
                                       epoch + i / len(data_loader),
                                       best_valid_map)
             model.train()
@@ -161,6 +164,7 @@ def train(model: TimmModel,
 
 def valid(model: Any,
           data_loader: DataLoader,
+          infer_loader: Optional[DataLoader],
           epoch_progress: float,
           best_valid_map: float = 1.0,
           ) -> Tuple[float, float]:
@@ -202,7 +206,7 @@ def valid(model: Any,
 
 
     # softmax predictions
-    log_pred = F.softmax(torch.cat(log_pred)).to(cfg.device)
+    log_pred = F.sigmoid(torch.cat(log_pred)).to(cfg.device)
 
     valid_map = map_metric(log_pred, torch.cat(log_label), model.num_classes)
 
@@ -219,9 +223,53 @@ def valid(model: Any,
 
     if valid_map > best_valid_map:
         logger.info("Model saved in: %s", save_model(model))
-        logger.info("Validation mAP Improved - %f ---> %f", best_valid_map, valid_map)
-        best_valid_map = valid_map
-    return valid_map, best_valid_map
+        logger.info("Validation mAP Improved - %f ---> %f", BEST_VALID_MAP, valid_map)
+        BEST_VALID_MAP = valid_map
+
+
+    inference_valid(model, infer_loader, epoch_progress, valid_map)
+    return valid_map
+
+
+def inference_valid(model: Any,
+          data_loader: Optional[DataLoader],
+          epoch_progress: float,
+          valid_map: float):
+
+    """ Test Domain Shift To Soundscapes
+
+    """
+    if data_loader is None:
+        return
+
+    model.eval()
+
+    log_pred, log_label = [], []
+
+    num_valid_samples = int(len(data_loader))
+
+    # tqdm is a progress bar
+    dl_iter = tqdm(data_loader, position=5, total=num_valid_samples)
+
+    with torch.no_grad():
+        for _, (mels, labels) in enumerate(dl_iter):
+            _, outputs = run_batch(model, mels, labels)
+            log_pred.append(torch.clone(outputs.cpu()).detach())
+            log_label.append(torch.clone(labels.cpu()).detach())
+
+    # sigmoid predictions
+    log_pred = F.sigmoid(torch.cat(log_pred)).to(cfg.device)
+
+    infer_map = map_metric(log_pred, torch.cat(log_label), model.num_classes)
+    # Log to Weights and Biases
+    domain_shift = np.abs(valid_map - infer_map)
+    wandb.log({
+        "valid/domain_shift_diff": domain_shift,
+        "epoch_progress": epoch_progress,
+    })
+
+    logger.info("Domain Shift Difference:\t%f", domain_shift)
+    
 
 def save_model(model: TimmModel) -> str:
     """ Saves model in the models directory as a pt file, returns path """
@@ -273,8 +321,10 @@ def main(in_sweep=True) -> None:
 
     # Load in dataset
     logger.info("Loading Dataset...")
-    train_dataset, val_dataset = get_datasets()
-    train_dataloader, val_dataloader = make_dataloaders(train_dataset, val_dataset)
+    train_dataset, val_dataset, infer_dataset = get_datasets()
+    train_dataloader, val_dataloader, infer_dataloader = make_dataloaders(
+        train_dataset, val_dataset, infer_dataset
+    )
 
     logger.info("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
@@ -287,6 +337,7 @@ def main(in_sweep=True) -> None:
     
     logger.info("Training...")
     early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
+
 
     best_valid_map = 0.0
 
@@ -302,6 +353,7 @@ def main(in_sweep=True) -> None:
                                best_valid_map)
         valid_map, best_valid_map = valid(model_for_run,
                                           val_dataloader,
+                                          infer_dataloader,
                                           epoch + 1.0,
                                           best_valid_map)
         logger.info("Best validation map: %f", best_valid_map)

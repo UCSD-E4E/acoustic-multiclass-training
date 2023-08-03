@@ -9,7 +9,7 @@
 """
 import logging
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import ast
 
 import numpy as np
@@ -45,13 +45,20 @@ class PyhaDFDataset(Dataset):
     def __init__(self,
                  df: pd.DataFrame,
                  train: bool,
-                 species: List[str]
+                 species: List[str],
+                 onehot:bool = False,
                  ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
-        self.num_samples = cfg.sample_rate * cfg.chunk_length
+        if onehot:
+            if self.samples.iloc[0][species].shape[0] != len(species):
+                logger.error(species)
+                logger.error("make sure class list is fully onehot encoded")
+                raise RuntimeError("One hot values differ from species list")
+
+        self.num_samples = cfg.sample_rate * cfg.chunk_length_s
         self.train = train
         self.device = cfg.prepros_device
-
+        self.onehot = onehot
 
         # List data directory and confirm it exists
         if not os.path.exists(cfg.data_path):
@@ -251,7 +258,11 @@ class PyhaDFDataset(Dataset):
             image = torch.zeros(image.shape)
             target = torch.zeros(target.shape)
 
-            
+        #If dataframe has saved onehot encodings, return those
+        #Assume columns names are species names
+        if  self.onehot:
+            target = self.samples.loc[index, self.classes].values.astype(np.int32)
+            target = torch.Tensor(target)
 
         return image, target
 
@@ -275,7 +286,7 @@ class PyhaDFDataset(Dataset):
         return weight_list
 
 
-def get_datasets():
+def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset]]:
     """ Returns train and validation datasets
     does random sampling for train/valid split
     adds transforms to dataset
@@ -349,15 +360,29 @@ def get_datasets():
     train_ds = PyhaDFDataset(train, train=True, species=classes)
 
     valid_ds = PyhaDFDataset(valid, train=False, species=classes)
-    return train_ds, valid_ds
+
+
+
+    #Handle inference datasets
+    if cfg.infer_csv is None:
+        infer_ds = None
+    else:
+        infer = pd.read_csv(cfg.infer_csv)
+        infer_ds = PyhaDFDataset(infer, train=False, species=classes, onehot=True)
+
+
+
+    return train_ds, valid_ds, infer_ds
 
 def set_torch_file_sharing(_) -> None:
     """
     Sets torch.multiprocessing to use file sharing
     """
     torch.multiprocessing.set_sharing_strategy("file_system")
-def make_dataloaders(train_dataset, val_dataset
-        )-> Tuple[DataLoader, DataLoader]:
+
+
+def make_dataloaders(train_dataset, val_dataset, infer_dataset
+        )-> Tuple[DataLoader, DataLoader, Optional[DataLoader]]:
     """
         Loads datasets and dataloaders for train and validation
     """
@@ -397,15 +422,32 @@ def make_dataloaders(train_dataset, val_dataset
         shuffle=False,
         num_workers=cfg.jobs,
     )
-    return train_dataloader, val_dataloader
+    if infer_dataset is None:
+        infer_dataloader = None
+    else:
+        infer_dataloader = DataLoader(
+                infer_dataset,
+                cfg.validation_batch_size,
+                shuffle=False,
+                num_workers=cfg.jobs,
+                worker_init_fn=set_torch_file_sharing
+            )
+    return train_dataloader, val_dataloader, infer_dataloader
 
 def main() -> None:
     """
     testing function.
     """
-    torch.multiprocessing.set_start_method('spawn')
-    utils.set_seed(cfg.seed)
-    get_datasets()
-
+    # run = wandb.init(
+    #         entity=cfg.wandb_entity,
+    #         project=cfg.wandb_project,
+    #         config=cfg.config_dict,
+    #         mode="online" if cfg.logging else "disabled")
+    # run.name = "inference testing"
+    # torch.multiprocessing.set_start_method('spawn')
+    # utils.set_seed(cfg.seed)
+    # _, _, infer_dataloader = get_datasets()
+    # for _, (_, _) in enumerate(infer_dataloader):
+    #     break
 if __name__ == '__main__':
     main()
