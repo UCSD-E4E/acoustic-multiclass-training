@@ -169,7 +169,10 @@ class Config():
 
         attr string for varible name as defined in a config.yml file
         """
-        return self.config_dict[attr]
+        try:
+            return self.config_dict[attr]
+        except KeyError:
+            raise AttributeError(f"Config has no attribute {attr}")
 
     def get_git_hash(self):
         """
