@@ -24,7 +24,7 @@ from pyha_analyzer.train import run_batch, map_metric, save_model
 
 cfg = config.cfg
 wandb.init(mode="disabled")
-dataset, valid_ds = get_datasets()
+dataset, valid_ds, infer_ds = get_datasets()
 
 
 class TestAugmentations(unittest.TestCase):
@@ -115,7 +115,7 @@ class TestTrain(unittest.TestCase):
     def test_train_batch(self):
         """ Tests if a training batch runs properly """
         cfg.jobs = 0 # type: ignore
-        train_dl, _ = make_dataloaders(dataset, valid_ds)
+        train_dl, _, _ = make_dataloaders(dataset, valid_ds, infer_ds)
         model = TimmModel(dataset.num_classes, "tf_efficientnet_b4", True).to(cfg.device)
         model.create_loss_fn(dataset)
         mels, labels = next(iter(train_dl))

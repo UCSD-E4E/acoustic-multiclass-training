@@ -100,7 +100,7 @@ def get_annotation(
     """
     assert isinstance(index, int)
     sample_rate = cfg.sample_rate
-    target_num_samples = cfg.sample_rate * cfg.max_time
+    target_num_samples = cfg.sample_rate * cfg.chunk_length_s
     annotation = df.iloc[index]
     file_name = annotation[cfg.file_name_col]
     num_classes = len(set(class_to_idx.values()))
