@@ -42,6 +42,19 @@ def sample(distribution: Dict[float, int]) -> int:
     values = list(distribution.values())
     return np.random.choice(values, p = probabilities)
 
+def gen_uniform_values(n: int):
+    step = 1/(n-1)
+    min_dist = 0.05
+    rand_points = np.arange(0, 1, step = step)
+    rand_points = [p + utils.rand(0, step-min_dist) for p in rand_points]
+    probabilities = (
+            [1 - rand_points[-1]]
+            + [rand_points[i] - rand_points[i-1] for i in range(1, n)]
+        )
+    assert sum(probabilities) <=1.00005
+    assert sum(probabilities) >=0.99995
+    return probabilities
+
 class Mixup(torch.nn.Module):
     """
     Attributes:
@@ -84,15 +97,20 @@ class Mixup(torch.nn.Module):
             logger.error('Error loading other clip, ommitted from mixup')
             return None
 
-    def mix_clips(self, clip, target, other_annotations):
+    def mix_clips(self, 
+                  clip: torch.Tensor, 
+                  target: torch.Tensor, 
+                  other_annotations: List[Tuple[torch.Tensor, torch.Tensor]]
+        ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Mixup clips and targets of clip, target, other_annotations
         """
         annotations = other_annotations + [(clip, target)]
         clips, targets = zip(*annotations)
-        mix_factor = 1/len(annotations)
-        mixed_clip = sum(clip * mix_factor for clip in clips)
-        mixed_target = sum(target * mix_factor for target in targets)
+        mix_factors = gen_uniform_values(len(annotations))
+
+        mixed_clip = sum(np.multiply(clips, mix_factors))
+        mixed_target = sum(np.multiply(targets, mix_factors))
         assert isinstance(mixed_target, torch.Tensor)
         assert isinstance(mixed_clip, torch.Tensor)
         assert mixed_clip.shape == clip.shape
