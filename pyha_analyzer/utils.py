@@ -47,6 +47,15 @@ def log_rand(low: float, high: float) -> float:
     rand_exp = rand(low_exp, high_exp)
     return math.exp(rand_exp)
 
+def ceil(audio: torch.Tensor, interval: float = 1.):
+    """
+    Rounds every element of tensor up. 
+    Rounding interval given by `interval`
+    """
+    audio = audio / interval
+    audio = torch.ceil(audio)
+    return audio*interval
+
 def pad_audio(audio: torch.Tensor, num_samples:int) -> torch.Tensor:
     """Fills the last dimension of the input audio with zeroes until it is num_samples long
     """
