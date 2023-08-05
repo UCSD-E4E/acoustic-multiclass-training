@@ -1,14 +1,14 @@
-# pylint: disable=E1123:
-
 """ Contains the model class
     Model: model with forward pass method. Generated automatically from a timm model
 
 """
 import logging
+from typing import Callable, Optional, Tuple
 # timm is a library of premade models
 import timm
 import torch
 from torch import nn
+from torch.amp.autocast_mode import autocast
 
 from pyha_analyzer import config
 from pyha_analyzer.models.loss_fn import bce_loss_fn, cross_entropy_loss_fn, focal_loss_fn
@@ -35,7 +35,7 @@ class TimmModel(nn.Module):
             pretrained=pretrained,
             num_classes=num_classes,
             drop_rate=cfg.drop_rate)
-        self.loss_fn = None
+        self.loss_fn: Optional[Callable] = None
         self.without_logits = cfg.loss_fnc == "BCE"
 
         logger.debug("add sigmod: %s", str(self.without_logits))
@@ -53,7 +53,7 @@ class TimmModel(nn.Module):
         """
         loss_desc = cfg.loss_fnc
         if loss_desc == "CE":
-            return cross_entropy_loss_fn(self, train_dataset)#
+            return cross_entropy_loss_fn(self, train_dataset)
         if loss_desc == "BCE":
             return bce_loss_fn(self, self.without_logits)
         if loss_desc == "BCEWL":
@@ -61,3 +61,43 @@ class TimmModel(nn.Module):
         if loss_desc == "FL":
             return focal_loss_fn(self, self.without_logits)
         raise RuntimeError("Pick a loss in the form of CE, BCE, BCEWL, or FL")
+
+    def try_load_checkpoint(self) -> bool:
+        """ Returns true if a checkpoint is specified and loads properly
+        Raises an error if checkpoint path is invalid
+        Returns true if model checkpoint is loaded """
+        if cfg.model_checkpoint == "" or cfg.model_checkpoint is None:
+            return False
+        try:
+            self.load_state_dict(torch.load(cfg.model_checkpoint))
+        except FileNotFoundError as exc:
+            raise FileNotFoundError("Model not found: " + cfg.model_checkpoint) from exc
+        return True
+
+    def run_batch(self, mels: torch.Tensor,
+                  labels: torch.Tensor,
+                 ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """ Runs the model on a single batch 
+            Args:
+                model: the model to pass the batch through
+                mels: single batch of input data
+                labels: single batch of expecte output
+            Returns (tuple of):
+                loss: the loss of the batch
+                outputs: the output of the model
+        """
+        mels = mels.to(cfg.device)
+        labels = labels.to(cfg.device)
+        if cfg.device == "cpu": 
+            dtype = torch.bfloat16
+        else: 
+            dtype = torch.float16
+        with autocast(device_type=cfg.device, dtype=dtype, enabled=cfg.mixed_precision):
+            outputs = (self)(mels)
+            if self.loss_fn is None:
+                raise RuntimeError("Loss function not created")
+            # pylint: disable-next=not-callable
+            loss = self.loss_fn(outputs, labels)
+        outputs = outputs.to(dtype=torch.float32)
+        loss = loss.to(dtype=torch.float32)
+        return loss, outputs

@@ -8,12 +8,12 @@
 import datetime
 import logging
 import os
+from pathlib import Path
 from typing import Any, Tuple, Optional
 
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.amp.autocast_mode import autocast
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torchmetrics.classification import MultilabelAveragePrecision
@@ -21,41 +21,17 @@ from tqdm import tqdm
 import wandb
 
 from pyha_analyzer import config
-from pyha_analyzer.dataset import get_datasets, make_dataloaders
+from pyha_analyzer.dataset import get_datasets, make_dataloader, PyhaDFDataset
 from pyha_analyzer.utils import set_seed
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
+from pyha_analyzer.pseudolabel import add_pseudolabels
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
 
-def run_batch(model: TimmModel,
-                mels: torch.Tensor,
-                labels: torch.Tensor,
-                ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """ Runs the model on a single batch 
-        Args:
-            model: the model to pass the batch through
-            mels: single batch of input data
-            labels: single batch of expecte output
-        Returns (tuple of):
-            loss: the loss of the batch
-            outputs: the output of the model
-    """
-    mels = mels.to(cfg.device)
-    labels = labels.to(cfg.device)
-    if cfg.device == "cpu": 
-        dtype = torch.bfloat16
-    else: 
-        dtype = torch.float16
-    with autocast(device_type=cfg.device, dtype=dtype, enabled=cfg.mixed_precision):
-        outputs = model(mels)
-        loss = model.loss_fn(outputs, labels) # type: ignore
-    outputs = outputs.to(dtype=torch.float32)
-    loss = loss.to(dtype=torch.float32)
-    return loss, outputs
 
 def map_metric(outputs: torch.Tensor, labels: torch.Tensor, num_classes: int) -> float:
     """ Returns macro average precision metric for a batch of outputs and labels """
@@ -98,7 +74,7 @@ def train(model: TimmModel,
 
         optimizer.zero_grad()
 
-        loss, outputs = run_batch(model,  mels, labels)
+        loss, outputs = model.run_batch(mels, labels)
 
         if cfg.mixed_precision and cfg.device != "cpu":
             # Pyright complains about scaler.scale(loss) returning iterable of unknown types
@@ -198,7 +174,7 @@ def valid(model: Any,
                 # Stop early if not doing full validation
                 break
 
-            loss, outputs = run_batch(model, mels, labels)
+            loss, outputs = model.run_batch(mels, labels)
                 
             running_loss += loss.item()
             
@@ -254,7 +230,7 @@ def inference_valid(model: Any,
 
     with torch.no_grad():
         for _, (mels, labels) in enumerate(dl_iter):
-            _, outputs = run_batch(model, mels, labels)
+            _, outputs = model.run_batch(mels, labels)
             log_pred.append(torch.clone(outputs.cpu()).detach())
             log_label.append(torch.clone(labels.cpu()).detach())
 
@@ -323,16 +299,21 @@ def main(in_sweep=True) -> None:
     # Load in dataset
     logger.info("Loading Dataset...")
     train_dataset, val_dataset, infer_dataset = get_datasets()
-    train_dataloader, val_dataloader, infer_dataloader = make_dataloaders(
-        train_dataset, val_dataset, infer_dataset
-    )
+    training_samples = train_dataset.samples
+    train_dataloader = make_dataloader(train_dataset,cfg.train_batch_size,
+                                       cfg.does_weighted_sampling)
+    val_dataloader = make_dataloader(val_dataset,cfg.validation_batch_size)
+    if infer_dataset is None:
+        infer_dataloader = None
+    else:
+        infer_dataloader = make_dataloader(infer_dataset,cfg.validation_batch_size)
 
     logger.info("Loading Model...")
     model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
                               model_name=cfg.model).to(cfg.device)
     model_for_run.create_loss_fn(train_dataset)
-    if cfg.model_checkpoint != "":
-        model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))
+    if model_for_run.try_load_checkpoint():
+        logger.info("Loaded model from checkpoint")
     optimizer = Adam(model_for_run.parameters(), lr=cfg.learning_rate)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
     
@@ -358,6 +339,15 @@ def main(in_sweep=True) -> None:
                                           epoch + 1.0,
                                           best_valid_map)
         logger.info("Best validation map: %f", best_valid_map)
+        
+        # Pseudo-labeling
+        if (Path(cfg.data_path) / "pseudo").is_dir():
+            samples = add_pseudolabels(model_for_run, training_samples, 
+                                                     threshold = 0.50 + epoch * 0.02)
+            train_dataset = PyhaDFDataset(samples, train=True, species=cfg.class_list)
+            train_dataloader = make_dataloader(train_dataset,
+                                               cfg.train_batch_size,
+                                               cfg.does_weighted_sampling)
 
         if cfg.early_stopping and early_stopper.early_stop(valid_map):
             logger.info("Early stopping has triggered on epoch %d", epoch)

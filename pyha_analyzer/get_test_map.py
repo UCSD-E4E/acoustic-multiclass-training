@@ -36,10 +36,6 @@ def get_test_map():
     model_for_run = TimmModel(num_classes=test_ds.num_classes, 
                               model_name=cfg.model).to(cfg.device)
     model_for_run.create_loss_fn(test_ds)
-    try:
-        model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))
-    except FileNotFoundError as exc:
-        raise FileNotFoundError("Model not found: " + cfg.model_checkpoint) from exc
     
     # Testing
     model_for_run.eval()

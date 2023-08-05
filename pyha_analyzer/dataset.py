@@ -360,9 +360,6 @@ def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset
     train_ds = PyhaDFDataset(train, train=True, species=classes)
 
     valid_ds = PyhaDFDataset(valid, train=False, species=classes)
-
-
-
     #Handle inference datasets
     if cfg.infer_csv is None:
         infer_ds = None
@@ -381,58 +378,32 @@ def set_torch_file_sharing(_) -> None:
     torch.multiprocessing.set_sharing_strategy("file_system")
 
 
-def make_dataloaders(train_dataset, val_dataset, infer_dataset
-        )-> Tuple[DataLoader, DataLoader, Optional[DataLoader]]:
-    """
-        Loads datasets and dataloaders for train and validation
-    """
-
-
-    # Create our dataloaders
-    # if sampler function is "specified, shuffle must not be specified."
-    # https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
-    
-    if cfg.does_weighted_sampling:
-        if train_dataset.samples[cfg.manual_id_col].any(lambda x: isinstance(x,dict)):
+def make_dataloader(dataset, batch_size, weighted_sampling=False, shuffle=True):
+    """ Creates a torch DataLoader from a PyhaDFDataset """
+    if weighted_sampling:
+        if dataset.samples[cfg.manual_id_col].any(lambda x: isinstance(x,dict)):
             raise NotImplementedError("Weighted sampling not implemented for overlapping targets")
         # Code used from:
         # https://www.kaggle.com/competitions/birdclef-2023/discussion/412808
         # Get Sample Weights
-        weights_list = train_dataset.get_sample_weights()
+        weights_list = dataset.get_sample_weights()
         sampler = WeightedRandomSampler(weights_list, len(weights_list))
-        train_dataloader = DataLoader(
-            train_dataset,
+        # if sampler function is "specified, shuffle must not be specified."
+        # https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
+        return DataLoader(
+            dataset,
             cfg.train_batch_size,
             sampler=sampler,
             num_workers=cfg.jobs,
             worker_init_fn=set_torch_file_sharing
         )
-    else:
-        train_dataloader = DataLoader(
-            train_dataset,
-            cfg.train_batch_size,
-            shuffle=True,
-            num_workers=cfg.jobs,
-            worker_init_fn=set_torch_file_sharing
-        )
-
-    val_dataloader = DataLoader(
-        val_dataset,
-        cfg.validation_batch_size,
-        shuffle=False,
+    return DataLoader(
+        dataset,
+        batch_size,
+        shuffle=shuffle,
         num_workers=cfg.jobs,
+        worker_init_fn=set_torch_file_sharing
     )
-    if infer_dataset is None:
-        infer_dataloader = None
-    else:
-        infer_dataloader = DataLoader(
-                infer_dataset,
-                cfg.validation_batch_size,
-                shuffle=False,
-                num_workers=cfg.jobs,
-                worker_init_fn=set_torch_file_sharing
-            )
-    return train_dataloader, val_dataloader, infer_dataloader
 
 def main() -> None:
     """
