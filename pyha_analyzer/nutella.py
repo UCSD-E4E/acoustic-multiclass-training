@@ -4,6 +4,7 @@ Code shamelessly stolen from https://github.com/google-research/chirp/blob/main/
 import numpy as np
 import torch
 import scipy
+from models.timm_model import TimmModel
 
 #TODO: Decide whether to add sparse storage
 def compute_nearest_neighbors(
@@ -116,3 +117,9 @@ def teacher_step(
       if normalize_pseudo_labels:
         pseudo_label /= pseudo_label.sum(axis=-1, keepdims=True) + eps
     return pseudo_label
+
+if __name__=="__main__":
+    model = TimmModel(10)
+    image = torch.rand((1, 3, 100, 100))
+    features = model.get_features(image)
+    print(f"{features=}")
