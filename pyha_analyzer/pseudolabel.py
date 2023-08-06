@@ -18,7 +18,7 @@ from pyha_analyzer import dataset
 from pyha_analyzer import utils
 from pyha_analyzer.models.timm_model import TimmModel
 
-cfg = config.Config()
+cfg = config.cfg
 
 def make_raw_df() -> pd.DataFrame:
     """ Returns dataframe of all raw chunks in {data_path}/pseudo """
