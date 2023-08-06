@@ -52,10 +52,6 @@ def make_raw_df() -> pd.DataFrame:
 
 def run_raw(model: TimmModel, df: pd.DataFrame):
     """ Returns predictions tensor from raw chunk dataframe """
-    torch.multiprocessing.set_start_method('spawn', force=True)
-    print(f"Device is: {cfg.device}, Preprocessing Device is {cfg.prepros_device}")
-    utils.set_seed(cfg.seed)
-
     # Get dataset
     if cfg.class_list is None:
         raise ValueError("Class list must be specified in config")
@@ -105,7 +101,11 @@ def add_pseudolabels(model: TimmModel, cur_df: pd.DataFrame, threshold: float) -
 
 def main():
     """ Main function """
+    torch.multiprocessing.set_start_method('spawn', force=True)
+    print(f"Device is: {cfg.device}, Preprocessing Device is {cfg.prepros_device}")
     wandb.init(mode="disabled")
+    utils.set_seed(cfg.seed)
+
     print("Generating raw dataframe...")
     raw_df = make_raw_df()
     print("Running model...")
