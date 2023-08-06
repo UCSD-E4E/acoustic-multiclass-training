@@ -55,7 +55,6 @@ def run_raw(model: TimmModel, df: pd.DataFrame):
     torch.multiprocessing.set_start_method('spawn', force=True)
     print(f"Device is: {cfg.device}, Preprocessing Device is {cfg.prepros_device}")
     utils.set_seed(cfg.seed)
-    wandb.init(mode="disabled")
 
     # Get dataset
     if cfg.class_list is None:
@@ -106,6 +105,7 @@ def add_pseudolabels(model: TimmModel, cur_df: pd.DataFrame, threshold: float) -
 
 def main():
     """ Main function """
+    wandb.init(mode="disabled")
     print("Generating raw dataframe...")
     raw_df = make_raw_df()
     print("Running model...")
