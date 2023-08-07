@@ -286,12 +286,13 @@ def run_train(model,
               infer_dataloader, 
               optimizer,
               scheduler, 
+              epochs,
     ):
     early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
 
     best_valid_map = 0.0
 
-    for epoch in range(cfg.epochs):
+    for epoch in range(epochs):
         logger.info("Epoch %d", epoch)
 
         best_valid_map = train(model,
@@ -352,23 +353,32 @@ def main(in_sweep=True) -> None:
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
     
     logger.info("Training...")
-    run_train(model,
-              train_dataloader,
-              val_dataloader,
-              infer_dataloader,
-              optimizer,
-              scheduler)
+#    run_train(model,
+#              train_dataloader,
+#              val_dataloader,
+#              infer_dataloader,
+#              optimizer,
+#              scheduler,
+#              cfg.epochs)
+    #TODO: And wandb.init here
     if cfg.pseudo:
+        pseudo_labels(model, optimizer, scheduler)
+def pseudo_labels(model, optimizer, scheduler):
         logger.info("Loading pseudo labels...")
-        pseudo_df = pseudolabel.make_raw_df()
-        train_files = pseudo_df.groupby(cfg.manual_id_col, as_index=False).apply(
-            lambda x: pd.Series(x[cfg.file_name_col].unique()).sample(frac=cfg.train_test_split)
+        raw_df = pseudolabel.make_raw_df()
+        predictions = pseudolabel.run_raw(model, raw_df)
+        pseudo_df = pseudolabel.get_pseudolabels(
+                predictions, raw_df, cfg.pseudo_threshold
         )
-        pseudo_train = pseudo_df[pseudo_df[cfg.file_name_col].isin(train_files)]
-        pseudo_valid = pseudo_df[~pseudo_df.index.isin(pseudo_train.index)]
+        print(pseudo_df.to_string())
+        print(f"{pseudo_df.columns=}")
+        #TODO set train to true
+        train_ds = PyhaDFDataset(pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list)
+        # Note that this is just the same data as the train dataset
+        val_ds = PyhaDFDataset(pseudo_df, train=False, species=cfg.class_list)
         _, _, infer_ds = dataset.get_datasets()
         train_dl, val_dl, infer_dl = (
-            dataset.get_dataloader(pseudo_train, pseudo_valid, infer_ds)
+            dataset.get_dataloader(train_ds, val_ds, infer_ds)
         )
         logger.info("Finetuning on pseudo labels...")
 
@@ -377,8 +387,8 @@ def main(in_sweep=True) -> None:
               val_dl,
               infer_dl,
               optimizer,
-              scheduler)
-        
+              scheduler,
+              cfg.epochs)
 
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')

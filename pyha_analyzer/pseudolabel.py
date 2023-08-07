@@ -24,6 +24,7 @@ def make_raw_df() -> pd.DataFrame:
     """ Returns dataframe of all raw chunks in {data_path}/pseudo """
     files = os.listdir(os.path.join(cfg.data_path, "pseudo"))
     valid_formats = (".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aiff", ".aif")
+    valid_formats += tuple(f.upper() for f in valid_formats)
     # Split into raw chunks
     chunks = []
     for file in tqdm(files):
