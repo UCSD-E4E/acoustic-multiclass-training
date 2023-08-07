@@ -7,6 +7,11 @@ infer_csv:
 # Optional, automatically generates class order if not given
 class_list:
 
+#Pseudolabeling
+pseudo: True
+pseudo_csv: #Necessary if doing pseudolabeling
+
+
 # Dataframe column names
 offset_col: "OFFSET"
 duration_col: "DURATION"

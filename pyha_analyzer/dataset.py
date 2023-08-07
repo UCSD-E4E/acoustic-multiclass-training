@@ -285,12 +285,12 @@ class PyhaDFDataset(Dataset):
         weight_list = self.samples[manual_id].apply(lambda x: sample_weights.loc[x])
         return weight_list
 
-
 def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset]]:
     """ Returns train and validation datasets
     does random sampling for train/valid split
     adds transforms to dataset
     """
+
     train_p = cfg.train_test_split
     path = cfg.dataframe_csv
     # Load the dataset
@@ -359,8 +359,9 @@ def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset
 
     valid = data[~data.index.isin(train.index)]
     train_ds = PyhaDFDataset(train, train=True, species=classes)
-
     valid_ds = PyhaDFDataset(valid, train=False, species=classes)
+        
+
     #Handle inference datasets
     if cfg.infer_csv is None:
         infer_ds = None
@@ -378,6 +379,15 @@ def set_torch_file_sharing(_) -> None:
     """
     torch.multiprocessing.set_sharing_strategy("file_system")
 
+def get_dataloader(train_dataset, val_dataset, infer_dataset):
+    train_dataloader = make_dataloader(train_dataset,cfg.train_batch_size,
+                                       cfg.does_weighted_sampling)
+    val_dataloader = make_dataloader(val_dataset,cfg.validation_batch_size)
+    if infer_dataset is None:
+        infer_dataloader = None
+    else:
+        infer_dataloader = make_dataloader(infer_dataset,cfg.validation_batch_size)
+    return train_dataloader, val_dataloader, infer_dataloader
 
 def make_dataloader(dataset, batch_size, weighted_sampling=False, shuffle=True):
     """ Creates a torch DataLoader from a PyhaDFDataset """

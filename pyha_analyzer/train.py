@@ -12,16 +12,20 @@ from pathlib import Path
 from typing import Any, Tuple, Optional
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
 from torch.utils.data import DataLoader
+from pyha_analyzer import pseudolabel
+import pyha_analyzer
 from torchmetrics.classification import MultilabelAveragePrecision
 from tqdm import tqdm
 import wandb
 
 from pyha_analyzer import config
-from pyha_analyzer.dataset import get_datasets, make_dataloader, PyhaDFDataset
+from pyha_analyzer.dataset import get_dataloader, PyhaDFDataset, get_datasets
+import pyha_analyzer.dataset as dataset
 from pyha_analyzer.utils import set_seed
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
@@ -276,6 +280,37 @@ def logging_setup() -> None:
     logger.debug("Debug logging enabled")
     logger.debug("Config: %s", cfg.config_dict)
     logger.debug("Git hash: %s", cfg.git_hash)
+def run_train(model, 
+              train_dataloader, 
+              val_dataloader, 
+              infer_dataloader, 
+              optimizer,
+              scheduler, 
+    ):
+    early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
+
+    best_valid_map = 0.0
+
+    for epoch in range(cfg.epochs):
+        logger.info("Epoch %d", epoch)
+
+        best_valid_map = train(model,
+                               train_dataloader,
+                               val_dataloader,
+                               infer_dataloader,
+                               optimizer,
+                               scheduler,
+                               epoch,
+                               best_valid_map)
+        valid_map, best_valid_map = valid(model,
+                                          val_dataloader,
+                                          infer_dataloader,
+                                          epoch + 1.0,
+                                          best_valid_map)
+        logger.info("Best validation map: %f", best_valid_map)
+        if cfg.early_stopping and early_stopper.early_stop(valid_map):
+            logger.info("Early stopping has triggered on epoch %d", epoch)
+            break
 
 def main(in_sweep=True) -> None:
     """ Main function
@@ -298,60 +333,52 @@ def main(in_sweep=True) -> None:
 
     # Load in dataset
     logger.info("Loading Dataset...")
-    train_dataset, val_dataset, infer_dataset = get_datasets()
+    train_dataset, val_dataset, infer_dataset = dataset.get_datasets()
     training_samples = train_dataset.samples
-    train_dataloader = make_dataloader(train_dataset,cfg.train_batch_size,
-                                       cfg.does_weighted_sampling)
-    val_dataloader = make_dataloader(val_dataset,cfg.validation_batch_size)
-    if infer_dataset is None:
-        infer_dataloader = None
-    else:
-        infer_dataloader = make_dataloader(infer_dataset,cfg.validation_batch_size)
+    train_dataloader, val_dataloader, infer_dataloader = (
+            dataset.get_dataloader(train_dataset, val_dataset, infer_dataset)
+    )
 
     logger.info("Loading Model...")
-    model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
-                              model_name=cfg.model).to(cfg.device)
-    model_for_run.create_loss_fn(train_dataset)
-    if model_for_run.try_load_checkpoint():
+    model = TimmModel(
+            num_classes=train_dataset.num_classes, model_name=cfg.model
+    ).to(cfg.device)
+    model.create_loss_fn(train_dataset)
+
+    # Generic train part
+    if model.try_load_checkpoint():
         logger.info("Loaded model from checkpoint")
-    optimizer = Adam(model_for_run.parameters(), lr=cfg.learning_rate)
+    optimizer = Adam(model.parameters(), lr=cfg.learning_rate)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
     
     logger.info("Training...")
-    early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
+    run_train(model,
+              train_dataloader,
+              val_dataloader,
+              infer_dataloader,
+              optimizer,
+              scheduler)
+    if cfg.pseudo:
+        logger.info("Loading pseudo labels...")
+        pseudo_df = pseudolabel.make_raw_df()
+        train_files = pseudo_df.groupby(cfg.manual_id_col, as_index=False).apply(
+            lambda x: pd.Series(x[cfg.file_name_col].unique()).sample(frac=cfg.train_test_split)
+        )
+        pseudo_train = pseudo_df[pseudo_df[cfg.file_name_col].isin(train_files)]
+        pseudo_valid = pseudo_df[~pseudo_df.index.isin(pseudo_train.index)]
+        _, _, infer_ds = dataset.get_datasets()
+        train_dl, val_dl, infer_dl = (
+            dataset.get_dataloader(pseudo_train, pseudo_valid, infer_ds)
+        )
+        logger.info("Finetuning on pseudo labels...")
 
-    best_valid_map = 0.0
-
-    for epoch in range(cfg.epochs):
-        logger.info("Epoch %d", epoch)
-
-        best_valid_map = train(model_for_run,
-                               train_dataloader,
-                               val_dataloader,
-                               infer_dataloader,
-                               optimizer,
-                               scheduler,
-                               epoch,
-                               best_valid_map)
-        valid_map, best_valid_map = valid(model_for_run,
-                                          val_dataloader,
-                                          infer_dataloader,
-                                          epoch + 1.0,
-                                          best_valid_map)
-        logger.info("Best validation map: %f", best_valid_map)
+        run_train(model,
+              train_dl,
+              val_dl,
+              infer_dl,
+              optimizer,
+              scheduler)
         
-        # Pseudo-labeling
-        if (Path(cfg.data_path) / "pseudo").is_dir():
-            samples = add_pseudolabels(model_for_run, training_samples, 
-                                                     threshold = 0.50 + epoch * 0.02)
-            train_dataset = PyhaDFDataset(samples, train=True, species=cfg.class_list)
-            train_dataloader = make_dataloader(train_dataset,
-                                               cfg.train_batch_size,
-                                               cfg.does_weighted_sampling)
-
-        if cfg.early_stopping and early_stopper.early_stop(valid_map):
-            logger.info("Early stopping has triggered on epoch %d", epoch)
-            break
 
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')
