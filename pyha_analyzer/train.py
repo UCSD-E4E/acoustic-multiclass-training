@@ -358,15 +358,21 @@ def main(in_sweep=True) -> None:
               scheduler,
               cfg.epochs)
 
-    #TODO: And wandb.init here
     if cfg.pseudo:
-        pseudo_labels(model, optimizer, scheduler)
+        pseudo_labels(model, optimizer, scheduler, run.name)
 
 #TODO: Make naming consistent
-def pseudo_labels(model, optimizer, scheduler):
+def pseudo_labels(model, optimizer, scheduler, run_name):
     """
     Fine tune on pseudo labels
     """
+    run = wandb.init(
+            entity=cfg.wandb_entity,
+            project=f"{cfg.wandb_project}-pseudo",
+            config=cfg.config_dict,
+            mode="online" if cfg.logging else "disabled")
+    run.name = run_name
+
     logger.info("Loading pseudo labels...")
     raw_df = pseudolabel.make_raw_df()
     predictions = pseudolabel.run_raw(model, raw_df)
