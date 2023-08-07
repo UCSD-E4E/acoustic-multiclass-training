@@ -245,7 +245,6 @@ class PyhaDFDataset(Dataset):
                 index = index,
                 class_to_idx = self.class_to_idx)
 
-        #TODO: Put back
         audio, target = self.mixup(audio, target)
         if self.train:
             audio = self.audio_augmentations(audio)

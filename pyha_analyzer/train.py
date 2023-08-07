@@ -276,7 +276,7 @@ def logging_setup() -> None:
     logger.debug("Debug logging enabled")
     logger.debug("Config: %s", cfg.config_dict)
     logger.debug("Git hash: %s", cfg.git_hash)
-    #TODO: Add typing
+
 def run_train(model, 
               train_dataloader, 
               val_dataloader, 
@@ -379,10 +379,9 @@ def pseudo_labels(model, optimizer, scheduler, run_name):
     pseudo_df = pseudolabel.get_pseudolabels(
             predictions, raw_df, cfg.pseudo_threshold
     )
-    #TODO set train to true
-    train_ds = PyhaDFDataset(pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list)
+    train_dataset = PyhaDFDataset(pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list)
     # Note that this is just the same data as the train dataset
-    val_ds = PyhaDFDataset(pseudo_df, train=False, species=cfg.class_list)
+    val_dataset = PyhaDFDataset(pseudo_df, train=False, species=cfg.class_list)
     _, _, infer_ds = dataset.get_datasets()
     train_dataloader, val_dataloader, infer_dataloader = (
         dataset.get_dataloader(train_dataset, val_dataset, infer_dataset)
