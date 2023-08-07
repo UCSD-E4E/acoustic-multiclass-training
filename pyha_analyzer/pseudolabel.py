@@ -45,7 +45,7 @@ def make_raw_df() -> pd.DataFrame:
             chunks.append(pd.Series({
                 "OFFSET": i * cfg.chunk_length_s,
                 "DURATION": cfg.chunk_length_s,
-                cfg.manual_id_col: cfg.class_list[0], # Set to something to prevent error
+                cfg.manual_id_col: cfg.config_dict["class_list"][0], # Set to stop error
                 "FILE NAME": os.path.join("pseudo", file),
                 "CLIP LENGTH": file_len}))
     return pd.DataFrame(chunks)
@@ -53,9 +53,9 @@ def make_raw_df() -> pd.DataFrame:
 def run_raw(model: TimmModel, df: pd.DataFrame):
     """ Returns predictions tensor from raw chunk dataframe """
     # Get dataset
-    if cfg.class_list is None:
-        raise ValueError("Class list must be specified in config")
-    raw_ds = dataset.PyhaDFDataset(df,train=False, species=cfg.class_list)
+    if cfg.config_dict["class_list"] is None:
+        raise ValueError("Pseudolabelling requires class list")
+    raw_ds = dataset.PyhaDFDataset(df,train=False, species=cfg.config_dict["class_list"])
     dataloader = DataLoader(raw_ds, cfg.train_batch_size, num_workers=cfg.jobs)
 
     # Testing
