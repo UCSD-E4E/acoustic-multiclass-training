@@ -8,8 +8,10 @@ infer_csv:
 class_list:
 
 #Pseudolabeling
-pseudo: True
+pseudo: true
 pseudo_csv: #Necessary if doing pseudolabeling
+pseudo_data_augs: false
+pseudo_threshold: 0.7
 
 
 # Dataframe column names
