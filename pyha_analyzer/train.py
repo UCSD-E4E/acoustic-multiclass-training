@@ -55,7 +55,8 @@ def train(model: TimmModel,
         epoch: int,
         best_valid_map: float,
        ) -> float:
-    """ Trains the model
+    """ 
+    Trains the model
     Returns new best valid map
     """
     logger.debug('size of data loader: %d', len(data_loader))
@@ -361,7 +362,6 @@ def main(in_sweep=True) -> None:
     if cfg.pseudo:
         pseudo_labels(model, optimizer, scheduler, run.name)
 
-#TODO: Make naming consistent
 def pseudo_labels(model, optimizer, scheduler, run_name):
     """
     Fine tune on pseudo labels
@@ -384,14 +384,14 @@ def pseudo_labels(model, optimizer, scheduler, run_name):
     # Note that this is just the same data as the train dataset
     val_ds = PyhaDFDataset(pseudo_df, train=False, species=cfg.class_list)
     _, _, infer_ds = dataset.get_datasets()
-    train_dl, val_dl, infer_dl = (
-        dataset.get_dataloader(train_ds, val_ds, infer_ds)
+    train_dataloader, val_dataloader, infer_dataloader = (
+        dataset.get_dataloader(train_dataset, val_dataset, infer_dataset)
     )
     logger.info("Finetuning on pseudo labels...")
     run_train(model,
-          train_dl,
-          val_dl,
-          infer_dl,
+          train_dataloader,
+          val_dataloader,
+          infer_dataloader,
           optimizer,
           scheduler,
           cfg.epochs)
