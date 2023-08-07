@@ -101,3 +101,14 @@ class TimmModel(nn.Module):
         outputs = outputs.to(dtype=torch.float32)
         loss = loss.to(dtype=torch.float32)
         return loss, outputs
+
+    # Temp, only works for efficientnet
+    def get_features(self, images):
+        model = self.model
+        x = self.model.conv_stem(images)
+        x = self.model.bn1(x)
+        x = self.model.blocks(x)
+        x = self.model.conv_head(x)
+        x = self.model.bn2(x)
+        print(f"{x.shape=}")
+        return torch.nn.AdaptiveAvgPool2d(x.shape[2:])(x)
