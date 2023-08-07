@@ -3,9 +3,11 @@ Code originally from Google's Chirp project implementation of NOTELA:
 https://github.com/google-research/chirp/blob/main/chirp/projects/sfda/methods/notela.py
 """
 import numpy as np
-import torch
 import scipy
+import torch
+
 from pyha_analyzer.models.timm_model import TimmModel
+
 
 def compute_nearest_neighbors(batch_feature: np.ndarray,
                               dataset_feature: np.ndarray,

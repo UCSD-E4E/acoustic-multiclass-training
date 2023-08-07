@@ -1,8 +1,8 @@
 """ Stores useful functions for the pyha_analyzer module """
 
+import math
 from pathlib import Path
 from typing import Any, Dict, Tuple
-import math
 
 import numpy as np
 import pandas as pd

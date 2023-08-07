@@ -2,7 +2,7 @@
     This file contains methods that allow the visualization of
     different data augmentations.
 """
-from typing import Callable, List, Tuple, Dict, Any
+from typing import Any, Callable, Dict, List, Tuple
 
 import numpy as np
 import torch
@@ -10,10 +10,11 @@ from matplotlib import cm
 from matplotlib import pyplot as plt
 
 from pyha_analyzer import config
-from pyha_analyzer.utils import get_annotation
-from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, 
-                                         HighpassFilter, RandomEQ, SyntheticNoise)
+from pyha_analyzer.augmentations import (BackgroundNoise, HighpassFilter,
+                                         LowpassFilter, Mixup, RandomEQ,
+                                         SyntheticNoise)
 from pyha_analyzer.dataset import PyhaDFDataset, get_datasets
+from pyha_analyzer.utils import get_annotation
 
 SYNTH_COLORS = ["white","pink","brown","violet","blue"]
 

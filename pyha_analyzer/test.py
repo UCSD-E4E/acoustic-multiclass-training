@@ -8,18 +8,18 @@ import os
 import unittest
 from pathlib import Path
 
-import torch
 import importlib_resources as pkg_resources
-import wandb
+import torch
 
-from pyha_analyzer import config
-from pyha_analyzer import utils
-from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
-                                         HighpassFilter, SyntheticNoise)
+import wandb
+from pyha_analyzer import config, utils
+from pyha_analyzer.augmentations import (BackgroundNoise, HighpassFilter,
+                                         LowpassFilter, Mixup, RandomEQ,
+                                         SyntheticNoise)
 from pyha_analyzer.chunking_methods.sliding_chunks import convolving_chunk
+from pyha_analyzer.dataset import get_datasets, make_dataloader
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
-from pyha_analyzer.dataset import get_datasets, make_dataloader
 from pyha_analyzer.train import map_metric, save_model
 
 cfg = config.cfg

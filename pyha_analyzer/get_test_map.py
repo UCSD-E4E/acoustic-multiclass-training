@@ -3,12 +3,9 @@
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-import wandb
 
-from pyha_analyzer import config
-from pyha_analyzer import dataset
-from pyha_analyzer import train
-from pyha_analyzer import utils
+import wandb
+from pyha_analyzer import config, dataset, train, utils
 from pyha_analyzer.models.timm_model import TimmModel
 
 cfg = config.cfg

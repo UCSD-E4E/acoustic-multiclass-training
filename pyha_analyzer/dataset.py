@@ -7,25 +7,25 @@
     If this module is run directly, it tests that the dataloader works
 
 """
+import ast
 import logging
 import os
-from typing import List, Tuple, Optional
-import ast
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import torch
 import torchaudio
-from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torchaudio import transforms as audtr
 from torchvision.transforms import RandomApply
 from tqdm import tqdm
-import wandb
 
-from pyha_analyzer import config
-from pyha_analyzer import utils
-from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
-                                         HighpassFilter, SyntheticNoise)
+import wandb
+from pyha_analyzer import config, utils
+from pyha_analyzer.augmentations import (BackgroundNoise, HighpassFilter,
+                                         LowpassFilter, Mixup, RandomEQ,
+                                         SyntheticNoise)
 from pyha_analyzer.chunking_methods import sliding_chunks
 
 cfg = config.cfg
@@ -381,6 +381,9 @@ def set_torch_file_sharing(_) -> None:
     torch.multiprocessing.set_sharing_strategy("file_system")
 
 def get_dataloader(train_dataset, val_dataset, infer_dataset):
+    """
+    Convenience wrapper to apply `make_dataloader` to all datasets
+    """
     train_dataloader = make_dataloader(train_dataset,cfg.train_batch_size,
                                        cfg.does_weighted_sampling)
     val_dataloader = make_dataloader(val_dataset,cfg.validation_batch_size)

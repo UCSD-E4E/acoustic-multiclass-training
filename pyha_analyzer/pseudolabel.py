@@ -7,15 +7,13 @@ import os
 from pathlib import Path
 
 import pandas as pd
+import torch
 import torchaudio
 from torch.utils.data import DataLoader
-import torch
 from tqdm import tqdm
-import wandb
 
-from pyha_analyzer import config
-from pyha_analyzer import dataset
-from pyha_analyzer import utils
+import wandb
+from pyha_analyzer import config, dataset, utils
 from pyha_analyzer.models.timm_model import TimmModel
 
 cfg = config.cfg

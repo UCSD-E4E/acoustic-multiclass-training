@@ -9,27 +9,22 @@ import datetime
 import logging
 import os
 from pathlib import Path
-from typing import Any, Tuple, Optional
+from typing import Any, Optional, Tuple
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from pyha_analyzer import pseudolabel
-import pyha_analyzer
 from torchmetrics.classification import MultilabelAveragePrecision
 from tqdm import tqdm
-import wandb
 
-from pyha_analyzer import config
-from pyha_analyzer.dataset import get_dataloader, PyhaDFDataset, get_datasets
-import pyha_analyzer.dataset as dataset
-from pyha_analyzer.utils import set_seed
+import wandb
+from pyha_analyzer import config, dataset, pseudolabel
+from pyha_analyzer.dataset import PyhaDFDataset
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
-from pyha_analyzer.pseudolabel import add_pseudolabels
+from pyha_analyzer.utils import set_seed
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
@@ -254,8 +249,8 @@ def inference_valid(model: Any,
 
 def save_model(model: TimmModel) -> str:
     """ Saves model in the models directory as a pt file, returns path """
-    path = os.path.join("models", f"{cfg.model}-{time_now}.pt")
-    if not os.path.exists("models"):
+    path = Path("models")/(f"{cfg.model}-{time_now}.pt")
+    if not Path("models").exists():
         os.mkdir("models")
     torch.save(model.state_dict(), path)
     return path
@@ -280,6 +275,7 @@ def logging_setup() -> None:
     logger.debug("Debug logging enabled")
     logger.debug("Config: %s", cfg.config_dict)
     logger.debug("Git hash: %s", cfg.git_hash)
+    #TODO: Add typing
 def run_train(model, 
               train_dataloader, 
               val_dataloader, 
@@ -288,6 +284,9 @@ def run_train(model,
               scheduler, 
               epochs,
     ):
+    """ 
+    Convenience wrapper for model training 
+    """
     early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
 
     best_valid_map = 0.0
@@ -335,7 +334,6 @@ def main(in_sweep=True) -> None:
     # Load in dataset
     logger.info("Loading Dataset...")
     train_dataset, val_dataset, infer_dataset = dataset.get_datasets()
-    training_samples = train_dataset.samples
     train_dataloader, val_dataloader, infer_dataloader = (
             dataset.get_dataloader(train_dataset, val_dataset, infer_dataset)
     )
@@ -346,49 +344,51 @@ def main(in_sweep=True) -> None:
     ).to(cfg.device)
     model.create_loss_fn(train_dataset)
 
-    # Generic train part
     if model.try_load_checkpoint():
         logger.info("Loaded model from checkpoint")
     optimizer = Adam(model.parameters(), lr=cfg.learning_rate)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
     
     logger.info("Training...")
-#    run_train(model,
-#              train_dataloader,
-#              val_dataloader,
-#              infer_dataloader,
-#              optimizer,
-#              scheduler,
-#              cfg.epochs)
-    #TODO: And wandb.init here
-    if cfg.pseudo:
-        pseudo_labels(model, optimizer, scheduler)
-def pseudo_labels(model, optimizer, scheduler):
-        logger.info("Loading pseudo labels...")
-        raw_df = pseudolabel.make_raw_df()
-        predictions = pseudolabel.run_raw(model, raw_df)
-        pseudo_df = pseudolabel.get_pseudolabels(
-                predictions, raw_df, cfg.pseudo_threshold
-        )
-        print(pseudo_df.to_string())
-        print(f"{pseudo_df.columns=}")
-        #TODO set train to true
-        train_ds = PyhaDFDataset(pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list)
-        # Note that this is just the same data as the train dataset
-        val_ds = PyhaDFDataset(pseudo_df, train=False, species=cfg.class_list)
-        _, _, infer_ds = dataset.get_datasets()
-        train_dl, val_dl, infer_dl = (
-            dataset.get_dataloader(train_ds, val_ds, infer_ds)
-        )
-        logger.info("Finetuning on pseudo labels...")
-
-        run_train(model,
-              train_dl,
-              val_dl,
-              infer_dl,
+    run_train(model,
+              train_dataloader,
+              val_dataloader,
+              infer_dataloader,
               optimizer,
               scheduler,
               cfg.epochs)
+
+    #TODO: And wandb.init here
+    if cfg.pseudo:
+        pseudo_labels(model, optimizer, scheduler)
+
+#TODO: Make naming consistent
+def pseudo_labels(model, optimizer, scheduler):
+    """
+    Fine tune on pseudo labels
+    """
+    logger.info("Loading pseudo labels...")
+    raw_df = pseudolabel.make_raw_df()
+    predictions = pseudolabel.run_raw(model, raw_df)
+    pseudo_df = pseudolabel.get_pseudolabels(
+            predictions, raw_df, cfg.pseudo_threshold
+    )
+    #TODO set train to true
+    train_ds = PyhaDFDataset(pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list)
+    # Note that this is just the same data as the train dataset
+    val_ds = PyhaDFDataset(pseudo_df, train=False, species=cfg.class_list)
+    _, _, infer_ds = dataset.get_datasets()
+    train_dl, val_dl, infer_dl = (
+        dataset.get_dataloader(train_ds, val_ds, infer_ds)
+    )
+    logger.info("Finetuning on pseudo labels...")
+    run_train(model,
+          train_dl,
+          val_dl,
+          infer_dl,
+          optimizer,
+          scheduler,
+          cfg.epochs)
 
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')
