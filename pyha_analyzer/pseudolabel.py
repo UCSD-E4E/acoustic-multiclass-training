@@ -23,12 +23,13 @@ cfg = config.cfg
 def make_raw_df() -> pd.DataFrame:
     """ Returns dataframe of all raw chunks in {data_path}/pseudo """
     files = os.listdir(os.path.join(cfg.data_path, "pseudo"))
+    valid_formats = (".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aiff", ".aif")
     # Split into raw chunks
     chunks = []
     for file in tqdm(files):
         file_len = 0
         path = Path(file)
-        if path.suffix == ".pt":
+        if path.suffix not in valid_formats:
             continue
         # Check if there is a preprocessed version
         if str(path.with_suffix(".pt")) in files:

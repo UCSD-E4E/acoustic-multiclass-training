@@ -348,7 +348,7 @@ def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset
         classes.sort()
         cfg.config_dict["class_list"] = classes
         # pylint: disable-next=attribute-defined-outside-init
-        cfg.class_list = classes
+        cfg.class_list = classes # type: ignore
         wandb.config.update({"class_list": classes}, allow_val_change=True)
 
     #for each species, get a random sample of files for train/valid split
