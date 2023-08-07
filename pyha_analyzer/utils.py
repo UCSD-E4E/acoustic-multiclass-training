@@ -52,7 +52,7 @@ def ceil(audio: torch.Tensor, interval: float = 1.):
     Rounds every element of tensor up. 
     Rounding interval given by `interval`
     """
-    audio = audio / interval
+    audio = (audio - 1e-5) / interval
     audio = torch.ceil(audio)
     return audio*interval
 
