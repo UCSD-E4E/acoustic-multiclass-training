@@ -104,7 +104,7 @@ class TimmModel(nn.Module):
 
     # Temp, only works for efficientnet
     def get_features(self, images):
-        model = self.model
+        """ Get features from an efficientnet model """
         x = self.model.conv_stem(images)
         x = self.model.bn1(x)
         x = self.model.blocks(x)

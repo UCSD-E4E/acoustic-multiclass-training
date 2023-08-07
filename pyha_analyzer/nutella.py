@@ -1,19 +1,17 @@
 """
-Code shamelessly stolen from https://github.com/google-research/chirp/blob/main/chirp/projects/sfda/methods/notela.py
+Code originally from Google's Chirp project implementation of NOTELA:
+https://github.com/google-research/chirp/blob/main/chirp/projects/sfda/methods/notela.py
 """
 import numpy as np
 import torch
 import scipy
-from models.timm_model import TimmModel
+from pyha_analyzer.models.timm_model import TimmModel
 
-#TODO: Decide whether to add sparse storage
-def compute_nearest_neighbors(
-      batch_feature: np.ndarray,
-      dataset_feature: np.ndarray,
-      knn: int,
-      memory_efficient_computation: bool = False,
-  ) -> np.ndarray:
-
+def compute_nearest_neighbors(batch_feature: np.ndarray,
+                              dataset_feature: np.ndarray,
+                              knn: int,
+                              memory_efficient_computation: bool = False) -> np.ndarray:
+    """ Algorithm to compute the nearest neighbors between two sets of features. """
     batch_shape = batch_feature.shape
     dataset_shape = dataset_feature.shape
 
@@ -21,34 +19,34 @@ def compute_nearest_neighbors(
         batch_shape[-1] != dataset_shape[-1]
     ):
 
-      raise ValueError(
-          "Batch features and dataset features' shapes are not consistent."
-          f"(batch_feature: {batch_shape} and dataset_feature: {dataset_shape})"
-      )
+        raise ValueError(
+            "Batch features and dataset features' shapes are not consistent."
+            f"(batch_feature: {batch_shape} and dataset_feature: {dataset_shape})"
+        )
 
     neighbors = min(dataset_shape[0], knn)
     if memory_efficient_computation:
-      # We loop over samples in the current batch to avoid storing a
-      # batch_size x dataset_size float array. That slows down computation, but
-      # reduces memory footprint, which becomes the bottleneck for large
-      # datasets.
-      col_indices = []
-      for sample_feature in batch_feature:
-        pairwise_distances = scipy.spatial.distance.cdist(
-            np.expand_dims(sample_feature, 0), dataset_feature
-        )  # [1, dataset_size]
-        col_indices.append(
-            torch.topk(-pairwise_distances, neighbors)[1][:, 1:]
-        )  # [1, neighbors-1]
-      col_indices = torch.stack(col_indices)
+        # We loop over samples in the current batch to avoid storing a
+        # batch_size x dataset_size float array. That slows down computation, but
+        # reduces memory footprint, which becomes the bottleneck for large
+        # datasets.
+        col_indices = []
+        for sample_feature in batch_feature:
+            pairwise_distances = scipy.spatial.distance.cdist(
+                np.expand_dims(sample_feature, 0), dataset_feature
+            )  # [1, dataset_size]
+            col_indices.append(
+                torch.topk(-pairwise_distances, neighbors)[1][:, 1:]
+            )  # [1, neighbors-1]
+        col_indices = torch.stack(col_indices)
     else:
-        
-      pairwise_distances = scipy.spatial.distance.cdist(
-          batch_feature, dataset_feature
-      )  # [batch_size, dataset_size]
-      col_indices = torch.topk(-pairwise_distances, neighbors)[1][
-          :, 1:
-      ]  # [batch_size, neighbors-1]
+
+        pairwise_distances = scipy.spatial.distance.cdist(
+            batch_feature, dataset_feature
+        )  # [batch_size, dataset_size]
+        col_indices = torch.topk(-pairwise_distances, neighbors)[1][
+            :, 1:
+        ]  # [batch_size, neighbors-1]
     col_indices = col_indices.flatten()  # [batch_size * neighbors-1]
     row_indices = np.repeat(
         np.arange(batch_shape[0]), neighbors - 1
@@ -99,23 +97,23 @@ def teacher_step(
     # they have the maximum value for the expression above over the class axis
     # and zero otherwise.
     if alpha == 0 and normalize_pseudo_labels:
-      pseudo_label = batch_prob * np.exp(
-          lambda_
-          * (nn_matrix @ dataset_prob)
-          / (denominator + eps)  # [*, batch_size, proba_dim]
-      )
-      pseudo_label = (
-          pseudo_label == pseudo_label.max(axis=-1, keepdims=True)
-      ).astype(np.float32)
-      # If more than one class is maximally probable, we need to renormalize the
-      # distribution to be uniform over the maximally-probable classes.
-      pseudo_label /= pseudo_label.sum(axis=-1, keepdims=True)
+        pseudo_label = batch_prob * np.exp(
+            lambda_
+            * (nn_matrix @ dataset_prob)
+            / (denominator + eps)  # [*, batch_size, proba_dim]
+        )
+        pseudo_label = (
+            pseudo_label == pseudo_label.max(axis=-1, keepdims=True)
+        ).astype(np.float32)
+        # If more than one class is maximally probable, we need to renormalize the
+        # distribution to be uniform over the maximally-probable classes.
+        pseudo_label /= pseudo_label.sum(axis=-1, keepdims=True)
     else:
-      pseudo_label = batch_prob ** (1 / alpha) * np.exp(
-          (lambda_ / alpha) * (nn_matrix @ dataset_prob) / (denominator + eps)
-      )  # [*, batch_size, proba_dim]
-      if normalize_pseudo_labels:
-        pseudo_label /= pseudo_label.sum(axis=-1, keepdims=True) + eps
+        pseudo_label = batch_prob ** (1 / alpha) * np.exp(
+            (lambda_ / alpha) * (nn_matrix @ dataset_prob) / (denominator + eps)
+        )  # [*, batch_size, proba_dim]
+        if normalize_pseudo_labels:
+            pseudo_label /= pseudo_label.sum(axis=-1, keepdims=True) + eps
     return pseudo_label
 
 if __name__=="__main__":
