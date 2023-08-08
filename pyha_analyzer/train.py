@@ -20,7 +20,7 @@ from torchmetrics.classification import MultilabelAveragePrecision
 from tqdm import tqdm
 
 import wandb
-from pyha_analyzer import config, dataset, pseudolabel
+from pyha_analyzer import config, dataset
 from pyha_analyzer.dataset import PyhaDFDataset
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
@@ -334,7 +334,6 @@ def main(in_sweep=True) -> None:
         run = set_name(run)
     assert run is not None 
     assert run.name is not None 
-    run_name = run.name
 
     # Load in dataset
     logger.info("Loading Dataset...")
@@ -363,42 +362,6 @@ def main(in_sweep=True) -> None:
               scheduler,
               cfg.epochs)
 
-    if cfg.pseudo:
-        pseudo_labels(model, optimizer, scheduler, run_name, in_sweep)
-
-def pseudo_labels(model, optimizer, scheduler, run_name, in_sweep):
-    """
-    Fine tune on pseudo labels
-    """
-    if not in_sweep:
-        run = wandb.init(
-            entity=cfg.wandb_entity,
-            project=f"{cfg.wandb_project}-pseudo",
-            config=cfg.config_dict,
-            mode="online" if cfg.logging else "disabled")
-        run.name = run_name #type: ignore
-
-    logger.info("Loading pseudo labels...")
-    raw_df = pseudolabel.make_raw_df()
-    predictions = pseudolabel.run_raw(model, raw_df)
-    pseudo_df = pseudolabel.get_pseudolabels(
-            predictions, raw_df, cfg.pseudo_threshold
-    )
-    train_dataset = PyhaDFDataset(pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list)
-    # Note that this is just the same data as the train dataset
-    val_dataset = PyhaDFDataset(pseudo_df, train=False, species=cfg.class_list)
-    _, _, infer_dataset = dataset.get_datasets()
-    train_dataloader, val_dataloader, infer_dataloader = (
-        dataset.get_dataloader(train_dataset, val_dataset, infer_dataset)
-    )
-    logger.info("Finetuning on pseudo labels...")
-    run_train(model,
-          train_dataloader,
-          val_dataloader,
-          infer_dataloader,
-          optimizer,
-          scheduler,
-          cfg.epochs)
 
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')

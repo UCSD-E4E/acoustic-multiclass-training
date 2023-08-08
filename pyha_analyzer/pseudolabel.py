@@ -1,23 +1,26 @@
-""" Contains methods related to pseudo-labelling
-The basic idea behind pseudo-labelling is to take un labelled data, run it through a model,
+""" Contains methods related to pseudo-labeling
+The basic idea behind pseudo-labeling is to take un labelled data, run it through a model,
 and use its confident predictions as training data. 
 This will hopefully help with domain shift problems because we can train on soundscape data.
 """
+import logging
 import math
 import os
 from pathlib import Path
 
 import pandas as pd
 import torch
+from torch.optim import Adam
 import torchaudio
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import wandb
-from pyha_analyzer import config, dataset, utils
+from pyha_analyzer import config, dataset, train, utils
 from pyha_analyzer.models.timm_model import TimmModel
 
 cfg = config.cfg
+logger = logging.getLogger("acoustic_multiclass_training")
 
 def make_raw_df() -> pd.DataFrame:
     """ Returns dataframe of all raw chunks in {data_path}/pseudo """
@@ -44,10 +47,10 @@ def make_raw_df() -> pd.DataFrame:
         # Append chunks to dataframe
         for i in range(int(file_len/cfg.chunk_length_s)):
             chunks.append(pd.Series({
-                "OFFSET": i * cfg.chunk_length_s,
-                "DURATION": cfg.chunk_length_s,
+                cfg.offset_col: i * cfg.chunk_length_s,
+                cfg.duration_col: cfg.chunk_length_s,
                 cfg.manual_id_col: cfg.config_dict["class_list"][0], # Set to stop error
-                "FILE NAME": os.path.join("pseudo", file),
+                cfg.file_name_col: os.path.join("pseudo", file),
                 "CLIP LENGTH": file_len}))
     return pd.DataFrame(chunks)
 
@@ -55,7 +58,7 @@ def run_raw(model: TimmModel, df: pd.DataFrame):
     """ Returns predictions tensor from raw chunk dataframe """
     # Get dataset
     if cfg.config_dict["class_list"] is None:
-        raise ValueError("Pseudolabelling requires class list")
+        raise ValueError("Pseudo-labeling requires class list")
     raw_ds = dataset.PyhaDFDataset(df,train=False, species=cfg.config_dict["class_list"])
     dataloader = DataLoader(raw_ds, cfg.train_batch_size, num_workers=cfg.jobs)
 
@@ -100,30 +103,66 @@ def add_pseudolabels(model: TimmModel, cur_df: pd.DataFrame, threshold: float) -
     print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
     return merge_with_cur(cur_df, pseudo_df)
 
-def main():
+    
+def pseudo_labels(model, optimizer, scheduler):
+    """
+    Fine tune on pseudo labels
+    """
+    logger.info("Generating raw dataframe...")
+    raw_df = make_raw_df()
+    logger.info("Running model...")
+    predictions = run_raw(model, raw_df)
+    logger.info("Generating pseudo labels...")
+    pseudo_df = get_pseudolabels(
+        predictions, raw_df, cfg.pseudo_threshold
+    )
+    pseudo_df.to_csv("tmp_pseudo_labels.csv")
+    logger.info("Saved pseudo dataset to tmp_pseudo_labels.csv")
+    print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
+    logger.info("Loading dataset...")
+    train_dataset = dataset.PyhaDFDataset(pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list)
+    _, val_dataset, infer_dataset = dataset.get_datasets()
+    train_dataloader, val_dataloader, infer_dataloader = (
+        dataset.get_dataloader(train_dataset, val_dataset, infer_dataset)
+    )
+    logger.info("Finetuning on pseudo labels...")
+    train.run_train(model,
+          train_dataloader,
+          val_dataloader,
+          infer_dataloader,
+          optimizer,
+          scheduler,
+          cfg.epochs)
+
+
+def main(in_sweep=True):
     """ Main function """
     torch.multiprocessing.set_start_method('spawn', force=True)
+    torch.multiprocessing.set_sharing_strategy('file_system')
     print(f"Device is: {cfg.device}, Preprocessing Device is {cfg.prepros_device}")
-    wandb.init(mode="disabled")
     utils.set_seed(cfg.seed)
-
-    print("Generating raw dataframe...")
-    raw_df = make_raw_df()
-    print("Running model...")
+    if in_sweep:
+        run = wandb.init()
+        for key, val in dict(wandb.config).items():
+            setattr(cfg, key, val)
+        wandb.config.update(cfg.config_dict)
+    else:
+        run = wandb.init(
+            entity=cfg.wandb_entity,
+            project=f"{cfg.wandb_project}-pseudo",
+            config=cfg.config_dict,
+            mode="online" if cfg.logging else "disabled"
+        )
+        run = train.set_name(run)
+    print("Creating model...")
     model = TimmModel(num_classes=len(cfg.class_list), model_name=cfg.model).to(cfg.device)
     model.create_loss_fn(None)
     if not model.try_load_checkpoint():
         raise RuntimeError("No model checkpoint found")
-    pred = run_raw(model, raw_df)
-    print("Generating pseudolabels...")
-    pseudo = get_pseudolabels(pred, raw_df, threshold=0.7)
-    cur_data = pd.read_csv(cfg.dataframe_csv, index_col=0)
-    merged = merge_with_cur(cur_data, pseudo)
-    print(f"Current dataset has {cur_data.shape[0]} rows")
-    print(f"Pseudo label dataset has {pseudo.shape[0]} rows")
-    merged.to_csv(cfg.dataframe_csv + "_pseudo.csv")
-    print("Saved at " + cfg.dataframe_csv + "_pseudo.csv")
-    
+    optimizer = Adam(model.parameters(), lr=cfg.learning_rate)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
+    pseudo_labels(model, optimizer, scheduler)
+
+
 if __name__ == "__main__":
-    main()
-    
+    main(in_sweep=False)

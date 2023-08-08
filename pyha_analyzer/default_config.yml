@@ -7,12 +7,9 @@ infer_csv:
 # Optional, automatically generates class order if not given
 class_list:
 
-#Pseudolabeling
-pseudo: true
-pseudo_csv: #Necessary if doing pseudolabeling
-pseudo_data_augs: false
+# Pseudo-labeling if running pyha_analyzer/pseudolabel.py
+pseudo_data_augs: true
 pseudo_threshold: 0.7
-
 
 # Dataframe column names
 offset_col: "OFFSET"
