@@ -80,8 +80,8 @@ def get_pseudolabels(pred: torch.Tensor, raw_df: pd.DataFrame, threshold: float)
     filtered_species = df.idxmax(axis=1)[allowed]
     confidence = df.max(axis=1)[allowed]
     raw_df = raw_df[allowed]
-    raw_df.assign(**{cfg.manual_id_col: filtered_species})
-    raw_df.assign(CONFIDENCE=confidence)
+    raw_df[cfg.manual_id_col] = filtered_species
+    raw_df["CONFIDENCE"] = confidence
     return raw_df
 
 def merge_with_cur(annotations: pd.DataFrame, pseudo_df: pd.DataFrame) -> pd.DataFrame:
