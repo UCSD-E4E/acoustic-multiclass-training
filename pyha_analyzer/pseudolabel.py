@@ -3,6 +3,7 @@ The basic idea behind pseudo-labelling is to take un labelled data, run it throu
 and use its confident predictions as training data. 
 This will hopefully help with domain shift problems because we can train on soundscape data.
 """
+import math
 import os
 from pathlib import Path
 
@@ -61,7 +62,7 @@ def run_raw(model: TimmModel, df: pd.DataFrame):
     # Testing
     model.eval()
     log_pred = []
-    dataloader = tqdm(dataloader, total=len(raw_ds)/cfg.train_batch_size)
+    dataloader = tqdm(dataloader, total=math.ceil(len(raw_ds)/cfg.train_batch_size))
 
     with torch.no_grad():
         for _, (mels, labels) in enumerate(dataloader):
