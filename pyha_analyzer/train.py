@@ -21,10 +21,9 @@ from tqdm import tqdm
 
 import wandb
 from pyha_analyzer import config, dataset
-from pyha_analyzer.dataset import PyhaDFDataset
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
-from pyha_analyzer.utils import set_seed
+from pyha_analyzer.utils import set_seed, wandb_init
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
@@ -434,15 +433,6 @@ def save_model(model: TimmModel) -> Path:
     torch.save(model.state_dict(), path)
     return path
 
-def set_wandb_name(run):
-    """
-    Set wandb run name
-    """
-    if cfg.wandb_run_name == "auto":
-        # This variable is always defined
-        cfg.wandb_run_name = cfg.model # type: ignore
-    run.name = f"{cfg.wandb_run_name}-{time_now}"
-    return run
 
 def logging_setup() -> None:
     """ Setup logging on the main process
@@ -491,30 +481,12 @@ def run_train(model,
             logger.info("Early stopping has triggered on epoch %d", epoch)
             break
 
-def init_wandb(in_sweep):
-    if in_sweep:
-        run = wandb.init()
-        for key, val in dict(wandb.config).items():
-            setattr(cfg, key, val)
-        wandb.config.update(cfg.config_dict)
-    else:
-        run = wandb.init(
-                entity=cfg.wandb_entity,
-                project=cfg.wandb_project,
-                config=cfg.config_dict,
-                mode="online" if cfg.logging else "disabled"
-            )
-        run = set_wandb_name(run)
-    assert run is not None 
-    assert run.name is not None 
-    return run
-
 def main(in_sweep=True) -> None:
     """ Main function
     """
     logger.info("Device is: %s, Preprocessing Device is %s", cfg.device, cfg.prepros_device)
     set_seed(cfg.seed)
-    init_wandb(in_sweep)
+    wandb_init(in_sweep)
 
     # Load in dataset
     logger.info("Loading Dataset...")
@@ -541,8 +513,6 @@ def main(in_sweep=True) -> None:
     logger.info("Training...")
     for _ in range(cfg.epochs):
         train_process.run_epoch()
-
-
 
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')
