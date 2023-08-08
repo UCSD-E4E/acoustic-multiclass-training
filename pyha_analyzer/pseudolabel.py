@@ -11,11 +11,10 @@ from pathlib import Path
 import pandas as pd
 import torch
 from torch.optim import Adam
-import torchaudio
 from torch.utils.data import DataLoader
+import torchaudio
 from tqdm import tqdm
 
-import wandb
 from pyha_analyzer import config, dataset, train, utils
 from pyha_analyzer.models.timm_model import TimmModel
 
@@ -120,19 +119,16 @@ def pseudo_labels(model, optimizer, scheduler):
     logger.info("Saved pseudo dataset to tmp_pseudo_labels.csv")
     print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
     logger.info("Loading dataset...")
-    train_dataset = dataset.PyhaDFDataset(pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list)
+    train_dataset = dataset.PyhaDFDataset(pseudo_df, train=cfg.pseudo_data_augs, 
+                                          species=cfg.class_list)
     _, val_dataset, infer_dataset = dataset.get_datasets()
     train_dataloader, val_dataloader, infer_dataloader = (
         dataset.get_dataloader(train_dataset, val_dataset, infer_dataset)
     )
     logger.info("Finetuning on pseudo labels...")
     train.run_train(model,
-          train_dataloader,
-          val_dataloader,
-          infer_dataloader,
-          optimizer,
-          scheduler,
-          cfg.epochs)
+          train_dataloader, val_dataloader, infer_dataloader,
+          optimizer, scheduler, cfg.epochs)
 
 
 def main(in_sweep=True):
@@ -141,19 +137,7 @@ def main(in_sweep=True):
     torch.multiprocessing.set_sharing_strategy('file_system')
     print(f"Device is: {cfg.device}, Preprocessing Device is {cfg.prepros_device}")
     utils.set_seed(cfg.seed)
-    if in_sweep:
-        run = wandb.init()
-        for key, val in dict(wandb.config).items():
-            setattr(cfg, key, val)
-        wandb.config.update(cfg.config_dict)
-    else:
-        run = wandb.init(
-            entity=cfg.wandb_entity,
-            project=f"{cfg.wandb_project}-pseudo",
-            config=cfg.config_dict,
-            mode="online" if cfg.logging else "disabled"
-        )
-        run = train.set_name(run)
+    utils.wandb_init(in_sweep)
     print("Creating model...")
     model = TimmModel(num_classes=len(cfg.class_list), model_name=cfg.model).to(cfg.device)
     model.create_loss_fn(None)

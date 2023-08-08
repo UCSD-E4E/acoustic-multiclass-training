@@ -1,5 +1,6 @@
 """ Stores useful functions for the pyha_analyzer module """
 
+import datetime
 import math
 from pathlib import Path
 from typing import Any, Dict, Tuple
@@ -8,6 +9,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
+import wandb
 
 from pyha_analyzer import config
 
@@ -88,6 +90,29 @@ def rand_offset():
     if max_offset == 0:
         return 0
     return randint(-max_offset, max_offset)
+
+def wandb_init(in_sweep):
+    """ Initialize wandb run given config settings """
+    if in_sweep:
+        run = wandb.init()
+        for key, val in dict(wandb.config).items():
+            setattr(cfg, key, val)
+        wandb.config.update(cfg.config_dict)
+    else:
+        run = wandb.init(
+                entity=cfg.wandb_entity,
+                project=cfg.wandb_project,
+                config=cfg.config_dict,
+                mode="online" if cfg.logging else "disabled"
+            )
+        if cfg.wandb_run_name == "auto":
+            # This variable is always defined
+            cfg.wandb_run_name = cfg.model # type: ignore
+        time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
+        run.name = f"{cfg.wandb_run_name}-{time_now}" # type: ignore
+    assert run is not None 
+    assert run.name is not None 
+    return run
 
 #pylint: disable-next = too-many-arguments
 def get_annotation(
