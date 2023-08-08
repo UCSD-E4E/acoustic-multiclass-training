@@ -103,7 +103,7 @@ def add_pseudolabels(model: TimmModel, cur_df: pd.DataFrame, threshold: float) -
     return merge_with_cur(cur_df, pseudo_df)
 
     
-def pseudo_labels(model, optimizer, scheduler):
+def pseudo_labels(model):
     """
     Fine tune on pseudo labels
     """
@@ -115,20 +115,26 @@ def pseudo_labels(model, optimizer, scheduler):
     pseudo_df = get_pseudolabels(
         predictions, raw_df, cfg.pseudo_threshold
     )
+
     pseudo_df.to_csv("tmp_pseudo_labels.csv")
     logger.info("Saved pseudo dataset to tmp_pseudo_labels.csv")
     print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
+
     logger.info("Loading dataset...")
-    train_dataset = dataset.PyhaDFDataset(pseudo_df, train=cfg.pseudo_data_augs, 
-                                          species=cfg.class_list)
-    _, val_dataset, infer_dataset = dataset.get_datasets()
-    train_dataloader, val_dataloader, infer_dataloader = (
-        dataset.get_dataloader(train_dataset, val_dataset, infer_dataset)
+    train_ds = dataset.PyhaDFDataset(
+        pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list
     )
+    _, valid_ds, infer_ds = dataset.get_datasets()
+    train_dl, valid_dl, infer_dl = (
+        dataset.get_dataloader(train_ds, valid_ds, infer_ds)
+    )
+
     logger.info("Finetuning on pseudo labels...")
-    train.run_train(model,
-          train_dataloader, val_dataloader, infer_dataloader,
-          optimizer, scheduler, cfg.epochs)
+    train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)
+    train_process.valid()
+    for _ in range(cfg.epochs):
+        train_process.run_epoch()
+
 
 
 def main(in_sweep=True):
@@ -136,6 +142,7 @@ def main(in_sweep=True):
     torch.multiprocessing.set_start_method('spawn', force=True)
     torch.multiprocessing.set_sharing_strategy('file_system')
     print(f"Device is: {cfg.device}, Preprocessing Device is {cfg.prepros_device}")
+    utils.logging_setup()
     utils.set_seed(cfg.seed)
     utils.wandb_init(in_sweep)
     print("Creating model...")
@@ -143,9 +150,7 @@ def main(in_sweep=True):
     model.create_loss_fn(None)
     if not model.try_load_checkpoint():
         raise RuntimeError("No model checkpoint found")
-    optimizer = Adam(model.parameters(), lr=cfg.learning_rate)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
-    pseudo_labels(model, optimizer, scheduler)
+    pseudo_labels(model)
 
 
 if __name__ == "__main__":

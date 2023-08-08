@@ -43,7 +43,7 @@ def map_metric(outputs: torch.Tensor, labels: torch.Tensor, num_classes: int) ->
         return 0
     return map_out
 
-class TrainingState():
+class TrainProcess():
     def __init__(self, model, train_dl, valid_dl, infer_dl):
         self.epoch = 1e-6
         self.optimizer = Adam(model.parameters(), lr=cfg.learning_rate)
@@ -250,7 +250,7 @@ def main(in_sweep=True) -> None:
         logger.info("Loaded model from checkpoint...")
 
     logger.info("Initializing training process...")
-    train_process = TrainingState(model, valid_dl, train_dl, infer_dl)
+    train_process = TrainProcess(model, valid_dl, train_dl, infer_dl)
 
     logger.info("Training...")
     for _ in range(cfg.epochs):

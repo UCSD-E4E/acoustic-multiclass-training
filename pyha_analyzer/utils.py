@@ -16,6 +16,7 @@ from pyha_analyzer import config
 from pyha_analyzer.models.timm_model import TimmModel
 
 cfg = config.cfg
+logger = logging.getLogger("acoustic_multiclass_training")
 
 def set_seed(seed: int):
     """ Sets numpy and pytorch seeds to the CONFIG.seed
