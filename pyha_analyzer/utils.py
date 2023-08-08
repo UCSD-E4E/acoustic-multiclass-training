@@ -3,6 +3,7 @@
 import datetime
 import math
 from pathlib import Path
+import logging
 from typing import Any, Dict, Tuple
 
 import numpy as np
@@ -12,6 +13,7 @@ import torch.nn.functional as F
 import wandb
 
 from pyha_analyzer import config
+from pyha_analyzer.models.timm_model import TimmModel
 
 cfg = config.cfg
 
@@ -171,3 +173,23 @@ def get_annotation(
     audio = audio.to(cfg.prepros_device)
     target = target.to(cfg.prepros_device)
     return audio, target
+
+def save_model(model: TimmModel) -> Path:
+    """ Saves model in the models directory as a pt file, returns path """
+    path = Path("models")/(f"{cfg.model}-{time_now}.pt")
+    if not Path("models").exists():
+        os.mkdir("models")
+    torch.save(model.state_dict(), path)
+    return path
+
+
+def logging_setup() -> None:
+    """ Setup logging on the main process
+    Display config information
+    """
+    file_handler = logging.FileHandler("recent.log", mode='w')
+    file_handler.setLevel(logging.DEBUG)
+    logger.addHandler(file_handler)
+    logger.debug("Debug logging enabled")
+    logger.debug("Config: %s", cfg.config_dict)
+    logger.debug("Git hash: %s", cfg.git_hash)

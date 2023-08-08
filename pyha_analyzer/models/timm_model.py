@@ -11,7 +11,7 @@ from torch import nn
 from torch.amp.autocast_mode import autocast
 
 from pyha_analyzer import config
-from pyha_analyzer.models.loss_fn import bce, cross_entropy, focal, laplace
+from pyha_analyzer.models.loss_fn import bce, cross_entropy, laplace
 
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
@@ -58,11 +58,10 @@ class TimmModel(nn.Module):
         loss_functions = {
             "CE"    : cross_entropy(self, **loss_args),
             "BCE"   : bce(self, **loss_args),
-            "FL"    : focal(self, **loss_args),
             "LP"    : laplace(self, **loss_args),
         }
         loss_fn = loss_functions[loss_desc]
-        return loss_fn(self, train_dataset, self.without_logits)
+        return loss_fn
 
     def try_load_checkpoint(self) -> bool:
         """ Returns true if a checkpoint is specified and loads properly
