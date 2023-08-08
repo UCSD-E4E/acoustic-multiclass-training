@@ -8,7 +8,7 @@ from pyha_analyzer import config
 
 cfg = config.cfg
 
-def cross_entropy_loss_fn(self,train_dataset):
+def cross_entropy(self, train_dataset, **_):
     """ Returns the cross entropy loss function and sets self.loss_fn
     """
     if not cfg.imb: # normal loss
@@ -20,7 +20,7 @@ def cross_entropy_loss_fn(self,train_dataset):
             ).to(self.device))
     return self.loss_fn
 
-def bce_loss_fn(self, without_logits=False):
+def bce(self, without_logits=False, **_):
     """ Returns the BCE loss function and sets self.loss_fn of model
 
     Added support for if we want to spilt sigmod and BCE loss or combine with
@@ -33,7 +33,7 @@ def bce_loss_fn(self, without_logits=False):
     return self.loss_fn
 
 
-def focal_loss_fn(self, alpha: float = 0.25, gamma: float = 2, reduction: str = "sum"):
+def focal(self, alpha: float = 0.25, gamma: float = 2, reduction: str = "sum", **_):
     """ Loss used in https://arxiv.org/abs/1708.02002. and 1st place winner of birdclef 2023
     Code implementation based heavily on
     https://pytorch.org/vision/main/_modules/torchvision/ops/focal_loss.html

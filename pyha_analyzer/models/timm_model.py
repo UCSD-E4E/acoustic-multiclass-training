@@ -11,7 +11,7 @@ from torch import nn
 from torch.amp.autocast_mode import autocast
 
 from pyha_analyzer import config
-from pyha_analyzer.models.loss_fn import bce_loss_fn, cross_entropy_loss_fn, focal_loss_fn
+from pyha_analyzer.models.loss_fn import bce, cross_entropy, focal, laplace
 
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
@@ -52,15 +52,17 @@ class TimmModel(nn.Module):
         """ Returns the loss function and sets self.loss_fn
         """
         loss_desc = cfg.loss_fnc
-        if loss_desc == "CE":
-            return cross_entropy_loss_fn(self, train_dataset)
-        if loss_desc == "BCE":
-            return bce_loss_fn(self, self.without_logits)
-        if loss_desc == "BCEWL":
-            return bce_loss_fn(self, self.without_logits)
-        if loss_desc == "FL":
-            return focal_loss_fn(self, self.without_logits)
-        raise RuntimeError("Pick a loss in the form of CE, BCE, BCEWL, or FL")
+        loss_args = {
+            "without_logits": self.without_logits,
+            "train_dataset" : train_dataset}
+        loss_functions = {
+            "CE"    : cross_entropy(self, **loss_args),
+            "BCE"   : bce(self, **loss_args),
+            "FL"    : focal(self, **loss_args),
+            "LP"    : laplace(self, **loss_args),
+        }
+        loss_fn = loss_functions[loss_desc]
+        return loss_fn(self, train_dataset, self.without_logits)
 
     def try_load_checkpoint(self) -> bool:
         """ Returns true if a checkpoint is specified and loads properly
