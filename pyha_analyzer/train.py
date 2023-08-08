@@ -20,7 +20,7 @@ from torchmetrics.classification import MultilabelAveragePrecision
 from tqdm import tqdm
 
 import wandb
-from pyha_analyzer import config, dataset
+from pyha_analyzer import config, dataset, utils
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
 from pyha_analyzer.utils import set_seed, wandb_init
@@ -29,6 +29,28 @@ tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
+
+def log_metrics(epoch, i, start_time, log_n, log_loss, log_map):
+    duration = (datetime.datetime.now() - start_time).total_seconds()
+    start_time = datetime.datetime.now()
+    annotations = ((i % cfg.logging_freq) or cfg.logging_freq) * cfg.train_batch_size
+    #Log to Weights and Biases
+    wandb.log({
+        "train/loss"    : log_loss / log_n,
+        "train/mAP"     : log_map / log_n,
+        "i"             : i,
+        #Casting to int for consistency with old logging format
+        "epoch"         : int(epoch),
+        "clips/sec"     : annotations / duration,
+        "epoch_progress": epoch,
+    })
+
+    info = [i, epoch, annotations/duration, log_loss/log_n, log_map/log_n]
+    info = [str(round(i, 3)).ljust(8) for i in info]
+    logger.info("i: %s   epoch: %s   clips/s: %s   Loss: %s   mAP: %s",
+            *info
+    )
+
 
 
 def map_metric(outputs: torch.Tensor, labels: torch.Tensor, num_classes: int) -> float:
@@ -58,27 +80,6 @@ class TrainProcess():
         self.early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
         self.best_valid_map = 0.
 
-    def log_metrics(self, i, start_time, log_n, log_loss, log_map):
-        duration = (datetime.datetime.now() - start_time).total_seconds()
-        start_time = datetime.datetime.now()
-        annotations = ((i % cfg.logging_freq) or cfg.logging_freq) * cfg.train_batch_size
-        #Log to Weights and Biases
-        wandb.log({
-            "train/loss": log_loss / log_n,
-            "train/mAP": log_map / log_n,
-            "i": i,
-            "epoch": self.epoch,
-            "clips/sec": annotations / duration,
-            "epoch_progress": self.epoch + i/len(self.train_dl),
-        })
-        #TODO: Make pretty
-        logger.info("i: %s   epoch: %s   clips/s: %s   Loss: %s   mAP: %s",
-            str(i).zfill(5),
-            str(round(self.epoch+float(i)/len(self.train_dl),3)).ljust(5, '0'),
-            str(round(annotations / duration,3)).ljust(7), 
-            str(round(log_loss / log_n,3)).ljust(5), 
-            str(round(log_map / log_n,3)).ljust(5)
-        )
 
     def run_epoch(self):
         logger.debug(f"size of data loader: {len(self.train_dl)}")
@@ -97,7 +98,6 @@ class TrainProcess():
             if cfg.mixed_precision and cfg.device != "cpu":
                 # Pyright complains about scaler.scale(loss) returning iterable of unknown types
                 # Problem in the pytorch typing, documentation says it returns iterables of Tensors
-                #  keep if needed - noqa: reportGeneralTypeIssues
                 scaler.scale(loss).backward()  # type: ignore
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
@@ -117,7 +117,7 @@ class TrainProcess():
     
             #Log and reset metrics
             if (i != 0 and i % (cfg.logging_freq) == 0) or i == len(self.train_dl) - 1:
-                self.log_metrics(i, start_time, log_n, log_loss, log_map)
+                log_metrics(self.epoch, i, start_time, log_n, log_loss, log_map)
                 log_n = log_loss = log_map = 0
     
             # Free memory so gpu is freed before validation run
@@ -179,7 +179,7 @@ class TrainProcess():
                     f"Validation mAP:  {self.valid_map}")
     
         if self.valid_map > self.best_valid_map:
-            logger.info("Model saved in: %s", utils.save_model(self.model))
+            logger.info("Model saved in: %s", utils.save_model(self.model, time_now))
             logger.info("Validation mAP Improved - %f ---> %f", self.best_valid_map, self.valid_map)
             self.best_valid_map = self.valid_map
     
