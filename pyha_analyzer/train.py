@@ -248,7 +248,7 @@ def inference_valid(model: Any,
     logger.info("Domain Shift Difference:\t%f", domain_shift)
     
 
-def save_model(model: TimmModel) -> str:
+def save_model(model: TimmModel) -> Path:
     """ Saves model in the models directory as a pt file, returns path """
     path = Path("models")/(f"{cfg.model}-{time_now}.pt")
     if not Path("models").exists():
@@ -318,7 +318,7 @@ def main(in_sweep=True) -> None:
     """
     logger.info("Device is: %s, Preprocessing Device is %s", cfg.device, cfg.prepros_device)
     set_seed(cfg.seed)
-
+    
     if in_sweep:
         run = wandb.init()
         for key, val in dict(wandb.config).items():
@@ -326,11 +326,15 @@ def main(in_sweep=True) -> None:
         wandb.config.update(cfg.config_dict)
     else:
         run = wandb.init(
-            entity=cfg.wandb_entity,
-            project=cfg.wandb_project,
-            config=cfg.config_dict,
-            mode="online" if cfg.logging else "disabled")
-        set_name(run)
+                entity=cfg.wandb_entity,
+                project=cfg.wandb_project,
+                config=cfg.config_dict,
+                mode="online" if cfg.logging else "disabled"
+            )
+        run = set_name(run)
+    assert run is not None 
+    assert run.name is not None 
+    run_name = run.name
 
     # Load in dataset
     logger.info("Loading Dataset...")
@@ -360,18 +364,19 @@ def main(in_sweep=True) -> None:
               cfg.epochs)
 
     if cfg.pseudo:
-        pseudo_labels(model, optimizer, scheduler, run.name)
+        pseudo_labels(model, optimizer, scheduler, run_name, in_sweep)
 
-def pseudo_labels(model, optimizer, scheduler, run_name):
+def pseudo_labels(model, optimizer, scheduler, run_name, in_sweep):
     """
     Fine tune on pseudo labels
     """
-    run = wandb.init(
+    if not in_sweep:
+        run = wandb.init(
             entity=cfg.wandb_entity,
             project=f"{cfg.wandb_project}-pseudo",
             config=cfg.config_dict,
             mode="online" if cfg.logging else "disabled")
-    run.name = run_name
+        run.name = run_name #type: ignore
 
     logger.info("Loading pseudo labels...")
     raw_df = pseudolabel.make_raw_df()
@@ -382,7 +387,7 @@ def pseudo_labels(model, optimizer, scheduler, run_name):
     train_dataset = PyhaDFDataset(pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list)
     # Note that this is just the same data as the train dataset
     val_dataset = PyhaDFDataset(pseudo_df, train=False, species=cfg.class_list)
-    _, _, infer_ds = dataset.get_datasets()
+    _, _, infer_dataset = dataset.get_datasets()
     train_dataloader, val_dataloader, infer_dataloader = (
         dataset.get_dataloader(train_dataset, val_dataset, infer_dataset)
     )
