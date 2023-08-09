@@ -2,7 +2,6 @@
 
 import torch
 from torch import nn
-from torchvision.ops.focal_loss import sigmoid_focal_loss as focal_loss
 
 from pyha_analyzer import config
 
@@ -31,6 +30,3 @@ def bce(model, without_logits=False, **_):
     else:
         model.loss_fn = nn.BCELoss(reduction='mean')
     return model.loss_fn
-
-def laplace(model, **_):
-    return (lambda: NotImplementedError)

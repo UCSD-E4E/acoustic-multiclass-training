@@ -23,7 +23,7 @@ ARGUMENTS = {
         "Offset": "OFFSET",
         "Duration": "DURATION",
     },
-    
+
     # OUTPUT
     "cols_to_save": [
         "FILE NAME",
@@ -34,14 +34,14 @@ ARGUMENTS = {
         "COMMON"
     ],
     "output_path": "../example_dataset/metadata_cleaned.csv",
-    
+
 }
 
 def main():
     """ Main function """
     if ARGUMENTS["input_path"] == "":
         raise ValueError("Input path not specified")
-    
+
     if ARGUMENTS["has_index_col"]:
         df = pd.read_csv(ARGUMENTS["input_path"], index_col=0)
     else:

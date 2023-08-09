@@ -6,10 +6,8 @@
         set_seed: sets the random seed
 """
 import datetime
+from typing import Optional
 import logging
-import os
-from pathlib import Path
-from typing import Any, Optional, Tuple
 
 import numpy as np
 import torch
@@ -31,6 +29,7 @@ cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
 
 def log_metrics(epoch, i, start_time, log_n, log_loss, log_map):
+    """Print run metrics to console and log in WandB"""
     duration = (datetime.datetime.now() - start_time).total_seconds()
     start_time = datetime.datetime.now()
     annotations = ((i % cfg.logging_freq) or cfg.logging_freq) * cfg.train_batch_size
@@ -45,11 +44,9 @@ def log_metrics(epoch, i, start_time, log_n, log_loss, log_map):
         "epoch_progress": epoch,
     })
 
-    info = [i, epoch, annotations/duration, log_loss/log_n, log_map/log_n]
-    info = [str(round(i, 3)).ljust(8) for i in info]
-    logger.info("i: %s   epoch: %s   clips/s: %s   Loss: %s   mAP: %s",
-            *info
-    )
+    metrics = [i, epoch, annotations/duration, log_loss/log_n, log_map/log_n]
+    metrics = [str(round(m, 3)).ljust(8) for m in metrics]
+    logger.info("i: %s   epoch: %s   clips/s: %s   Loss: %s   mAP: %s", *metrics)
 
 
 
@@ -66,10 +63,26 @@ def map_metric(outputs: torch.Tensor, labels: torch.Tensor, num_classes: int) ->
     return map_out
 
 class TrainProcess():
-    def __init__(self, model, train_dl, valid_dl, infer_dl):
+    """ Class grouping together state variables of training process 
+    Args:
+        model: Pytorch model to train
+        train_dl: Training dataloader
+        valid_dl: Validation dataloader
+        infer_dl: Inference dataloader
+    """
+    #pylint: disable=too-many-instance-attributes
+    def __init__(
+            self, 
+            model: TimmModel, 
+            train_dl: DataLoader, 
+            valid_dl: DataLoader, 
+            infer_dl: Optional[DataLoader],
+        ):
         self.epoch = 1e-6
         self.optimizer = Adam(model.parameters(), lr=cfg.learning_rate)
-        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, eta_min=1e-5, T_max=10)
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                self.optimizer, eta_min=1e-5, T_max=10
+        )
         self.scaler = torch.cuda.amp.grad_scaler.GradScaler()
         self.best_valid_map = 0.
         self.valid_map = 0.
@@ -82,12 +95,12 @@ class TrainProcess():
 
 
     def run_epoch(self):
+        """Train model for one epoch"""
         logger.debug(f"size of data loader: {len(self.train_dl)}")
         self.model.train()
     
         log_n = log_loss = log_map = 0
     
-        #scaler = torch.cuda.amp.GradScaler()
         start_time = datetime.datetime.now()
         start_epoch = self.epoch
         for i, (mels, labels) in enumerate(self.train_dl):
@@ -98,7 +111,7 @@ class TrainProcess():
             if cfg.mixed_precision and cfg.device != "cpu":
                 # Pyright complains about scaler.scale(loss) returning iterable of unknown types
                 # Problem in the pytorch typing, documentation says it returns iterables of Tensors
-                scaler.scale(loss).backward()  # type: ignore
+                self.scaler.scale(loss).backward()  # type: ignore
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
             else:
@@ -106,8 +119,6 @@ class TrainProcess():
                     logger.warning("cuda required, mixed precision not applied")
                 loss.backward()
                 self.optimizer.step()
-                #TODO: Check if you can actually keep this
-                #if self.scheduler is not None:
                 self.scheduler.step()
     
             log_pred = F.sigmoid(outputs)
@@ -136,6 +147,7 @@ class TrainProcess():
 
 
     def valid(self):
+        """Perform validation"""
         self.model.eval()
     
         running_loss = 0
@@ -187,12 +199,8 @@ class TrainProcess():
         self.inference_valid()
         return self.valid_map, self.best_valid_map
 
-    #TODO: Do validation first for pseudolabeling
     def inference_valid(self):
-    
-        """ Test Domain Shift To Soundscapes
-    
-        """
+        """ Test Domain Shift To Soundscapes"""
         if self.infer_dl is None:
             return
     
@@ -226,8 +234,7 @@ class TrainProcess():
 
 
 def main(in_sweep=True) -> None:
-    """ Main function
-    """
+    """ Main function """
     logger.info(f"Device is: {cfg.device}\n"
                 f"Preprocessing Device is {cfg.prepros_device}")
     set_seed(cfg.seed)
@@ -250,7 +257,7 @@ def main(in_sweep=True) -> None:
         logger.info("Loaded model from checkpoint...")
 
     logger.info("Initializing training process...")
-    train_process = TrainProcess(model, valid_dl, train_dl, infer_dl)
+    train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)
 
     logger.info("Training...")
     for _ in range(cfg.epochs):

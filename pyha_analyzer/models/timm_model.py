@@ -4,6 +4,7 @@
 """
 import logging
 from typing import Callable, Optional, Tuple
+
 # timm is a library of premade models
 import timm
 import torch
@@ -11,7 +12,7 @@ from torch import nn
 from torch.amp.autocast_mode import autocast
 
 from pyha_analyzer import config
-from pyha_analyzer.models.loss_fn import bce, cross_entropy, laplace
+from pyha_analyzer.models.loss_fn import bce, cross_entropy
 
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
@@ -39,7 +40,7 @@ class TimmModel(nn.Module):
         self.without_logits = cfg.loss_fnc == "BCE"
 
         logger.debug("add sigmod: %s", str(self.without_logits))
-    
+
     def forward(self, images):
         """ Forward pass of the model
         """
@@ -54,11 +55,11 @@ class TimmModel(nn.Module):
         loss_desc = cfg.loss_fnc
         loss_args = {
             "without_logits": self.without_logits,
-            "train_dataset" : train_dataset}
+            "train_dataset" : train_dataset
+        }
         loss_functions = {
             "CE"    : cross_entropy(self, **loss_args),
             "BCE"   : bce(self, **loss_args),
-            "LP"    : laplace(self, **loss_args),
         }
         loss_fn = loss_functions[loss_desc]
         return loss_fn
@@ -89,9 +90,9 @@ class TimmModel(nn.Module):
         """
         mels = mels.to(cfg.device)
         labels = labels.to(cfg.device)
-        if cfg.device == "cpu": 
+        if cfg.device == "cpu":
             dtype = torch.bfloat16
-        else: 
+        else:
             dtype = torch.float16
         with autocast(device_type=cfg.device, dtype=dtype, enabled=cfg.mixed_precision):
             outputs = (self)(mels)

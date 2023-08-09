@@ -20,7 +20,7 @@ from pyha_analyzer.chunking_methods.sliding_chunks import convolving_chunk
 from pyha_analyzer.dataset import get_datasets, make_dataloader
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
-from pyha_analyzer.train import map_metric, save_model
+from pyha_analyzer.train import map_metric
 
 cfg = config.cfg
 wandb.init(mode="disabled")
@@ -139,8 +139,8 @@ class TestTrain(unittest.TestCase):
 
     def test_model_save(self):
         """ Tests that model saving does not crash """
-        model = TimmModel(10,"tf_efficientnet_b4",True)
-        save_model(model)
+        model = TimmModel(10, "tf_efficientnet_b4", True)
+        utils.save_model(model, "testing")
 
 
 class TestChunking(unittest.TestCase):

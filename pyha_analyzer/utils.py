@@ -1,17 +1,18 @@
 """ Stores useful functions for the pyha_analyzer module """
 
 import datetime
-import math
-from pathlib import Path
 import logging
+import math
+import os
+from pathlib import Path
 from typing import Any, Dict, Tuple
 
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
-import wandb
 
+import wandb
 from pyha_analyzer import config
 from pyha_analyzer.models.timm_model import TimmModel
 
@@ -175,7 +176,7 @@ def get_annotation(
     target = target.to(cfg.prepros_device)
     return audio, target
 
-def save_model(model: TimmModel) -> Path:
+def save_model(model: TimmModel, time_now) -> Path:
     """ Saves model in the models directory as a pt file, returns path """
     path = Path("models")/(f"{cfg.model}-{time_now}.pt")
     if not Path("models").exists():

@@ -10,13 +10,13 @@ from pathlib import Path
 
 import pandas as pd
 import torch
-from torch.optim import Adam
-from torch.utils.data import DataLoader
 import torchaudio
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from pyha_analyzer import config, dataset, train, utils
+from pyha_analyzer import config, dataset, utils
 from pyha_analyzer.models.timm_model import TimmModel
+from pyha_analyzer.train import TrainProcess
 
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")

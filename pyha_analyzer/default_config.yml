@@ -85,7 +85,6 @@ sweep_id:
 early_stopping: false
 patience: 3
 min_valid_map_delta: 0.01
-
 # Data augmentation probabilities
 mixup_p: 0.4
 time_shift_p: 0
