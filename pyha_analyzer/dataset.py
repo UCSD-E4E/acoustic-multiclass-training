@@ -237,13 +237,16 @@ class PyhaDFDataset(Dataset):
 
 
     def __getitem__(self, index): #-> Any:
-        """ Takes an index and returns tuple of spectrogram image with corresponding label
+        """ 
+        Takes an index and returns tuple of 
+        (spectrogram image, corresponding label, index)
         """
         assert isinstance(index, int)
         audio, target = utils.get_annotation(
                 df = self.samples,
                 index = index,
-                class_to_idx = self.class_to_idx)
+                class_to_idx = self.class_to_idx
+        )
 
         audio, target = self.mixup(audio, target)
         if self.train:
@@ -264,7 +267,7 @@ class PyhaDFDataset(Dataset):
             target = self.samples.loc[index, self.classes].values.astype(np.int32)
             target = torch.Tensor(target)
 
-        return image, target
+        return image, target, index
 
     def get_num_classes(self) -> int:
         """ Returns number of classes
