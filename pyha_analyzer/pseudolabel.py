@@ -57,8 +57,6 @@ def make_raw_df() -> pd.DataFrame:
 def run_raw(model: TimmModel, df: pd.DataFrame):
     """ Returns predictions tensor from raw chunk dataframe """
     # Get dataset
-    if cfg.config_dict["class_list"] is None:
-        raise ValueError("Pseudo-labeling requires class list")
     raw_ds = dataset.PyhaDFDataset(df,train=False, species=cfg.config_dict["class_list"])
     dataloader = DataLoader(raw_ds, cfg.train_batch_size, num_workers=cfg.jobs)
 
@@ -108,6 +106,8 @@ def pseudo_labels(model):
     """
     Fine tune on pseudo labels
     """
+    if cfg.config_dict["class_list"] is None:
+        raise ValueError("Pseudo-labeling requires class list")
     logger.info("Generating raw dataframe...")
     raw_df = make_raw_df()
     logger.info("Running model...")
