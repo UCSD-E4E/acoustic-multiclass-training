@@ -10,23 +10,27 @@ cfg = config.cfg
 def cross_entropy(model, train_dataset, **_):
     """ Returns the cross entropy loss function and sets model.loss_fn
     """
-    if not cfg.imb: # normal loss
-        model.loss_fn = nn.CrossEntropyLoss()
-    else: # weighted loss
-        model.loss_fn = nn.CrossEntropyLoss(
-            weight=torch.tensor(
-                [1 / p for p in train_dataset.class_id_to_num_samples.values()]
-            ).to(model.device))
+    weight = None
+    if cfg.imb and train_dataset is not None:
+        weight = get_weights(train_dataset).to(cfg.device)
+    model.loss_fn = nn.CrossEntropyLoss(weight=weight)
     return model.loss_fn
 
-def bce(model, without_logits=False, **_):
+def bce(model, train_dataset, without_logits=False, **_):
     """ Returns the BCE loss function and sets model.loss_fn of model
 
     Added support for if we want to spilt sigmod and BCE loss or combine with
     BCEwithLogitsLoss
     """
+    weight = None
+    if cfg.imb and train_dataset is not None:
+        weight = get_weights(train_dataset).to(cfg.device)
+
     if not without_logits:
-        model.loss_fn = nn.BCEWithLogitsLoss(reduction='sum')
+        model.loss_fn = nn.BCEWithLogitsLoss(reduction='sum', weight=weight)
     else:
-        model.loss_fn = nn.BCELoss(reduction='mean')
+        model.loss_fn = nn.BCELoss(reduction='mean', weight=weight)
     return model.loss_fn
+
+def get_weights(dataset):
+    return torch.tensor([min(1/p, 1) for p in dataset.class_sums])

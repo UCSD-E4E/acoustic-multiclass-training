@@ -78,7 +78,17 @@ class PyhaDFDataset(Dataset):
         self.class_to_idx = dict(zip(species, np.arange(len(species))))
 
         self.num_classes = len(species)
+
         self.serialize_data()
+
+        self.class_sums = torch.zeros(self.num_classes)
+        for target in self.samples[cfg.manual_id_col]:
+            if isinstance(target,dict):
+                for name, alpha in target.items():
+                    self.class_sums[self.class_to_idx[name]] += float(alpha)
+            else:
+                self.class_sums[self.class_to_idx[target]] += 1.
+
 
         #Data augmentations
         self.mixup = Mixup(self.samples, self.class_to_idx, cfg)

@@ -116,7 +116,6 @@ def pseudo_labels(model):
     pseudo_df = get_pseudolabels(
         predictions, raw_df, cfg.pseudo_threshold
     )
-
     pseudo_df.to_csv("tmp_pseudo_labels.csv")
     logger.info("Saved pseudo dataset to tmp_pseudo_labels.csv")
     print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
@@ -125,6 +124,7 @@ def pseudo_labels(model):
     train_ds = dataset.PyhaDFDataset(
         pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list
     )
+    model.create_loss_fn(train_ds)
     _, valid_ds, infer_ds = dataset.get_datasets()
     train_dl, valid_dl, infer_dl = (
         dataset.get_dataloader(train_ds, valid_ds, infer_ds)
@@ -133,8 +133,11 @@ def pseudo_labels(model):
     logger.info("Finetuning on pseudo labels...")
     train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)
     train_process.valid()
+    train_process.inference_valid()
     for _ in range(cfg.epochs):
         train_process.run_epoch()
+        train_process.valid()
+        train_process.inference_valid()
 
 
 
