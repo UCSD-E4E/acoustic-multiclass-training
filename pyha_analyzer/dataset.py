@@ -7,6 +7,7 @@
     If this module is run directly, it tests that the dataloader works
 
 """
+import collections
 import logging
 import os
 from typing import List, Tuple, Optional
@@ -22,6 +23,9 @@ from torchvision.transforms import RandomApply
 from tqdm import tqdm
 import wandb
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+import tensorflow.compat.v1 as tf
+
 from pyha_analyzer import config
 from pyha_analyzer import utils
 from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
@@ -32,6 +36,27 @@ cfg = config.cfg
 
 tqdm.pandas()
 logger = logging.getLogger("acoustic_multiclass_training")
+
+# sound separation code from https://github.com/google-research/chirp
+SeparatorState = collections.namedtuple(
+    'SeparatorState', ['session', 'audio_placeholder', 'output_tensor']
+)
+
+def load_separation_model(model_path, checkpoint_path):
+    """Loads a separation model graph for inference."""
+    metagraph_path_ns = os.path.join(model_path, 'inference.meta')
+    graph_ns = tf.Graph()
+    sess_ns = tf.Session(graph=graph_ns)
+    with graph_ns.as_default():
+        new_saver = tf.train.import_meta_graph(metagraph_path_ns)
+        new_saver.restore(sess_ns, checkpoint_path)
+        input_placeholder_ns = graph_ns.get_tensor_by_name(
+            'input_audio/receiver_audio:0'
+        )
+    output_tensor_ns = graph_ns.get_tensor_by_name('denoised_waveforms:0')
+    return SeparatorState(sess_ns, input_placeholder_ns, output_tensor_ns)
+
+separator_state = load_separation_model(cfg.sep_model_path, cfg.sep_checkpoint_path)
 
 # pylint: disable=too-many-instance-attributes
 class PyhaDFDataset(Dataset):
@@ -98,7 +123,7 @@ class PyhaDFDataset(Dataset):
         self.image_augmentations = torch.nn.Sequential(
                 RandomApply([audtr.FrequencyMasking(cfg.freq_mask_param)], p=cfg.freq_mask_p),
                 RandomApply([audtr.TimeMasking(cfg.time_mask_param)],      p=cfg.time_mask_p))
-
+    
     def verify_audio(self) -> None:
         """
         Checks to make sure files exist that are referenced in input df
@@ -212,12 +237,27 @@ class PyhaDFDataset(Dataset):
                 n_mels=cfg.n_mels,
                 n_fft=cfg.n_fft)
         convert_to_mel = convert_to_mel.to(self.device)
+
+        # idk how to make this less expensive sorry
+        sep = separator_state.session.run(
+            separator_state.output_tensor,
+            feed_dict={
+                separator_state.audio_placeholder: audio[
+                    np.newaxis, np.newaxis, :
+                ]
+            },
+        )
+        sep = sep[0]
+        chan0 = convert_to_mel(torch.from_numpy(sep[0,:]))
+        chan1 = convert_to_mel(torch.from_numpy(sep[1,:]))
+        image = torch.stack([convert_to_mel(audio), chan0, chan1])
         # Mel spectrogram
         # Pylint complains this is not callable, but it is a torch.nn.Module
         # pylint: disable-next=not-callable
-        mel = convert_to_mel(audio)
-        # Convert to Image
-        image = torch.stack([mel, mel, mel])
+        # mel = convert_to_mel(audio)
+        # print(mel.shape)
+        # # Convert to Image
+        # image = torch.stack([mel, mel, mel])
         
         # Convert to decibels
         # Log scale the power
