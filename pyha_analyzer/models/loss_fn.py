@@ -11,8 +11,8 @@ def cross_entropy(model, train_dataset, **_):
     """ Returns the cross entropy loss function and sets model.loss_fn
     """
     weight = None
-    if cfg.imb:
-        weight = get_weights(train_dataset).to(model.device)
+    if cfg.imb and train_dataset is not None:
+        weight = get_weights(train_dataset).to(cfg.device)
     model.loss_fn = nn.CrossEntropyLoss(weight=weight)
     return model.loss_fn
 
@@ -23,8 +23,8 @@ def bce(model, train_dataset, without_logits=False, **_):
     BCEwithLogitsLoss
     """
     weight = None
-    if cfg.imb:
-        weight = get_weights(train_dataset).to(model.device)
+    if cfg.imb and train_dataset is not None:
+        weight = get_weights(train_dataset).to(cfg.device)
 
     if not without_logits:
         model.loss_fn = nn.BCEWithLogitsLoss(reduction='sum', weight=weight)
