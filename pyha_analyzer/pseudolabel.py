@@ -115,7 +115,7 @@ def pseudo_labels(model):
     pseudo_df = get_pseudolabels(
         predictions, raw_df, cfg.pseudo_threshold
     )
-
+    model.create_loss_fn(pseudo_df)
     pseudo_df.to_csv("tmp_pseudo_labels.csv")
     logger.info("Saved pseudo dataset to tmp_pseudo_labels.csv")
     print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
