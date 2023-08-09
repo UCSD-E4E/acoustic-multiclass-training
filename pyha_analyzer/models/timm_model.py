@@ -60,6 +60,7 @@ class TimmModel(nn.Module):
         loss_functions = {
             "CE"    : cross_entropy(self, **loss_args),
             "BCE"   : bce(self, **loss_args),
+            "BCEWL" : bce(self, **loss_args),
         }
         loss_fn = loss_functions[loss_desc]
         return loss_fn
