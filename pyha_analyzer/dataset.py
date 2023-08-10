@@ -192,14 +192,15 @@ class PyhaDFDataset(Dataset):
         files = files["files"].progress_apply(self.process_audio_file)
         logger.debug("%s", str(files.shape))
 
-        num_files = files.shape[0]
-        if num_files == 0:
-            raise FileNotFoundError("There were no valid filepaths found, check csv")
-
         files = files[files["files"] != "bad"]
         self.samples = self.samples.merge(files, how="left",
                        left_on=cfg.file_name_col,
                        right_on="FILE NAME").dropna()
+
+        num_files = files.shape[0]
+        if num_files == 0:
+            raise FileNotFoundError("There were no valid filepaths found, check csv")
+
 
         logger.debug("Serialized form, fixed size: %s", str(self.samples.shape))
 
