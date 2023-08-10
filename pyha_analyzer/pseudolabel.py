@@ -127,6 +127,15 @@ def pseudo_labels(model):
         raw_df, train=cfg.pseudo_data_augs, species=cfg.class_list
     )
     unlabel_dl = dataset.make_dataloader(unlabel_ds, cfg.train_batch_size, False, True)
+    train_ds.samples = train_ds.samples[:len(unlabel_ds)]
+    train_dl = torch.utils.data.DataLoader(
+        train_ds,
+        cfg.train_batch_size,
+        sampler=range(0,len(unlabel_ds)),
+        num_workers=cfg.jobs,
+        worker_init_fn=dataset.set_torch_file_sharing,
+        persistent_workers=True
+    )
 
     logger.info("Finetuning on pseudo labels...")
     train_process = TrainProcess(model, train_dl, valid_dl, infer_dl, unlabel_dl)

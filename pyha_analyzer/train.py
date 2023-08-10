@@ -163,11 +163,7 @@ class TrainProcess():
         start_epoch = self.epoch
         train_iter = iter(self.train_dl)
         for i, (mels_s, mels_w, labels) in enumerate(self.unlabel_dl):
-            try:
-                mels_l, _, labels_l = next(train_iter)
-            except Exception:
-                train_iter = iter(self.train_dl)
-                mels_l, _, labels_l = next(train_iter)
+            mels_l, _, labels_l = next(train_iter)
 
             self.epoch = start_epoch + i/len(self.unlabel_dl)
             self.optimizer.zero_grad()
@@ -202,7 +198,7 @@ class TrainProcess():
             log_n += 1
     
             #Log and reset metrics
-            if (i != 0 and i % (cfg.logging_freq) == 0) or i == len(self.train_dl) - 1:
+            if (i != 0 and i % (cfg.logging_freq) == 0) or i == len(self.unlabel_dl) - 1:
                 log_metrics(self.epoch, i, start_time, log_n, log_loss, log_map)
                 log_n = log_loss = log_map = 0
     
@@ -217,7 +213,7 @@ class TrainProcess():
                 self.model.train()
                 # Ignore the time it takes to validate in annotations/sec
                 start_time += datetime.datetime.now() - valid_start_time
-    
+        
         return self.best_valid_map
 
     def valid(self):
