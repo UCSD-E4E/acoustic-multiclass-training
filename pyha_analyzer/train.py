@@ -297,6 +297,7 @@ class TrainProcess():
         domain_shift = np.abs(self.valid_map - infer_map)
         wandb.log({
             "valid/domain_shift_diff": domain_shift,
+            "valid/inferance_map": infer_map,
             "epoch_progress": self.epoch,
         })
     
