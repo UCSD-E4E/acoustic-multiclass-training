@@ -217,7 +217,7 @@ class PyhaDFDataset(Dataset):
         """
         Convert audio clip to 3-channel spectrogram image
         """
-         S = librosa.feature.melspectrogram(
+        S = librosa.feature.melspectrogram(
             y=audio.detach().numpy(),
             sr=cfg.sample_rate,
             n_mels=cfg.n_mels,
