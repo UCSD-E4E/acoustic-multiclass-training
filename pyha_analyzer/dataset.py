@@ -254,8 +254,10 @@ class PyhaDFDataset(Dataset):
                 df = self.samples,
                 index = index,
                 class_to_idx = self.class_to_idx)
+        
+        orig_image = self.to_image(audio)
 
-        audio, target = self.mixup(audio, target)
+        #audio, target = self.mixup(audio, target)
         if self.train:
             audio = self.audio_augmentations(audio)
         image = self.to_image(audio)
@@ -274,7 +276,7 @@ class PyhaDFDataset(Dataset):
             target = self.samples.loc[index, self.classes].values.astype(np.int32)
             target = torch.Tensor(target)
 
-        return image, target
+        return image, orig_image, target
 
     def get_num_classes(self) -> int:
         """ Returns number of classes

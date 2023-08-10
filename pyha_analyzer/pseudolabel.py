@@ -56,8 +56,6 @@ def make_raw_df() -> pd.DataFrame:
 def run_raw(model: TimmModel, df: pd.DataFrame):
     """ Returns predictions tensor from raw chunk dataframe """
     # Get dataset
-    if cfg.config_dict["class_list"] is None:
-        raise ValueError("Pseudo-labeling requires class list")
     raw_ds = dataset.PyhaDFDataset(df,train=False, species=cfg.config_dict["class_list"])
     dataloader = DataLoader(raw_ds, cfg.train_batch_size, num_workers=cfg.jobs)
 
@@ -67,7 +65,7 @@ def run_raw(model: TimmModel, df: pd.DataFrame):
     dataloader = tqdm(dataloader, total=math.ceil(len(raw_ds)/cfg.train_batch_size))
 
     with torch.no_grad():
-        for _, (mels, labels) in enumerate(dataloader):
+        for _, (mels, mel_w, labels) in enumerate(dataloader):
             _, outputs = model.run_batch(mels, labels)
             log_pred.append(torch.clone(outputs.cpu()).detach())
     return torch.nn.functional.sigmoid(torch.concat(log_pred))
@@ -110,35 +108,32 @@ def pseudo_labels(model):
     logger.info("Generating raw dataframe...")
     raw_df = make_raw_df()
     logger.info("Running model...")
-    predictions = run_raw(model, raw_df)
+    #predictions = run_raw(model, raw_df)
     logger.info("Generating pseudo labels...")
-    pseudo_df = get_pseudolabels(
-        predictions, raw_df, cfg.pseudo_threshold
-    )
-    pseudo_df.to_csv("tmp_pseudo_labels.csv")
-    logger.info("Saved pseudo dataset to tmp_pseudo_labels.csv")
-    print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
+    #pseudo_df = get_pseudolabels(
+    #    predictions, raw_df, cfg.pseudo_threshold
+    #)
+    #pseudo_df.to_csv("tmp_pseudo_labels.csv")
+    #logger.info("Saved pseudo dataset to tmp_pseudo_labels.csv")
+    #print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
 
     logger.info("Loading dataset...")
-    train_ds = dataset.PyhaDFDataset(
-        pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list
-    )
+    train_ds, valid_ds, infer_ds = dataset.get_datasets()
     model.create_loss_fn(train_ds)
-    _, valid_ds, infer_ds = dataset.get_datasets()
     train_dl, valid_dl, infer_dl = (
         dataset.get_dataloader(train_ds, valid_ds, infer_ds)
     )
+    unlabel_ds = dataset.PyhaDFDataset(
+        raw_df, train=cfg.pseudo_data_augs, species=cfg.class_list
+    )
+    unlabel_dl = dataset.make_dataloader(unlabel_ds, cfg.train_batch_size, False, True)
 
     logger.info("Finetuning on pseudo labels...")
-    train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)
+    train_process = TrainProcess(model, train_dl, valid_dl, infer_dl, unlabel_dl)
     train_process.valid()
-    train_process.inference_valid()
     for _ in range(cfg.epochs):
-        train_process.run_epoch()
+        train_process.debias_pl_epoch()
         train_process.valid()
-        train_process.inference_valid()
-
-
 
 def main(in_sweep=True):
     """ Main function """
