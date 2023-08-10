@@ -23,9 +23,8 @@ from torchvision.transforms import RandomApply
 from tqdm import tqdm
 import wandb
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow.compat.v1 as tf
-
 from pyha_analyzer import config
 from pyha_analyzer import utils
 from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
@@ -46,7 +45,13 @@ def load_separation_model(model_path, checkpoint_path):
     """Loads a separation model graph for inference."""
     metagraph_path_ns = os.path.join(model_path, 'inference.meta')
     graph_ns = tf.Graph()
-    sess_ns = tf.Session(graph=graph_ns)
+
+    #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.1)
+
+    sess_ns = tf.Session(config=tf.ConfigProto(
+        device_count={'GPU': 1},
+        #gpu_options=gpu_options
+    ), graph=graph_ns)
     with graph_ns.as_default():
         new_saver = tf.train.import_meta_graph(metagraph_path_ns)
         new_saver.restore(sess_ns, checkpoint_path)
@@ -55,8 +60,6 @@ def load_separation_model(model_path, checkpoint_path):
         )
     output_tensor_ns = graph_ns.get_tensor_by_name('denoised_waveforms:0')
     return SeparatorState(sess_ns, input_placeholder_ns, output_tensor_ns)
-
-separator_state = load_separation_model(cfg.sep_model_path, cfg.sep_checkpoint_path)
 
 # pylint: disable=too-many-instance-attributes
 class PyhaDFDataset(Dataset):
@@ -103,7 +106,11 @@ class PyhaDFDataset(Dataset):
         self.class_to_idx = dict(zip(species, np.arange(len(species))))
 
         self.num_classes = len(species)
+        self.separator_state = load_separation_model(cfg.sep_model_path, cfg.sep_checkpoint_path)
         self.serialize_data()
+        
+        del self.separator_state
+        self.separator_state = None
 
         #Data augmentations
         self.mixup = Mixup(self.samples, self.class_to_idx, cfg)
@@ -148,7 +155,7 @@ class PyhaDFDataset(Dataset):
         """
         exts = "." + file_name.split(".")[-1]
         new_name = file_name.replace(exts, ".pt")
-        if os.path.join(cfg.data_path, new_name) in self.data_dir:
+        if not cfg.force_pt_regen and os.path.join(cfg.data_path, new_name) in self.data_dir:
             #ASSUME WE HAVE ALREADY PREPROCESSED THIS CORRECTLY
             return pd.Series({
                 "FILE NAME": file_name,
@@ -171,7 +178,21 @@ class PyhaDFDataset(Dataset):
             if sample_rate != cfg.sample_rate:
                 resample = audtr.Resample(sample_rate, cfg.sample_rate)
                 audio = resample(audio)
-
+            
+            sep = self.separator_state.session.run(
+                self.separator_state.output_tensor,
+                feed_dict={
+                    self.separator_state.audio_placeholder: audio[
+                        np.newaxis, np.newaxis, :
+                    ]
+                },
+            )
+            sep = torch.Tensor(sep[0])
+            #print(type(sep),sep.shape)
+            audio = torch.stack([audio, sep[0], sep[1]])#, sep[2], sep[3]])
+            #del sep
+            #print(audio.shape)
+            #exit()
             torch.save(audio, os.path.join(cfg.data_path,new_name))
             self.data_dir.add(new_name)
         # IO is messy, I want any file that could be problematic
@@ -239,18 +260,23 @@ class PyhaDFDataset(Dataset):
         convert_to_mel = convert_to_mel.to(self.device)
 
         # idk how to make this less expensive sorry
-        sep = separator_state.session.run(
-            separator_state.output_tensor,
-            feed_dict={
-                separator_state.audio_placeholder: audio[
-                    np.newaxis, np.newaxis, :
-                ]
-            },
-        )
-        sep = sep[0]
-        chan0 = convert_to_mel(torch.from_numpy(sep[0,:]))
-        chan1 = convert_to_mel(torch.from_numpy(sep[1,:]))
-        image = torch.stack([convert_to_mel(audio), chan0, chan1])
+        # sep = separator_state.session.run(
+        #     separator_state.output_tensor,
+        #     feed_dict={
+        #         separator_state.audio_placeholder: audio[
+        #             np.newaxis, np.newaxis, :
+        #         ]
+        #     },
+        # )
+        # sep = sep[0]
+        # chan0 = convert_to_mel(torch.from_numpy(sep[0,:]).clone())
+        # chan1 = convert_to_mel(torch.from_numpy(sep[1,:]).clone())
+        # image = torch.stack([convert_to_mel(audio), chan0, chan1])
+        # del sep
+        image = convert_to_mel(audio)
+        print(audio.shape)
+        print(image.shape)
+        exit()
         # Mel spectrogram
         # Pylint complains this is not callable, but it is a torch.nn.Module
         # pylint: disable-next=not-callable
@@ -280,15 +306,20 @@ class PyhaDFDataset(Dataset):
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
         assert isinstance(index, int)
+        #print("get_annotation")
         audio, target = utils.get_annotation(
                 df = self.samples,
                 index = index,
                 class_to_idx = self.class_to_idx)
-
+        #print(audio)
+        #print("SUCCESSFULLY GOT AUDUIO")
         audio, target = self.mixup(audio, target)
         if self.train:
             audio = self.audio_augmentations(audio)
+
+        #print("GET IMAGE")
         image = self.to_image(audio)
+
         if self.train:
             image = self.image_augmentations(image)
 
@@ -304,6 +335,7 @@ class PyhaDFDataset(Dataset):
             target = self.samples.loc[index, self.classes].values.astype(np.int32)
             target = torch.Tensor(target)
 
+        target = torch.minimum(target, torch.ones(target.shape[0]))
         return image, target
 
     def get_num_classes(self) -> int:
