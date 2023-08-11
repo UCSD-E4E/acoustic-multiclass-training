@@ -119,14 +119,15 @@ def pseudo_labels(model):
     logger.info("Saved pseudo dataset to tmp_pseudo_labels.csv")
     print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
 
-def main(in_sweep=True):
+def main():
     """ Main function """
     torch.multiprocessing.set_start_method('spawn', force=True)
     torch.multiprocessing.set_sharing_strategy('file_system')
     print(f"Device is: {cfg.device}, Preprocessing Device is {cfg.prepros_device}")
     utils.logging_setup()
     utils.set_seed(cfg.seed)
-    utils.wandb_init(in_sweep)
+    cfg.logging = False
+    utils.wandb_init(in_sweep=False)
     print("Creating model...")
     model = TimmModel(num_classes=len(cfg.class_list), model_name=cfg.model).to(cfg.device)
     model.create_loss_fn(None)
@@ -136,4 +137,4 @@ def main(in_sweep=True):
 
 
 if __name__ == "__main__":
-    main(in_sweep=False)
+    main()
