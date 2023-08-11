@@ -145,7 +145,6 @@ class TrainProcess():
     
         return self.best_valid_map
 
-
     def valid(self):
         """Perform validation"""
         self.model.eval()
@@ -227,6 +226,7 @@ class TrainProcess():
         domain_shift = np.abs(self.valid_map - infer_map)
         wandb.log({
             "valid/domain_shift_diff": domain_shift,
+            "valid/inferance_map": infer_map,
             "epoch_progress": self.epoch,
         })
     
@@ -262,6 +262,7 @@ def main(in_sweep=True) -> None:
     logger.info("Training...")
     for _ in range(cfg.epochs):
         train_process.run_epoch()
+        train_process.valid()
 
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')

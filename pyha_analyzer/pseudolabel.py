@@ -17,7 +17,6 @@ from tqdm import tqdm
 
 from pyha_analyzer import config, dataset, utils
 from pyha_analyzer.models.timm_model import TimmModel
-from pyha_analyzer.train import TrainProcess
 
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
@@ -120,35 +119,14 @@ def pseudo_labels(model):
     logger.info("Saved pseudo dataset to tmp_pseudo_labels.csv")
     print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
 
-    logger.info("Loading dataset...")
-    train_ds = dataset.PyhaDFDataset(
-        pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list
-    )
-    model.create_loss_fn(train_ds)
-    _, valid_ds, infer_ds = dataset.get_datasets()
-    train_dl, valid_dl, infer_dl = (
-        dataset.get_dataloader(train_ds, valid_ds, infer_ds)
-    )
-
-    logger.info("Finetuning on pseudo labels...")
-    train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)
-    train_process.valid()
-    train_process.inference_valid()
-    for _ in range(cfg.epochs):
-        train_process.run_epoch()
-        train_process.valid()
-        train_process.inference_valid()
-
-
-
-def main(in_sweep=True):
+def main():
     """ Main function """
     torch.multiprocessing.set_start_method('spawn', force=True)
     torch.multiprocessing.set_sharing_strategy('file_system')
     print(f"Device is: {cfg.device}, Preprocessing Device is {cfg.prepros_device}")
     utils.logging_setup()
     utils.set_seed(cfg.seed)
-    utils.wandb_init(in_sweep)
+    utils.wandb_init(in_sweep=False, disable=True)
     print("Creating model...")
     model = TimmModel(num_classes=len(cfg.class_list), model_name=cfg.model).to(cfg.device)
     model.create_loss_fn(None)
@@ -158,4 +136,4 @@ def main(in_sweep=True):
 
 
 if __name__ == "__main__":
-    main(in_sweep=False)
+    main()
