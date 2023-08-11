@@ -168,7 +168,10 @@ def main():
     model.create_loss_fn(train_ds)
     unlabel_ds = OrigAudioDataset(raw_df, species=cfg.class_list)
     unlabel_dl = dataset.make_dataloader(unlabel_ds, cfg.train_batch_size, False, True)
-    train_ds.samples = train_ds.samples[:len(unlabel_ds)]
+    assert len(train_ds) > len(unlabel_ds), "More training samples than unlabeled samples"
+    
+    train_ds.samples = train_ds.samples.sample(n=len(unlabel_ds))
+    assert len(train_ds) == len(unlabel_ds)
     train_dl = DataLoader(
         train_ds,
         cfg.train_batch_size,
