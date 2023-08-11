@@ -218,7 +218,7 @@ class PyhaDFDataset(Dataset):
         """
         Convert audio clip to 3-channel spectrogram image
         """
-        S = librosa.feature.melspectrogram(
+        mel = librosa.feature.melspectrogram(
             y=audio.detach().numpy(),
             sr=cfg.sample_rate,
             n_mels=cfg.n_mels,
@@ -227,8 +227,8 @@ class PyhaDFDataset(Dataset):
             power=1)
         #log_S = librosa.amplitude_to_db(S, ref=np.max)
         hop_length = int(cfg.n_fft//2)
-        pcen_S = librosa.pcen(
-            S * (2**31),
+        mel_pcen = librosa.pcen(
+            mel * (2**31),
             sr=cfg.sample_rate,
             hop_length = hop_length,
             gain=0.8,
@@ -240,13 +240,14 @@ class PyhaDFDataset(Dataset):
         # See https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8514023 for
         # reasoning behind parameters
 
-        # TODO: improve this method
+        # possible to do: improve this method
         # GOAL: Multiplying by a power greater than one increases background
-        # This could help make calls sound further in the background and hopefully reduce domain shift
-        if self.train:
-            pcen_S ** 1.2
+        # This could help make calls sound further in the background
+        # and hopefully reduce domain shift
+        #if self.train:
+            #mel_pcen = mel_pcen ** 1.2
 
-        mel = torch.Tensor(pcen_S)
+        mel = torch.Tensor(mel_pcen)
         # Convert to Image
         image = torch.stack([mel, mel, mel])
         
@@ -277,10 +278,8 @@ class PyhaDFDataset(Dataset):
                 df = self.samples,
                 index = index,
                 class_to_idx = self.class_to_idx)
-        
-        orig_image = self.to_image(audio)
 
-        #audio, target = self.mixup(audio, target)
+        audio, target = self.mixup(audio, target)
         if self.train:
             audio = self.audio_augmentations(audio)
         image = self.to_image(audio)
@@ -299,7 +298,7 @@ class PyhaDFDataset(Dataset):
             target = self.samples.loc[index, self.classes].values.astype(np.int32)
             target = torch.Tensor(target)
 
-        return image, orig_image, target, index
+        return image, target, index
 
     def get_num_classes(self) -> int:
         """ Returns number of classes

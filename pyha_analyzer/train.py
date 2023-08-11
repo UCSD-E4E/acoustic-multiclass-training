@@ -76,7 +76,6 @@ class TrainProcess():
             train_dl: DataLoader, 
             valid_dl: DataLoader, 
             infer_dl: Optional[DataLoader],
-            unlabel_dl: DataLoader
         ):
         self.epoch = 1e-6
         self.optimizer = Adam(model.parameters(), lr=cfg.learning_rate)
@@ -90,10 +89,8 @@ class TrainProcess():
         self.train_dl = train_dl
         self.valid_dl = valid_dl
         self.infer_dl = infer_dl
-        self.unlabel_dl = unlabel_dl
         self.early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
         self.best_valid_map = 0.
-        self.qhat = torch.tensor([1/train_dl.dataset.num_classes for i in range(train_dl.dataset.num_classes)]).to(cfg.device)
 
 
     def run_epoch(self):
@@ -147,74 +144,6 @@ class TrainProcess():
                 start_time += datetime.datetime.now() - valid_start_time
     
         return self.best_valid_map
-    
-    def update_qhat(self,probs):
-        mean_probs = probs.detach().mean(dim=0)
-        self.qhat = 0.9*self.qhat + 0.1*mean_probs
-
-    def debias_pl_epoch(self):
-        """Train model for one epoch"""
-        logger.debug(f"size of data loader: {len(self.train_dl)}")
-        self.model.train()
-    
-        log_n = log_loss = log_map = 0
-    
-        start_time = datetime.datetime.now()
-        start_epoch = self.epoch
-        train_iter = iter(self.train_dl)
-        for i, (mels_s, mels_w, labels, _) in enumerate(self.unlabel_dl):
-            mels_l, _, labels_l, _ = next(train_iter)
-
-            self.epoch = start_epoch + i/len(self.unlabel_dl)
-            self.optimizer.zero_grad()
-            loss_uw, outputs_uw = self.model.run_batch(mels_w, labels)
-            loss_us, outputs_us = self.model.run_batch(mels_s, labels)
-            loss_l, outputs_l = self.model.run_batch(mels_l, labels_l)
-            loss_l = loss_l.mean()
-            p_u = F.sigmoid(outputs_uw - 1.0 * torch.log(self.qhat))
-            max_probs, pseudo_label = torch.max(p_u, dim=-1)
-            mask = max_probs.ge(cfg.pseudo_threshold).float()
-
-            outputs_us += 1.0 * torch.log(self.qhat)
-            loss_u = (F.cross_entropy(outputs_us, pseudo_label) * mask).mean()
-            loss = loss_l + loss_u * 10
-    
-            if cfg.mixed_precision and cfg.device != "cpu":
-                # Pyright complains about scaler.scale(loss) returning iterable of unknown types
-                # Problem in the pytorch typing, documentation says it returns iterables of Tensors
-                self.scaler.scale(loss).backward()  # type: ignore
-                self.scaler.step(self.optimizer)
-                self.scaler.update()
-            else:
-                if cfg.mixed_precision:
-                    logger.warning("cuda required, mixed precision not applied")
-                loss.backward()
-                self.optimizer.step()
-                self.scheduler.step()
-    
-            log_pred = F.sigmoid(outputs_l)
-            log_map += map_metric(log_pred, labels_l, self.model.num_classes)
-            log_loss += loss.item()
-            log_n += 1
-    
-            #Log and reset metrics
-            if (i != 0 and i % (cfg.logging_freq) == 0) or i == len(self.unlabel_dl) - 1:
-                log_metrics(self.epoch, i, start_time, log_n, log_loss, log_map)
-                log_n = log_loss = log_map = 0
-    
-            # Free memory so gpu is freed before validation run
-            if (i != 0 and i % (cfg.valid_freq) == 0):
-                #del mels
-                #del outputs
-                del labels
-    
-                valid_start_time = datetime.datetime.now()
-                self.valid()
-                self.model.train()
-                # Ignore the time it takes to validate in annotations/sec
-                start_time += datetime.datetime.now() - valid_start_time
-        
-        return self.best_valid_map
 
     def valid(self):
         """Perform validation"""
@@ -232,14 +161,14 @@ class TrainProcess():
         dl_iter = tqdm(self.valid_dl, position=5, total=num_valid_samples)
     
         with torch.no_grad():
-            for index, (mels, _, labels, _) in enumerate(dl_iter):
+            for index, (mels, labels, _) in enumerate(dl_iter):
                 if index > num_valid_samples:
                     # Stop early if not doing full validation
                     break
     
                 loss, outputs = self.model.run_batch(mels, labels)
                     
-                running_loss += loss.mean().item()
+                running_loss += loss.item()
                 
                 log_pred.append(torch.clone(outputs.cpu()).detach())
                 log_label.append(torch.clone(labels.cpu()).detach())
@@ -284,7 +213,7 @@ class TrainProcess():
         dl_iter = tqdm(self.infer_dl, position=5, total=num_valid_samples)
     
         with torch.no_grad():
-            for _, (mels, _, labels, _) in enumerate(dl_iter):
+            for _, (mels, labels, _) in enumerate(dl_iter):
                 _, outputs = self.model.run_batch(mels, labels)
                 log_pred.append(torch.clone(outputs.cpu()).detach())
                 log_label.append(torch.clone(labels.cpu()).detach())
@@ -333,6 +262,7 @@ def main(in_sweep=True) -> None:
     logger.info("Training...")
     for _ in range(cfg.epochs):
         train_process.run_epoch()
+        train_process.valid()
 
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')

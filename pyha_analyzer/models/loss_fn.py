@@ -27,9 +27,9 @@ def bce(model, train_dataset, without_logits=False, **_):
         weight = get_weights(train_dataset).to(cfg.device)
 
     if not without_logits:
-        model.loss_fn = nn.BCEWithLogitsLoss(reduction='none', weight=weight)
+        model.loss_fn = nn.BCEWithLogitsLoss(reduction='mean', weight=weight)
     else:
-        model.loss_fn = nn.BCELoss(reduction='none', weight=weight)
+        model.loss_fn = nn.BCELoss(reduction='mean', weight=weight)
     return model.loss_fn
 
 def get_weights(dataset):

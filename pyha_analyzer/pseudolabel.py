@@ -17,7 +17,6 @@ from tqdm import tqdm
 
 from pyha_analyzer import config, dataset, utils
 from pyha_analyzer.models.timm_model import TimmModel
-from pyha_analyzer.train import TrainProcess
 
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
@@ -66,7 +65,7 @@ def run_raw(model: TimmModel, df: pd.DataFrame):
     dataloader = tqdm(dataloader, total=math.ceil(len(raw_ds)/cfg.train_batch_size))
 
     with torch.no_grad():
-        for _, (mels, mel_w, labels, _) in enumerate(dataloader):
+        for _, (mels, labels, _) in enumerate(dataloader):
             _, outputs = model.run_batch(mels, labels)
             log_pred.append(torch.clone(outputs.cpu()).detach())
     return torch.nn.functional.sigmoid(torch.concat(log_pred))
@@ -111,41 +110,14 @@ def pseudo_labels(model):
     logger.info("Generating raw dataframe...")
     raw_df = make_raw_df()
     logger.info("Running model...")
-    #predictions = run_raw(model, raw_df)
+    predictions = run_raw(model, raw_df)
     logger.info("Generating pseudo labels...")
-    #pseudo_df = get_pseudolabels(
-    #    predictions, raw_df, cfg.pseudo_threshold
-    #)
-    #pseudo_df.to_csv("tmp_pseudo_labels.csv")
-    #logger.info("Saved pseudo dataset to tmp_pseudo_labels.csv")
-    #print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
-
-    logger.info("Loading dataset...")
-    train_ds, valid_ds, infer_ds = dataset.get_datasets()
-    model.create_loss_fn(train_ds)
-    train_dl, valid_dl, infer_dl = (
-        dataset.get_dataloader(train_ds, valid_ds, infer_ds)
+    pseudo_df = get_pseudolabels(
+        predictions, raw_df, cfg.pseudo_threshold
     )
-    unlabel_ds = dataset.PyhaDFDataset(
-        raw_df, train=cfg.pseudo_data_augs, species=cfg.class_list
-    )
-    unlabel_dl = dataset.make_dataloader(unlabel_ds, cfg.train_batch_size, False, True)
-    train_ds.samples = train_ds.samples[:len(unlabel_ds)]
-    train_dl = torch.utils.data.DataLoader(
-        train_ds,
-        cfg.train_batch_size,
-        sampler=range(0,len(unlabel_ds)),
-        num_workers=cfg.jobs,
-        worker_init_fn=dataset.set_torch_file_sharing,
-        persistent_workers=True
-    )
-
-    logger.info("Finetuning on pseudo labels...")
-    train_process = TrainProcess(model, train_dl, valid_dl, infer_dl, unlabel_dl)
-    train_process.valid()
-    for _ in range(cfg.epochs):
-        train_process.debias_pl_epoch()
-        train_process.valid()
+    pseudo_df.to_csv("tmp_pseudo_labels.csv")
+    logger.info("Saved pseudo dataset to tmp_pseudo_labels.csv")
+    print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
 
 def main(in_sweep=True):
     """ Main function """
