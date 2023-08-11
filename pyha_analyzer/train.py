@@ -31,7 +31,6 @@ logger = logging.getLogger("acoustic_multiclass_training")
 def log_metrics(epoch, i, start_time, log_n, log_loss, log_map):
     """Print run metrics to console and log in WandB"""
     duration = (datetime.datetime.now() - start_time).total_seconds()
-    start_time = datetime.datetime.now()
     annotations = ((i % cfg.logging_freq) or cfg.logging_freq) * cfg.train_batch_size
     #Log to Weights and Biases
     wandb.log({
@@ -106,7 +105,7 @@ class TrainProcess():
     
         start_time = datetime.datetime.now()
         start_epoch = self.epoch
-        for i, (mels, labels) in enumerate(self.train_dl):
+        for i, (mels, labels, _) in enumerate(self.train_dl):
             self.epoch = start_epoch + i/len(self.train_dl)
             self.optimizer.zero_grad()
             loss, outputs = self.model.run_batch(mels, labels)
@@ -132,6 +131,7 @@ class TrainProcess():
             #Log and reset metrics
             if (i != 0 and i % (cfg.logging_freq) == 0) or i == len(self.train_dl) - 1:
                 log_metrics(self.epoch, i, start_time, log_n, log_loss, log_map)
+                start_time = datetime.datetime.now()
                 log_n = log_loss = log_map = 0
     
             # Free memory so gpu is freed before validation run
@@ -232,7 +232,7 @@ class TrainProcess():
         dl_iter = tqdm(self.valid_dl, position=5, total=num_valid_samples)
     
         with torch.no_grad():
-            for index, (mels, _, labels) in enumerate(dl_iter):
+            for index, (mels, _, labels, _) in enumerate(dl_iter):
                 if index > num_valid_samples:
                     # Stop early if not doing full validation
                     break
@@ -284,7 +284,7 @@ class TrainProcess():
         dl_iter = tqdm(self.infer_dl, position=5, total=num_valid_samples)
     
         with torch.no_grad():
-            for _, (mels, _, labels) in enumerate(dl_iter):
+            for _, (mels, _, labels, _) in enumerate(dl_iter):
                 _, outputs = self.model.run_batch(mels, labels)
                 log_pred.append(torch.clone(outputs.cpu()).detach())
                 log_label.append(torch.clone(labels.cpu()).detach())

@@ -1,4 +1,5 @@
-""" Contains methods related to pseudo-labeling
+""" 
+Contains methods related to pseudo-labeling
 The basic idea behind pseudo-labeling is to take un labelled data, run it through a model,
 and use its confident predictions as training data. 
 This will hopefully help with domain shift problems because we can train on soundscape data.
@@ -65,7 +66,7 @@ def run_raw(model: TimmModel, df: pd.DataFrame):
     dataloader = tqdm(dataloader, total=math.ceil(len(raw_ds)/cfg.train_batch_size))
 
     with torch.no_grad():
-        for _, (mels, mel_w, labels) in enumerate(dataloader):
+        for _, (mels, mel_w, labels, _) in enumerate(dataloader):
             _, outputs = model.run_batch(mels, labels)
             log_pred.append(torch.clone(outputs.cpu()).detach())
     return torch.nn.functional.sigmoid(torch.concat(log_pred))
@@ -105,6 +106,8 @@ def pseudo_labels(model):
     """
     Fine tune on pseudo labels
     """
+    if cfg.config_dict["class_list"] is None:
+        raise ValueError("Pseudo-labeling requires class list")
     logger.info("Generating raw dataframe...")
     raw_df = make_raw_df()
     logger.info("Running model...")

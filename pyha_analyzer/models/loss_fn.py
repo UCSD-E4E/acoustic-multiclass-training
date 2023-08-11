@@ -33,4 +33,5 @@ def bce(model, train_dataset, without_logits=False, **_):
     return model.loss_fn
 
 def get_weights(dataset):
+    """ Return weights of imbalanced dataset as 1/{occurences of class} """
     return torch.tensor([min(1/p, 1) for p in dataset.class_sums])

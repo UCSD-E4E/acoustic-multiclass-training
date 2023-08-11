@@ -268,7 +268,9 @@ class PyhaDFDataset(Dataset):
 
 
     def __getitem__(self, index): #-> Any:
-        """ Takes an index and returns tuple of spectrogram image with corresponding label
+        """ 
+        Takes an index and returns tuple of 
+        (spectrogram image, corresponding label, index)
         """
         assert isinstance(index, int)
         audio, target = utils.get_annotation(
@@ -297,7 +299,7 @@ class PyhaDFDataset(Dataset):
             target = self.samples.loc[index, self.classes].values.astype(np.int32)
             target = torch.Tensor(target)
 
-        return image, orig_image, target
+        return image, orig_image, target, index
 
     def get_num_classes(self) -> int:
         """ Returns number of classes

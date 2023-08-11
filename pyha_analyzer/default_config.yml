@@ -44,7 +44,7 @@ chunk_margin_s: 0.4 # Margin on either side of annotation
 logging: true
 logging_freq: 20 # Batches per log
 wandb_entity: "acoustic-species-identification"
-wandb_project: "nutella"
+wandb_project: "acoustic-species-reu2023"
 wandb_run_name: "auto"
 debug: false
 
