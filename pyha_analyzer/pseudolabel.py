@@ -126,8 +126,7 @@ def main():
     print(f"Device is: {cfg.device}, Preprocessing Device is {cfg.prepros_device}")
     utils.logging_setup()
     utils.set_seed(cfg.seed)
-    cfg.logging = False
-    utils.wandb_init(in_sweep=False)
+    utils.wandb_init(in_sweep=False, disable=True)
     print("Creating model...")
     model = TimmModel(num_classes=len(cfg.class_list), model_name=cfg.model).to(cfg.device)
     model.create_loss_fn(None)
