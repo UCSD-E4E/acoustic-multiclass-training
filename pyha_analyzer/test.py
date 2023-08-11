@@ -119,7 +119,7 @@ class TestTrain(unittest.TestCase):
         train_dl = make_dataloader(dataset, cfg.train_batch_size)
         model = TimmModel(dataset.num_classes, "tf_efficientnet_b4", True).to(cfg.device)
         model.create_loss_fn(dataset)
-        mels, labels, _ = next(iter(train_dl))
+        mels, _, labels, _ = next(iter(train_dl))
         loss, outputs = model.run_batch(mels, labels)
         assert loss >= 0, "Loss should be positive"
         assert outputs.shape == labels.shape, "Model output shape should match labels shape"

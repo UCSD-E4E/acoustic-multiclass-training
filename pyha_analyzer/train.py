@@ -162,8 +162,8 @@ class TrainProcess():
         start_time = datetime.datetime.now()
         start_epoch = self.epoch
         train_iter = iter(self.train_dl)
-        for i, (mels_s, mels_w, labels) in enumerate(self.unlabel_dl):
-            mels_l, _, labels_l = next(train_iter)
+        for i, (mels_s, mels_w, labels, _) in enumerate(self.unlabel_dl):
+            mels_l, _, labels_l, _ = next(train_iter)
 
             self.epoch = start_epoch + i/len(self.unlabel_dl)
             self.optimizer.zero_grad()
