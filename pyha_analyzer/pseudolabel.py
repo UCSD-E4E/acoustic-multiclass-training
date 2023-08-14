@@ -29,7 +29,8 @@ def make_raw_df() -> pd.DataFrame:
     valid_formats += tuple(f.upper() for f in valid_formats)
     # Split into raw chunks
     chunks = []
-    for file in tqdm(files):
+    #TODO: Restore this
+    for file in tqdm(files[:2]):
         file_len = 0
         path = Path(file)
         if path.suffix not in valid_formats:
@@ -47,14 +48,17 @@ def make_raw_df() -> pd.DataFrame:
         # Append chunks to dataframe
         for i in range(int(file_len/cfg.chunk_length_s)):
             chunks.append(pd.Series({
-                cfg.offset_col: i * cfg.chunk_length_s,
-                cfg.duration_col: cfg.chunk_length_s,
-                cfg.manual_id_col: cfg.config_dict["class_list"][0], # Set to stop error
-                cfg.file_name_col: os.path.join("pseudo", file),
-                "CLIP LENGTH": file_len}))
-    return pd.DataFrame(chunks)
+                cfg.offset_col    : i * cfg.chunk_length_s,
+                cfg.duration_col  : cfg.chunk_length_s,
+                cfg.manual_id_col : cfg.config_dict["class_list"][0], # Set to stop error
+                cfg.file_name_col : os.path.join("pseudo", file),
+                "CLIP LENGTH"     : file_len}))
+    df = pd.DataFrame(chunks)
+    assert len(df)>0
+    return df
 
 def run_raw(model: TimmModel, df: pd.DataFrame):
+    assert len(df)>0
     """ Returns predictions tensor from raw chunk dataframe """
     # Get dataset
     if cfg.config_dict["class_list"] is None:
@@ -70,13 +74,14 @@ def run_raw(model: TimmModel, df: pd.DataFrame):
     with torch.no_grad():
         for _, (mels, labels, _) in enumerate(dataloader):
             _, outputs = model.run_batch(mels, labels)
-            log_pred.append(torch.clone(outputs.cpu()).detach())
+            log_pred.append(torch.clone(torch.clone(outputs.cpu()).detach()))
     return torch.nn.functional.sigmoid(torch.concat(log_pred))
 
 
 def get_pseudolabels(pred: torch.Tensor, raw_df: pd.DataFrame, threshold: float) -> pd.DataFrame:
     """ Returns dataframe of pseudolabels from predictions and raw dataframe """
     df = pd.DataFrame(pred, columns=cfg.class_list, dtype='float64')
+    #TODO: Decide how we want to do this as a team
     allowed = df.apply(lambda x: x.max() > threshold, axis=1)
     filtered_species = df.idxmax(axis=1)[allowed]
     confidence = df.max(axis=1)[allowed]
@@ -97,20 +102,21 @@ def merge_with_cur(annotations: pd.DataFrame, pseudo_df: pd.DataFrame) -> pd.Dat
 def add_pseudolabels(model: TimmModel, cur_df: pd.DataFrame, threshold: float) -> pd.DataFrame:
     """ Return annotations dataframe merged with pseudolabels """
     raw_df = make_raw_df()
+    assert len(raw_df)>0
     pred = run_raw(model, raw_df)
     pseudo_df = get_pseudolabels(pred, raw_df, threshold)
     print(f"Current dataset has {cur_df.shape[0]} rows")
     print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
     return merge_with_cur(cur_df, pseudo_df)
 
-    
-def pseudo_labels(model):
-    """
-    Fine tune on pseudo labels
-    """
+
+def pseudo_label_data(model): 
     logger.info("Generating raw dataframe...")
     raw_df = make_raw_df()
+    model.create_loss_fn(raw_df)
+
     logger.info("Running model...")
+    print(raw_df)
     predictions = run_raw(model, raw_df)
     logger.info("Generating pseudo labels...")
     pseudo_df = get_pseudolabels(
@@ -118,17 +124,24 @@ def pseudo_labels(model):
     )
     pseudo_df.to_csv("tmp_pseudo_labels.csv")
     logger.info("Saved pseudo dataset to tmp_pseudo_labels.csv")
-    print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
 
     logger.info("Loading dataset...")
     train_ds = dataset.PyhaDFDataset(
         pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list
     )
-    model.create_loss_fn(train_ds)
     _, valid_ds, infer_ds = dataset.get_datasets()
     train_dl, valid_dl, infer_dl = (
         dataset.get_dataloader(train_ds, valid_ds, infer_ds)
     )
+    print(f"{len(pseudo_df)=}")
+    print(f"{len(train_dl)=}")
+    return pseudo_df, train_dl, valid_dl, infer_dl
+
+def finetune(model):
+    """
+    Fine tune on pseudo labels
+    """
+    pseudo_df, train_dl, valid_dl, infer_dl = pseudo_label_data(model)
 
     logger.info("Finetuning on pseudo labels...")
     train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)
@@ -139,8 +152,6 @@ def pseudo_labels(model):
         train_process.valid()
         train_process.inference_valid()
 
-
-
 def main(in_sweep=True):
     """ Main function """
     torch.multiprocessing.set_start_method('spawn', force=True)
@@ -148,13 +159,13 @@ def main(in_sweep=True):
     print(f"Device is: {cfg.device}, Preprocessing Device is {cfg.prepros_device}")
     utils.logging_setup()
     utils.set_seed(cfg.seed)
-    utils.wandb_init(in_sweep)
+    utils.wandb_init(in_sweep, project_suffix="pseudolabel")
     print("Creating model...")
     model = TimmModel(num_classes=len(cfg.class_list), model_name=cfg.model).to(cfg.device)
     model.create_loss_fn(None)
     if not model.try_load_checkpoint():
         raise RuntimeError("No model checkpoint found")
-    pseudo_labels(model)
+    finetune(model)
 
 
 if __name__ == "__main__":

@@ -95,8 +95,13 @@ def rand_offset():
         return 0
     return randint(-max_offset, max_offset)
 
-def wandb_init(in_sweep):
+def wandb_init(in_sweep, project_suffix=None):
     """ Initialize wandb run given config settings """
+    if project_suffix: 
+        project = f"{cfg.wandb_project}-{project_suffix}"
+    else:
+        project = cfg.wandb_project
+
     if in_sweep:
         run = wandb.init()
         for key, val in dict(wandb.config).items():
@@ -105,9 +110,9 @@ def wandb_init(in_sweep):
     else:
         run = wandb.init(
                 entity=cfg.wandb_entity,
-                project=cfg.wandb_project,
+                project=project,
                 config=cfg.config_dict,
-                mode="online" if cfg.logging else "disabled"
+                mode="online" if cfg.logging else "disabled",
             )
         if cfg.wandb_run_name == "auto":
             # This variable is always defined

@@ -9,7 +9,7 @@ import scipy
 from scipy import sparse
 import torch
 
-from pyha_analyzer import pseudolabel, dataset, config
+from pyha_analyzer import pseudolabel, dataset, config, utils
 from pyha_analyzer.models.timm_model import TimmModel
 from pyha_analyzer.train import TrainProcess
 
@@ -282,12 +282,12 @@ def regularized_pseudolabels(model, features, predictions):
     # [dataset_size, num_classes]
 
 def update_dataset_labels(train_process, indices, pseudo_labels):
-    train_process.train_dl.dataset.samples[indices] = pseudo_labels
+    train_process.train_dl.dataset.samples[cfg.manual_id_col][indices] = pseudo_labels
 
 
 
 # TODO: Factor out wandb init with suffixes to project
-def finetune(model):
+def finetune(mode):
     """
     Fine tune on pseudo labels
     """
@@ -295,6 +295,7 @@ def finetune(model):
 
     logger.info("Finetuning on pseudo labels...")
     train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)
+    utils.wandb_init(in_sweep = False, project_suffix = "nutella")
     #train_process.valid()
     #train_process.inference_valid()
     for _ in range(cfg.epochs):
@@ -308,7 +309,7 @@ def finetune(model):
         print(f"{predictions.shape=}")
         print(f"{features.shape=}")
         pseudo_labels = regularized_pseudolabels(train_process.model, features, predictions)
-        #train_process.update_dataset_predictions(indices, pseudolabel) #TBD
+        update_dataset_predictions(indices, pseudolabel)
         train_process.run_epoch()
         train_process.valid()
         train_process.inference_valid()
