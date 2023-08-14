@@ -106,6 +106,7 @@ class DebiasTrainProcess(train.TrainProcess):
             #Log and reset metrics
             if (i != 0 and i % (cfg.logging_freq) == 0) or i == len(self.unlabel_dl) - 1:
                 train.log_metrics(self.epoch, i, start_time, log_n, log_loss, log_map)
+                start_time = datetime.datetime.now()
                 log_n = log_loss = log_map = 0
     
             # Free memory so gpu is freed before validation run
