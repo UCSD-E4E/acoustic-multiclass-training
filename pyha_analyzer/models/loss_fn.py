@@ -2,58 +2,36 @@
 
 import torch
 from torch import nn
-from torchvision.ops.focal_loss import sigmoid_focal_loss as focal_loss
 
 from pyha_analyzer import config
 
 cfg = config.cfg
 
-def cross_entropy_loss_fn(self,train_dataset):
-    """ Returns the cross entropy loss function and sets self.loss_fn
+def cross_entropy(model, train_dataset, **_):
+    """ Returns the cross entropy loss function and sets model.loss_fn
     """
-    if not cfg.imb: # normal loss
-        self.loss_fn = nn.CrossEntropyLoss()
-    else: # weighted loss
-        self.loss_fn = nn.CrossEntropyLoss(
-            weight=torch.tensor(
-                [1 / p for p in train_dataset.class_id_to_num_samples.values()]
-            ).to(self.device))
-    return self.loss_fn
+    weight = None
+    if cfg.imb and train_dataset is not None:
+        weight = get_weights(train_dataset).to(cfg.device)
+    model.loss_fn = nn.CrossEntropyLoss(weight=weight)
+    return model.loss_fn
 
-def bce_loss_fn(self, without_logits=False):
-    """ Returns the BCE loss function and sets self.loss_fn of model
+def bce(model, train_dataset, without_logits=False, **_):
+    """ Returns the BCE loss function and sets model.loss_fn of model
 
     Added support for if we want to spilt sigmod and BCE loss or combine with
     BCEwithLogitsLoss
     """
+    weight = None
+    if cfg.imb and train_dataset is not None:
+        weight = get_weights(train_dataset).to(cfg.device)
+
     if not without_logits:
-        self.loss_fn = nn.BCEWithLogitsLoss(reduction='sum')
+        model.loss_fn = nn.BCEWithLogitsLoss(reduction='mean', weight=weight)
     else:
-        self.loss_fn = nn.BCELoss(reduction='mean')
-    return self.loss_fn
+        model.loss_fn = nn.BCELoss(reduction='mean', weight=weight)
+    return model.loss_fn
 
-
-def focal_loss_fn(self, alpha: float = 0.25, gamma: float = 2, reduction: str = "sum"):
-    """ Loss used in https://arxiv.org/abs/1708.02002. and 1st place winner of birdclef 2023
-    Code implementation based heavily on
-    https://pytorch.org/vision/main/_modules/torchvision/ops/focal_loss.html
-
-    Focal loss takes BCE loss and uses weight schemes to balance weight between
-    - Easier vs harder examples to classify
-    - Positive or negative examples
-    """
-    def focal_loss_temp(
-            inputs: torch.Tensor,
-            targets: torch.Tensor
-    ):
-        
-        return focal_loss(
-            inputs,
-            targets,
-            alpha=alpha,
-            gamma=gamma,
-            reduction=reduction
-        )
-    
-    self.loss_fn = focal_loss_temp
-    return self.loss_fn
+def get_weights(dataset):
+    """ Return weights of imbalanced dataset as 1/{occurences of class} """
+    return torch.tensor([min(1/p, 1) for p in dataset.class_sums])

@@ -8,19 +8,19 @@ import os
 import unittest
 from pathlib import Path
 
-import torch
 import importlib_resources as pkg_resources
-import wandb
+import torch
 
-from pyha_analyzer import config
-from pyha_analyzer import utils
-from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
-                                         HighpassFilter, SyntheticNoise)
+import wandb
+from pyha_analyzer import config, utils
+from pyha_analyzer.augmentations import (BackgroundNoise, HighpassFilter,
+                                         LowpassFilter, Mixup, RandomEQ,
+                                         SyntheticNoise)
 from pyha_analyzer.chunking_methods.sliding_chunks import convolving_chunk
+from pyha_analyzer.dataset import get_datasets, make_dataloader
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
-from pyha_analyzer.dataset import get_datasets, make_dataloaders
-from pyha_analyzer.train import run_batch, map_metric, save_model
+from pyha_analyzer.train import map_metric
 
 cfg = config.cfg
 wandb.init(mode="disabled")
@@ -116,11 +116,11 @@ class TestTrain(unittest.TestCase):
     def test_train_batch(self):
         """ Tests if a training batch runs properly """
         cfg.jobs = 0 # type: ignore
-        train_dl, _, _ = make_dataloaders(dataset, valid_ds, infer_ds)
+        train_dl = make_dataloader(dataset, cfg.train_batch_size)
         model = TimmModel(dataset.num_classes, "tf_efficientnet_b4", True).to(cfg.device)
         model.create_loss_fn(dataset)
-        mels, labels = next(iter(train_dl))
-        loss, outputs = run_batch(model, mels, labels)
+        mels, labels, _ = next(iter(train_dl))
+        loss, outputs = model.run_batch(mels, labels)
         assert loss >= 0, "Loss should be positive"
         assert outputs.shape == labels.shape, "Model output shape should match labels shape"
 
@@ -139,8 +139,8 @@ class TestTrain(unittest.TestCase):
 
     def test_model_save(self):
         """ Tests that model saving does not crash """
-        model = TimmModel(10,"tf_efficientnet_b4",True)
-        save_model(model)
+        model = TimmModel(10, "tf_efficientnet_b4", True)
+        utils.save_model(model, "testing")
 
 
 class TestChunking(unittest.TestCase):

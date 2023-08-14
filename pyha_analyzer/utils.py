@@ -1,17 +1,23 @@
 """ Stores useful functions for the pyha_analyzer module """
 
+import datetime
+import logging
+import math
+import os
 from pathlib import Path
 from typing import Any, Dict, Tuple
-import math
 
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
 
+import wandb
 from pyha_analyzer import config
+from pyha_analyzer.models.timm_model import TimmModel
 
 cfg = config.cfg
+logger = logging.getLogger("acoustic_multiclass_training")
 
 def set_seed(seed: int):
     """ Sets numpy and pytorch seeds to the CONFIG.seed
@@ -52,7 +58,7 @@ def ceil(audio: torch.Tensor, interval: float = 1.):
     Rounds every element of tensor up. 
     Rounding interval given by `interval`
     """
-    audio = audio / interval
+    audio = (audio - 1e-5) / interval
     audio = torch.ceil(audio)
     return audio*interval
 
@@ -88,6 +94,29 @@ def rand_offset():
     if max_offset == 0:
         return 0
     return randint(-max_offset, max_offset)
+
+def wandb_init(in_sweep, disable=False):
+    """ Initialize wandb run given config settings """
+    if in_sweep:
+        run = wandb.init()
+        for key, val in dict(wandb.config).items():
+            setattr(cfg, key, val)
+        wandb.config.update(cfg.config_dict)
+    else:
+        run = wandb.init(
+                entity=cfg.wandb_entity,
+                project=cfg.wandb_project,
+                config=cfg.config_dict,
+                mode="online" if cfg.logging and not disable else "disabled"
+            )
+        if cfg.wandb_run_name == "auto":
+            # This variable is always defined
+            cfg.wandb_run_name = cfg.model # type: ignore
+        time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
+        run.name = f"{cfg.wandb_run_name}-{time_now}" # type: ignore
+    assert run is not None 
+    assert run.name is not None 
+    return run
 
 #pylint: disable-next = too-many-arguments
 def get_annotation(
@@ -146,3 +175,23 @@ def get_annotation(
     audio = audio.to(cfg.prepros_device)
     target = target.to(cfg.prepros_device)
     return audio, target
+
+def save_model(model: TimmModel, time_now) -> Path:
+    """ Saves model in the models directory as a pt file, returns path """
+    path = Path("models")/(f"{cfg.model}-{time_now}.pt")
+    if not Path("models").exists():
+        os.mkdir("models")
+    torch.save(model.state_dict(), path)
+    return path
+
+
+def logging_setup() -> None:
+    """ Setup logging on the main process
+    Display config information
+    """
+    file_handler = logging.FileHandler("recent.log", mode='w')
+    file_handler.setLevel(logging.DEBUG)
+    logger.addHandler(file_handler)
+    logger.debug("Debug logging enabled")
+    logger.debug("Config: %s", cfg.config_dict)
+    logger.debug("Git hash: %s", cfg.git_hash)

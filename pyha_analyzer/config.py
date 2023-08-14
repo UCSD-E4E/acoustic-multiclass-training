@@ -3,17 +3,18 @@ Stores default argument information for the argparser
 """
 import argparse
 import logging
+import os
 import shutil
 import sys
-import os
 from pathlib import Path
+
 # "Repo" is not exported from module "git" Import from "git.repo" instead
 # https://gitpython.readthedocs.io/en/stable/tutorial.html?highlight=repo#meet-the-repo-type
 import git
+import importlib_resources as pkg_resources
 import yaml
 from git import Repo  # pyright: ignore [reportPrivateImportUsage]
 from torch.cuda import is_available
-import importlib_resources as pkg_resources
 
 logger = logging.getLogger("acoustic_multiclass_training")
 

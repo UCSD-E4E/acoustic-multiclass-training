@@ -7,25 +7,26 @@
     If this module is run directly, it tests that the dataloader works
 
 """
+import ast
 import logging
 import os
-from typing import List, Tuple, Optional
-import ast
+from typing import List, Optional, Tuple
 
+import librosa
 import numpy as np
 import pandas as pd
 import torch
 import torchaudio
-from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torchaudio import transforms as audtr
 from torchvision.transforms import RandomApply
 from tqdm import tqdm
-import wandb
 
-from pyha_analyzer import config
-from pyha_analyzer import utils
-from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
-                                         HighpassFilter, SyntheticNoise)
+import wandb
+from pyha_analyzer import config, utils
+from pyha_analyzer.augmentations import (BackgroundNoise, HighpassFilter,
+                                         LowpassFilter, Mixup, RandomEQ,
+                                         SyntheticNoise)
 from pyha_analyzer.chunking_methods import sliding_chunks
 
 cfg = config.cfg
@@ -78,7 +79,17 @@ class PyhaDFDataset(Dataset):
         self.class_to_idx = dict(zip(species, np.arange(len(species))))
 
         self.num_classes = len(species)
+
         self.serialize_data()
+
+        self.class_sums = torch.zeros(self.num_classes)
+        for target in self.samples[cfg.manual_id_col]:
+            if isinstance(target,dict):
+                for name, alpha in target.items():
+                    self.class_sums[self.class_to_idx[name]] += float(alpha)
+            else:
+                self.class_sums[self.class_to_idx[target]] += 1.
+
 
         #Data augmentations
         self.mixup = Mixup(self.samples, self.class_to_idx, cfg)
@@ -207,15 +218,36 @@ class PyhaDFDataset(Dataset):
         """
         Convert audio clip to 3-channel spectrogram image
         """
-        convert_to_mel = audtr.MelSpectrogram(
-                sample_rate=cfg.sample_rate,
-                n_mels=cfg.n_mels,
-                n_fft=cfg.n_fft)
-        convert_to_mel = convert_to_mel.to(self.device)
-        # Mel spectrogram
-        # Pylint complains this is not callable, but it is a torch.nn.Module
-        # pylint: disable-next=not-callable
-        mel = convert_to_mel(audio)
+        mel = librosa.feature.melspectrogram(
+            y=audio.detach().numpy(),
+            sr=cfg.sample_rate,
+            n_mels=cfg.n_mels,
+            n_fft=cfg.n_fft,
+            hop_length=int(cfg.n_fft//2),
+            power=1)
+        #log_S = librosa.amplitude_to_db(S, ref=np.max)
+        hop_length = int(cfg.n_fft//2)
+        mel_pcen = librosa.pcen(
+            mel * (2**31),
+            sr=cfg.sample_rate,
+            hop_length = hop_length,
+            gain=0.8,
+            power=0.25,
+            bias=10,
+            time_constant=60 * hop_length / cfg.sample_rate
+            #
+        )
+        # See https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8514023 for
+        # reasoning behind parameters
+
+        # possible to do: improve this method
+        # GOAL: Multiplying by a power greater than one increases background
+        # This could help make calls sound further in the background
+        # and hopefully reduce domain shift
+        #if self.train:
+            #mel_pcen = mel_pcen ** 1.2
+
+        mel = torch.Tensor(mel_pcen)
         # Convert to Image
         image = torch.stack([mel, mel, mel])
         
@@ -237,7 +269,9 @@ class PyhaDFDataset(Dataset):
 
 
     def __getitem__(self, index): #-> Any:
-        """ Takes an index and returns tuple of spectrogram image with corresponding label
+        """ 
+        Takes an index and returns tuple of 
+        (spectrogram image, corresponding label, index)
         """
         assert isinstance(index, int)
         audio, target = utils.get_annotation(
@@ -264,7 +298,7 @@ class PyhaDFDataset(Dataset):
             target = self.samples.loc[index, self.classes].values.astype(np.int32)
             target = torch.Tensor(target)
 
-        return image, target
+        return image, target, index
 
     def get_num_classes(self) -> int:
         """ Returns number of classes
@@ -285,12 +319,12 @@ class PyhaDFDataset(Dataset):
         weight_list = self.samples[manual_id].apply(lambda x: sample_weights.loc[x])
         return weight_list
 
-
 def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset]]:
     """ Returns train and validation datasets
     does random sampling for train/valid split
     adds transforms to dataset
     """
+
     train_p = cfg.train_test_split
     path = cfg.dataframe_csv
     # Load the dataset
@@ -346,8 +380,9 @@ def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset
                     classes.add(species)
         classes = list(classes)
         classes.sort()
-        # pylint: disable-next=attribute-defined-outside-init
         cfg.config_dict["class_list"] = classes
+        # pylint: disable-next=attribute-defined-outside-init
+        cfg.class_list = classes # type: ignore
         wandb.config.update({"class_list": classes}, allow_val_change=True)
 
     #for each species, get a random sample of files for train/valid split
@@ -358,10 +393,8 @@ def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset
 
     valid = data[~data.index.isin(train.index)]
     train_ds = PyhaDFDataset(train, train=True, species=classes)
-
     valid_ds = PyhaDFDataset(valid, train=False, species=classes)
-
-
+        
 
     #Handle inference datasets
     if cfg.infer_csv is None:
@@ -380,59 +413,45 @@ def set_torch_file_sharing(_) -> None:
     """
     torch.multiprocessing.set_sharing_strategy("file_system")
 
-
-def make_dataloaders(train_dataset, val_dataset, infer_dataset
-        )-> Tuple[DataLoader, DataLoader, Optional[DataLoader]]:
+def get_dataloader(train_dataset, val_dataset, infer_dataset):
     """
-        Loads datasets and dataloaders for train and validation
+    Convenience wrapper to apply `make_dataloader` to all datasets
     """
+    train_dataloader = make_dataloader(train_dataset,cfg.train_batch_size,
+                                       cfg.does_weighted_sampling)
+    val_dataloader = make_dataloader(val_dataset,cfg.validation_batch_size)
+    if infer_dataset is None:
+        infer_dataloader = None
+    else:
+        infer_dataloader = make_dataloader(infer_dataset,cfg.validation_batch_size)
+    return train_dataloader, val_dataloader, infer_dataloader
 
-
-    # Create our dataloaders
-    # if sampler function is "specified, shuffle must not be specified."
-    # https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
-    
-    if cfg.does_weighted_sampling:
-        if train_dataset.samples[cfg.manual_id_col].any(lambda x: isinstance(x,dict)):
+def make_dataloader(dataset, batch_size, weighted_sampling=False, shuffle=True):
+    """ Creates a torch DataLoader from a PyhaDFDataset """
+    if weighted_sampling:
+        if dataset.samples[cfg.manual_id_col].any(lambda x: isinstance(x,dict)):
             raise NotImplementedError("Weighted sampling not implemented for overlapping targets")
         # Code used from:
         # https://www.kaggle.com/competitions/birdclef-2023/discussion/412808
         # Get Sample Weights
-        weights_list = train_dataset.get_sample_weights()
+        weights_list = dataset.get_sample_weights()
         sampler = WeightedRandomSampler(weights_list, len(weights_list))
-        train_dataloader = DataLoader(
-            train_dataset,
+        # if sampler function is "specified, shuffle must not be specified."
+        # https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
+        return DataLoader(
+            dataset,
             cfg.train_batch_size,
             sampler=sampler,
             num_workers=cfg.jobs,
             worker_init_fn=set_torch_file_sharing
         )
-    else:
-        train_dataloader = DataLoader(
-            train_dataset,
-            cfg.train_batch_size,
-            shuffle=True,
-            num_workers=cfg.jobs,
-            worker_init_fn=set_torch_file_sharing
-        )
-
-    val_dataloader = DataLoader(
-        val_dataset,
-        cfg.validation_batch_size,
-        shuffle=False,
+    return DataLoader(
+        dataset,
+        batch_size,
+        shuffle=shuffle,
         num_workers=cfg.jobs,
+        worker_init_fn=set_torch_file_sharing
     )
-    if infer_dataset is None:
-        infer_dataloader = None
-    else:
-        infer_dataloader = DataLoader(
-                infer_dataset,
-                cfg.validation_batch_size,
-                shuffle=False,
-                num_workers=cfg.jobs,
-                worker_init_fn=set_torch_file_sharing
-            )
-    return train_dataloader, val_dataloader, infer_dataloader
 
 def main() -> None:
     """

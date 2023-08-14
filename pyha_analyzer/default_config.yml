@@ -7,6 +7,10 @@ infer_csv:
 # Optional, automatically generates class order if not given
 class_list:
 
+# Pseudo-labeling if running pyha_analyzer/pseudolabel.py
+pseudo_data_augs: true
+pseudo_threshold: 0.7
+
 # Dataframe column names
 offset_col: "OFFSET"
 duration_col: "DURATION"
@@ -81,7 +85,6 @@ sweep_id:
 early_stopping: false
 patience: 3
 min_valid_map_delta: 0.01
-
 # Data augmentation probabilities
 mixup_p: 0.4
 time_shift_p: 0
