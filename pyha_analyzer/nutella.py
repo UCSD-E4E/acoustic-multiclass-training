@@ -2,20 +2,54 @@
 Code originally from Google's Chirp project implementation of NOTELA:
 https://github.com/google-research/chirp/blob/main/chirp/projects/sfda/methods/notela.py
 """
+import logging
+import copy
 import numpy as np
 import scipy
+from scipy import sparse
 import torch
 
 from pyha_analyzer import pseudolabel, dataset, config
 from pyha_analyzer.models.timm_model import TimmModel
+from pyha_analyzer.train import TrainProcess
 
 cfg = config.cfg
-
+logger = logging.getLogger("acoustic_multiclass_training")
+def cdist(features_a: np.ndarray, 
+        features_b: np.ndarray) -> np.ndarray: 
+    """A jax equivalent of scipy.spatial.distance.cdist. Computes the pairwise squared euclidean distance between each pair of features from features_a and features_b. 
+    Args: 
+        features_a: The first batch of features, expected shape [*, batch_size_a, feature_dim] 
+        features_b: The second batch of features, expected shape [*, batch_size_b, feature_dim] 
+    Returns: The pairwise squared euclidean distance between each pair of features from features_a and features_b. Shape [*, batch_size_a, batch_size_b] 
+    Raises: ValueError: If the shape of features_a's last dimension does not match the shape of feature_b's last dimension. 
+    """ 
+    print(f"{features_a.shape=}")
+    print(f"{features_b.shape=}")
+    if features_a.shape[-1] != features_b.shape[-1]: 
+        raise ValueError( "The feature dimension should be the same. Currently features_a: " f"{features_a.shape} and features_b: {features_b.shape}" ) 
+    feature_dim = features_a.shape[-1] 
+    flat_features_a = np.reshape(features_a, [-1, feature_dim]) 
+    flat_features_b = np.reshape(features_b, [-1, feature_dim]) 
+    print(f"{flat_features_a.shape=}")
+    print(f"{flat_features_b.shape=}")
+    flat_transpose_b = flat_features_b.T 
+    print(f"{flat_transpose_b.shape=}")
+    distances = ( 
+            np.sum(np.square(flat_features_a), 1, keepdims=True) 
+            - 2 * np.matmul(flat_features_a, flat_transpose_b) 
+            + np.sum(np.square(flat_transpose_b), 0, keepdims=True) 
+    ) 
+    print(f"{distances.shape=}")
+    y, x = distances.shape[-2:]
+    #assert x == features_a.shape[-2]
+    #assert y == features_b.shape[-2]
+    return distances
 def compute_nearest_neighbors(
         batch_feature: np.ndarray,
         dataset_feature: np.ndarray,
         knn: int,
-        memory_efficient_computation: bool = False
+        memory_efficient_computation: bool = True
     ) -> np.ndarray:
     """
     Compute batch_feature's nearest-neighbors among dataset_feature.
@@ -41,7 +75,10 @@ def compute_nearest_neighbors(
             ValueError: If batch_feature and dataset_feature don't have the same
             number of dimensions, or if their feature dimension don't match.
     """
-
+    print(f"batch_size={batch_feature.shape[0]}")
+    print(f"batch_size={dataset_feature.shape[0]}")
+    assert isinstance( batch_feature, np.ndarray)
+    assert isinstance( dataset_feature, np.ndarray)
     batch_shape = batch_feature.shape
     dataset_shape = dataset_feature.shape
 
@@ -61,28 +98,58 @@ def compute_nearest_neighbors(
         # reduces memory footprint, which becomes the bottleneck for large
         # datasets.
         col_indices = []
+        i = 0
         for sample_feature in batch_feature:
-            pairwise_distances = scipy.spatial.distance.cdist(
+            i +=1
+            print(f"{i=}")
+            #pairwise_distances = scipy.spatial.distance.cdist(
+            print(f"{sample_feature.shape=}")
+            print(f"{dataset_feature.shape=}")
+            pairwise_distances = cdist(
                 np.expand_dims(sample_feature, 0), dataset_feature
+                #sample_feature, dataset_feature
             )  # [1, dataset_size]
-            col_indices.append(
-                torch.topk(-pairwise_distances, neighbors)[1][:, 1:]
+            print(f"[1, dataset_size] {pairwise_distances.shape=}")
+            #assert pairwise_distances == (1, 23)
+            col_index = (
+            #col_indices.append(
+                torch.topk(torch.tensor(-pairwise_distances), torch.tensor(neighbors))[1][:, 1:]
             )  # [1, neighbors-1]
-        col_indices = torch.stack(col_indices)
+            print(f"[1, neighbors-1] {col_index.shape}")
+            assert int(col_index.shape[0])==1
+            #assert col_index.shape == (1, knn-1)
+            col_indices.append(col_index)
+        col_indices = torch.stack(col_indices).numpy() #(23, *)
+        print(f"{col_indices.shape}")
     else:
-
-        pairwise_distances = scipy.spatial.distance.cdist(
+        #pairwise_distances = scipy.spatial.distance.cdist(
+        pairwise_distances = cdist(
             batch_feature, dataset_feature
         )  # [batch_size, dataset_size]
+        print(f"[batch_size, dataset_size] {pairwise_distances.shape=}")
         col_indices = torch.topk(-pairwise_distances, neighbors)[1][
             :, 1:
         ]  # [batch_size, neighbors-1]
+        print(f"[batch_size, neighbors-1] {col_indices.shape=}")
+    assert isinstance( batch_feature, np.ndarray)
+    assert isinstance( dataset_feature, np.ndarray)
     col_indices = col_indices.flatten()  # [batch_size * neighbors-1]
     row_indices = np.repeat(
         np.arange(batch_shape[0]), neighbors - 1
     )  # [0, ..., 0, 1, ...]
-    nn_matrix = np.zeros((batch_shape[0], dataset_shape[0]), dtype=np.uint8)
-    nn_matrix = nn_matrix[row_indices, col_indices].set(1)
+    nn_matrix = np.zeros((batch_shape[0], dataset_shape[0]), dtype=np.uint8) #[batch_size, dataset_size]
+    #TODO: Remove
+    assert(nn_matrix.shape[0] == nn_matrix.shape[1])
+    #row_indices = row_indices.expand_dims(1, axis=1)
+    #col_indices = col_indices.expand_dims(1, axis=0)
+    sparse_storage=True
+    if sparse_storage:
+        data = np.ones(row_indices.shape[0])
+        nn_matrix = sparse.csr_matrix(
+            (data, (row_indices, col_indices)),
+            shape=(batch_shape[0], dataset_shape[0]),
+        )
+    #nn_matrix = nn_matrix.at[row_indices, col_indices].set(1)
     return nn_matrix
 
 def teacher_step(
@@ -117,7 +184,11 @@ def teacher_step(
       The soft pseudo-labels for the current batch of data, shape
         [batch_size, proba_dim]
     """
-    denominator = nn_matrix.sum(axis=-1, keepdims=True)
+    if isinstance(nn_matrix, sparse.csr_matrix):
+        # By default, sum operation on a csr_matrix keeps the dimensions of the
+        # original matrix.
+        denominator = nn_matrix.sum(axis=-1)
+    #denominator = np.sum(nn_matrix.sum(axis=-1, keepdims=True)
 
     # In the limit where alpha goes to zero, we can rewrite the expression as
     #
@@ -139,41 +210,83 @@ def teacher_step(
         # distribution to be uniform over the maximally-probable classes.
         pseudo_label /= pseudo_label.sum(axis=-1, keepdims=True)
     else:
-        pseudo_label = batch_prob ** (1 / alpha) * np.exp(
-            (lambda_ / alpha) * (nn_matrix @ dataset_prob) / (denominator + eps)
-        )  # [*, batch_size, proba_dim]
+        print(f"[num_classes, batch_size] {batch_prob.shape=}")
+        print(f"[num_classes, dataset_size] {dataset_prob.shape=}")
+        print(f"[batch_size, dataset_size] {nn_matrix.shape=}")
+#        pseudo_label = (batch_prob ** (1 / alpha)) * np.exp(
+#            (lambda_ / alpha) * (nn_matrix @ dataset_prob) / (denominator + eps)
+#        )  # [*, batch_size, proba_dim]
+        exp = np.exp(
+                (lambda_ / alpha) 
+                * (nn_matrix @ dataset_prob) 
+                / (denominator + eps),
+        )
+        print(f"{exp.shape=}")
+        print(f"{(batch_prob**1/alpha).shape=}")
+        print(f"{exp[:,-10:]=}")
+        print(f"{batch_prob[:,-10:]=}")
+        assert(batch_prob.shape==exp.shape)
+        pseudo_label = np.multiply((batch_prob ** 1/alpha), exp)
+#                (lambda_ / alpha) 
+#                * (nn_matrix @ dataset_prob) 
+#                / (denominator + eps),
+#        )
+        normalize_pseudo_labels = False
         if normalize_pseudo_labels:
+            assert isinstance(pseudo_label, np.ndarray)
             pseudo_label /= pseudo_label.sum(axis=-1, keepdims=True) + eps
     return pseudo_label
 
 def get_dataset_info(model, dl):
-    indices = data = predictions = features = []
-    print(f"{len(dl)}")
-    for _, (mels, _, index) in enumerate(dl):
-        dataset.append(mels)
-        predictions.append(model(mels))
-        predictions.append(model.get_features(mels))
+    indices = []
+    data = []
+    predictions = []
+    features = []
+    for (mels, _, index) in dl:
+        assert all(float(idx).is_integer() for idx in index)
         indices.append(index)
-    print(f"{len(indices)}")
-    print(f"{len(data)}")
-    print(f"{len(predictions)}")
-    print(f"{len(features)}")
-    return [torch.cat(l) for l in (indices, data, predictions, features)]
+        data.append(mels)
+        predictions.append(torch.sigmoid(model(mels.cuda()).cpu()))
+        features.append(model.get_features(mels.cuda()).cpu())
+    
+    indices = torch.cat(indices, dim=0)
+    data = torch.cat(data, dim=0)
+    features = torch.cat(features, dim=0)
+    predictions = torch.cat(predictions, dim=0)
+#    indices = torch.stack(indices, dim=0)
+#    data = torch.stack(data, dim=0)
+#    features = torch.stack(features, dim=0)
+#    predictions = torch.stack(predictions, dim=0)
+    print(f"{indices=}")
+    return indices, data, predictions, features
 
-def regularized_pseudolabels(model, dataset):
-    dataset_features = model.get_features(dataset)
-    # Might need to rewrite iteratively for less memory
-    dataset_predictions = model(dataset)
+def apply_thresholding(predictions): #[dataset_size, num_classes]
+    threshold = cfg.pseudo_threshold
+    #predictions = predictions.cpu().detach().numpy()
+    pseudo_labels = np.vectorize(lambda x: 1 if x > threshold else 0)(predictions)
+    return torch.tensor(pseudo_labels)
+
+
+def regularized_pseudolabels(model, features, predictions):
     nn_matrix = compute_nearest_neighbors(
-            batch_features, dataset_features, knn=cfg.notela_knn
+            features.detach().numpy(), copy.deepcopy(features.detach().numpy()), knn=cfg.notela_knn
     ) # [dataset_size, dataset_size]
-    pseudo_labels = teacher_step(
-            dataset_predictions, dataset_predictions,
+    regularized_predictions = teacher_step(
+            predictions.detach().numpy(), 
+            copy.deepcopy(predictions.detach().numpy()),
             nn_matrix,
             lambda_ = cfg.notela_lambda
     ) # [dataset_size, num_classes]
-    return pseudo_labels #TODO: Convert to one hot
+    pseudo_labels = apply_thresholding(regularized_predictions)
+    return pseudo_labels #TODO: Convert to one hot 
+    # [dataset_size, num_classes]
 
+def update_dataset_labels(train_process, indices, pseudo_labels):
+    train_process.train_dl.dataset.samples[indices] = pseudo_labels
+
+
+
+# TODO: Factor out wandb init with suffixes to project
 def finetune(model):
     """
     Fine tune on pseudo labels
@@ -182,16 +295,24 @@ def finetune(model):
 
     logger.info("Finetuning on pseudo labels...")
     train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)
-    train_process.valid()
-    train_process.inference_valid()
+    #train_process.valid()
+    #train_process.inference_valid()
     for _ in range(cfg.epochs):
-        dataset, indices, predictions, features = get_dataset_info(train_dl)
-        pseudo_labels = regularized_pseudolabels(TrainProcess.model, dataset)
+        print("Getting data")
+        indices, dataset, predictions, features = get_dataset_info(model, train_dl)
+        assert torch.all(predictions>0)
+        print("predictions positive")
+        print("Got data")
+        print(f"{indices.shape=}")
+        print(f"{dataset.shape=}")
+        print(f"{predictions.shape=}")
+        print(f"{features.shape=}")
+        pseudo_labels = regularized_pseudolabels(train_process.model, features, predictions)
         #train_process.update_dataset_predictions(indices, pseudolabel) #TBD
         train_process.run_epoch()
         train_process.valid()
         train_process.inference_valid()
 
 if __name__=="__main__":
-    model = TimmModel(3).to(cfg.device)
+    model = TimmModel(len(cfg.class_list)).to(cfg.device)
     finetune(model)

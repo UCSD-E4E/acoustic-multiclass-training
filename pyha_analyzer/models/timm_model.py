@@ -103,15 +103,22 @@ class TimmModel(nn.Module):
             loss = self.loss_fn(outputs, labels)
         outputs = outputs.to(dtype=torch.float32)
         loss = loss.to(dtype=torch.float32)
+        assert outputs is not None
         return loss, outputs
 
     # Temp, only works for efficientnet
     def get_features(self, images):
         """ Get features from an efficientnet model """
+        assert images.shape[0]>1, "batch size >1"
         x = self.model.conv_stem(images)
         x = self.model.bn1(x)
         x = self.model.blocks(x)
         x = self.model.conv_head(x)
         x = self.model.bn2(x)
-        print(f"{x.shape=}")
-        return torch.nn.AdaptiveAvgPool2d(x.shape[2:])(x)
+        # Was 2
+        #[batch_size, *features_dims]
+        print(f"{x.shape}")
+        x = torch.squeeze(torch.nn.AvgPool2d(x.shape[2:])(x))
+        print(f"{x.shape}")
+
+        return x

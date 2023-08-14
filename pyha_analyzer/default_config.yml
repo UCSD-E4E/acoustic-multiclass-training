@@ -11,6 +11,9 @@ class_list:
 pseudo_data_augs: true
 pseudo_threshold: 0.7
 
+notela_knn: 4
+notela_lambda: 0.5
+
 # Dataframe column names
 offset_col: "OFFSET"
 duration_col: "DURATION"
