@@ -30,6 +30,7 @@ class TimmModel(nn.Module):
         """
         super().__init__()
         self.num_classes = num_classes
+        self.model_name = model_name
         # See config.py for list of recommended models
         self.model = timm.create_model(
             model_name,
@@ -108,6 +109,18 @@ class TimmModel(nn.Module):
 
     # Temp, only works for efficientnet
     def get_features(self, images):
+        feature_fn_map = {
+            "tf_efficientnet_b4": self.__tf_efficientnet_b4_features,
+            "eca_nfnet_l0"      : self.__eca_nfnet_l0_features,
+        }
+        if self.model_name not in feature_fn_map.keys():
+            raise NotImplementedError(
+                    f"Feature function not implemented for {self.model_name}"
+            )
+        feature_fn = feature_fn_map[self.model_name]
+        return feature_fn(images)
+
+    def __tf_efficientnet_b4_features(self, images):
         """ Get features from an efficientnet model """
         assert images.shape[0]>1, "batch size >1"
         x = self.model.conv_stem(images)
@@ -115,10 +128,15 @@ class TimmModel(nn.Module):
         x = self.model.blocks(x)
         x = self.model.conv_head(x)
         x = self.model.bn2(x)
-        # Was 2
         #[batch_size, *features_dims]
-        print(f"{x.shape}")
-        x = torch.squeeze(torch.nn.AvgPool2d(x.shape[2:])(x))
-        print(f"{x.shape}")
-
+        x = torch.squeeze(torch.nn.AvgPool2d(x.shape[2:])(x)) # Squeeze feature dims to 1D
         return x
+
+    def __eca_nfnet_l0_features(self, images):
+        model = self.model
+        return torch.nn.Sequential([
+            model.stem,
+            model.stages,
+            model.final_conv,
+            model.final_act,
+        ])(images)
