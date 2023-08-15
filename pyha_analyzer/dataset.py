@@ -190,8 +190,9 @@ class PyhaDFDataset(Dataset):
 
 
         files = files["files"].progress_apply(self.process_audio_file)
-        logger.debug("%s", str(files.shape))
+        logger.debug(f"{files.shape=}")
 
+        #https://media.giphy.com/media/VIPfTy8y1Lc5iREYDS/giphy.gif
         files = files[files["files"] != "bad"]
         self.samples = self.samples.merge(files, how="left",
                        left_on=cfg.file_name_col,

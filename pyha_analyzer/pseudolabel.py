@@ -29,7 +29,7 @@ def make_raw_df() -> pd.DataFrame:
     valid_formats += tuple(f.upper() for f in valid_formats)
     # Split into raw chunks
     chunks = []
-    for file in tqdm(files[:2]):
+    for file in tqdm(files[:10]):
         file_len = 0
         path = Path(file)
         if path.suffix not in valid_formats:
@@ -87,6 +87,7 @@ def get_pseudolabels(pred: torch.Tensor, raw_df: pd.DataFrame, threshold: float)
     raw_df = raw_df[allowed]
     raw_df[cfg.manual_id_col] = filtered_species
     raw_df["CONFIDENCE"] = confidence
+    if len(raw_df)==0: raise RuntimeError("No valid pseudolabels found")
     return raw_df
 
 def merge_with_cur(annotations: pd.DataFrame, pseudo_df: pd.DataFrame) -> pd.DataFrame:
@@ -115,6 +116,7 @@ def pseudo_label_data(model):
     logger.info("Running model...")
     predictions = run_raw(model, raw_df)
     logger.info("Generating pseudo labels...")
+    print(f"{raw_df=}")
     pseudo_df = get_pseudolabels(
         predictions, raw_df, cfg.pseudo_threshold
     )
