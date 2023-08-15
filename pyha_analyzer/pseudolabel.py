@@ -29,8 +29,7 @@ def make_raw_df() -> pd.DataFrame:
     valid_formats += tuple(f.upper() for f in valid_formats)
     # Split into raw chunks
     chunks = []
-    #TODO: Restore this
-    for file in tqdm(files[:10]):
+    for file in tqdm(files[:2]):
         file_len = 0
         path = Path(file)
         if path.suffix not in valid_formats:
@@ -105,8 +104,6 @@ def add_pseudolabels(model: TimmModel, cur_df: pd.DataFrame, threshold: float) -
     assert len(raw_df)>0
     pred = run_raw(model, raw_df)
     pseudo_df = get_pseudolabels(pred, raw_df, threshold)
-    print(f"Current dataset has {cur_df.shape[0]} rows")
-    print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
     return merge_with_cur(cur_df, pseudo_df)
 
 
@@ -116,7 +113,6 @@ def pseudo_label_data(model):
     model.create_loss_fn(raw_df)
 
     logger.info("Running model...")
-    print(raw_df)
     predictions = run_raw(model, raw_df)
     logger.info("Generating pseudo labels...")
     pseudo_df = get_pseudolabels(
@@ -133,8 +129,6 @@ def pseudo_label_data(model):
     train_dl, valid_dl, infer_dl = (
         dataset.get_dataloader(train_ds, valid_ds, infer_ds)
     )
-    print(f"{len(pseudo_df)=}")
-    print(f"{len(train_dl)=}")
     return pseudo_df, train_dl, valid_dl, infer_dl
 
 def finetune(model):
