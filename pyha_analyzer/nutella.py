@@ -7,6 +7,7 @@ import copy
 import numpy as np
 import scipy
 from scipy import sparse
+import torch.nn.functional as F
 import torch
 
 from pyha_analyzer import pseudolabel, dataset, config, utils
@@ -266,23 +267,58 @@ def apply_thresholding(predictions): #[dataset_size, num_classes]
     pseudo_labels = np.vectorize(lambda x: 1 if x > threshold else 0)(predictions)
     return torch.tensor(pseudo_labels)
 
+def one_hot_to_name(annotation: torch.Tensor, class_to_idx):
+    annotation_to_name = {v: k for k, v in class_to_idx.items()}
+    name = annotation_to_name[int(np.argmax(annotation))]
+    return name
+
+def one_hot(probabilities: torch.Tensor):
+    #TODO: IS THIS CORRECT?
+    print(f"{probabilities.shape=}")
+    print(f"{type(probabilities)=}")
+    #if isinstance(probabilities, np.matrix):
+        #probabilities = np.asarray(probabilities)
+    
+    one_hot = np.zeros(probabilities.shape)
+    max_val = np.max(probabilities, axis=1)
+    max_idx = np.argmax(probabilities, axis=1)
+    if max_val>cfg.pseudo_threshold:
+        one_hot[0, max_idx] = 1
+    return one_hot
+    
+
+def get_names(pseudolabels, indices, class_to_idx):
+    print(f"{pseudolabels.shape=}")
+    #max_indices = torch.argmax(pseudolabels, dim=1)
+    #print("{max_indices.shape=}")
+    pseudolabels = [one_hot(pseudolabel) for pseudolabel in pseudolabels]
+    print(f"{pseudolabels=}")
+    pseudolabels = [one_hot_to_name(annotation, class_to_idx) for annotation in pseudolabels]
+    print(f"{pseudolabels=}")
+    return pseudolabels
+
 
 def regularized_pseudolabels(model, features, predictions):
     nn_matrix = compute_nearest_neighbors(
             features.detach().numpy(), copy.deepcopy(features.detach().numpy()), knn=cfg.notela_knn
     ) # [dataset_size, dataset_size]
-    regularized_predictions = teacher_step(
+    regularized_pseudolabels = teacher_step(
             predictions.detach().numpy(), 
             copy.deepcopy(predictions.detach().numpy()),
             nn_matrix,
             lambda_ = cfg.notela_lambda
     ) # [dataset_size, num_classes]
-    pseudo_labels = apply_thresholding(regularized_predictions)
-    return pseudo_labels #TODO: Convert to one hot 
+    #pseudo_labels = apply_thresholding(regularized_predictions)
+    print(f"{type(regularized_pseudolabels)=}")
+    return regularized_pseudolabels #TODO: Convert to one hot 
     # [dataset_size, num_classes]
 
-def update_dataset_labels(train_process, indices, pseudo_labels):
-    train_process.train_dl.dataset.samples[cfg.manual_id_col][indices] = pseudo_labels
+def update_dataset_predictions(pseudo_labels, indices, train_process):
+    train_process.train_dl.dataset.samples[cfg.manual_id_col].iloc[indices] = pseudo_labels
+    print(f"{type(pseudo_labels)=}")
+    print(f"{type(indices)=}")
+    #for idx, label in zip(indices, pseudo_labels):
+    #    train_process.train_dl.dataset.samples[cfg.manual_id_col].iloc[idx]=label
 
 
 
@@ -308,8 +344,18 @@ def finetune(mode):
         print(f"{dataset.shape=}")
         print(f"{predictions.shape=}")
         print(f"{features.shape=}")
-        pseudo_labels = regularized_pseudolabels(train_process.model, features, predictions)
-        update_dataset_predictions(indices, pseudolabel)
+        pseudolabels = regularized_pseudolabels(train_process.model, features, predictions)
+        print(f" in finetune {type(pseudolabels)=}")
+        pseudolabels = get_names(
+                pseudolabels, 
+                indices, 
+                train_process.train_dl.dataset.class_to_idx
+        )
+        update_dataset_predictions(
+                train_process = train_process, 
+                indices=indices,
+                pseudo_labels=pseudolabels
+        )
         train_process.run_epoch()
         train_process.valid()
         train_process.inference_valid()
