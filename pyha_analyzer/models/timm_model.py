@@ -107,36 +107,42 @@ class TimmModel(nn.Module):
         assert outputs is not None
         return loss, outputs
 
-    # Temp, only works for efficientnet
     def get_features(self, images):
         feature_fn_map = {
             "tf_efficientnet_b4": self.__tf_efficientnet_b4_features,
             "eca_nfnet_l0"      : self.__eca_nfnet_l0_features,
         }
-        if self.model_name not in feature_fn_map.keys():
+        if self.model_name not in feature_fn_map:
             raise NotImplementedError(
-                    f"Feature function not implemented for {self.model_name}"
+                f"Feature function not implemented for {self.model_name}"
             )
         feature_fn = feature_fn_map[self.model_name]
         return feature_fn(images)
 
     def __tf_efficientnet_b4_features(self, images):
-        """ Get features from an efficientnet model """
+        """ Get features from tf_efficientnet_b4 model """
         assert images.shape[0]>1, "batch size >1"
-        x = self.model.conv_stem(images)
-        x = self.model.bn1(x)
-        x = self.model.blocks(x)
-        x = self.model.conv_head(x)
-        x = self.model.bn2(x)
-        #[batch_size, *features_dims]
-        x = torch.squeeze(torch.nn.AvgPool2d(x.shape[2:])(x)) # Squeeze feature dims to 1D
-        return x
+        model = self.model
+        x = torch.nn.Sequential(
+                model.conv_stem,
+                model.bn1,
+                model.blocks,
+                model.conv_head,
+                model.bn2,
+        )(images) #[batch_size, *features_dims]
+        return torch.squeeze(
+                torch.nn.AvgPool2d(x.shape[2:])(x)
+        ) # Squeeze feature dims to 1D
 
     def __eca_nfnet_l0_features(self, images):
+        """ Get features from eca_nfnet_l0 model"""
         model = self.model
-        return torch.nn.Sequential([
+        x = torch.nn.Sequential(
             model.stem,
             model.stages,
             model.final_conv,
             model.final_act,
-        ])(images)
+        )(images)
+        return torch.squeeze(
+                torch.nn.AvgPool2d(x.shape[2:])(x)
+        ) # Squeeze feature dims to 1D

@@ -57,8 +57,8 @@ def make_raw_df() -> pd.DataFrame:
     return df
 
 def run_raw(model: TimmModel, df: pd.DataFrame):
-    assert len(df)>0
     """ Returns predictions tensor from raw chunk dataframe """
+    assert len(df)>0
     # Get dataset
     if cfg.config_dict["class_list"] is None:
         raise ValueError("Pseudo-labeling requires class list")
@@ -87,7 +87,8 @@ def get_pseudolabels(pred: torch.Tensor, raw_df: pd.DataFrame, threshold: float)
     raw_df = raw_df[allowed]
     raw_df[cfg.manual_id_col] = filtered_species
     raw_df["CONFIDENCE"] = confidence
-    if len(raw_df)==0: raise RuntimeError("No valid pseudolabels found")
+    if len(raw_df)==0: 
+        raise RuntimeError("No valid pseudolabels found")
     return raw_df
 
 def merge_with_cur(annotations: pd.DataFrame, pseudo_df: pd.DataFrame) -> pd.DataFrame:
@@ -137,7 +138,7 @@ def finetune(model):
     """
     Fine tune on pseudo labels
     """
-    pseudo_df, train_dl, valid_dl, infer_dl = pseudo_label_data(model)
+    _, train_dl, valid_dl, infer_dl = pseudo_label_data(model)
 
     logger.info("Finetuning on pseudo labels...")
     train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)

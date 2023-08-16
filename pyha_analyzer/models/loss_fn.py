@@ -33,4 +33,5 @@ def bce(model, train_dataset, without_logits=False, **_):
     return model.loss_fn
 
 def get_weights(dataset):
+    """ Returns the weights for the BCE loss function """
     return torch.tensor([min(1/p, 1) for p in dataset.class_sums])

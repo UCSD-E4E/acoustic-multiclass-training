@@ -5,28 +5,42 @@ https://github.com/google-research/chirp/blob/main/chirp/projects/sfda/methods/n
 import logging
 import copy
 import numpy as np
-import scipy
 from scipy import sparse
-import torch.nn.functional as F
 import torch
 
-from pyha_analyzer import pseudolabel, dataset, config, utils
+from pyha_analyzer import pseudolabel, config, utils
 from pyha_analyzer.models.timm_model import TimmModel
 from pyha_analyzer.train import TrainProcess
 
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
-def cdist(features_a: np.ndarray, 
-        features_b: np.ndarray) -> np.ndarray: 
-    """A jax equivalent of scipy.spatial.distance.cdist. Computes the pairwise squared euclidean distance between each pair of features from features_a and features_b. 
+
+
+def cdist(
+        features_a: np.ndarray, 
+        features_b: np.ndarray
+    ) -> np.ndarray: 
+    """
+    A numpy equivalent of scipy.spatial.distance.cdist. 
+    Computes the pairwise squared euclidean distance between 
+    each pair of features from features_a and features_b. 
     Args: 
-        features_a: The first batch of features, expected shape [*, batch_size_a, feature_dim] 
-        features_b: The second batch of features, expected shape [*, batch_size_b, feature_dim] 
-    Returns: The pairwise squared euclidean distance between each pair of features from features_a and features_b. Shape [*, batch_size_a, batch_size_b] 
-    Raises: ValueError: If the shape of features_a's last dimension does not match the shape of feature_b's last dimension. 
+        features_a: The first batch of features, 
+            expected shape [*, batch_size_a, feature_dim] 
+        features_b: The second batch of features, 
+            expected shape [*, batch_size_b, feature_dim] 
+    Returns: 
+        The pairwise squared euclidean distance between each 
+        pair of features from features_a and features_b. 
+        Shape [*, batch_size_a, batch_size_b] 
+    Raises: ValueError: If the shape of features_a's last dimension 
+    does not match the shape of feature_b's last dimension. 
     """ 
     if features_a.shape[-1] != features_b.shape[-1]: 
-        raise ValueError( "The feature dimension should be the same. Currently features_a: " f"{features_a.shape} and features_b: {features_b.shape}" ) 
+        raise ValueError( 
+                "The feature dimension should be the same. Currently features_a: " 
+                f"{features_a.shape} and features_b: {features_b.shape}" 
+        ) 
     feature_dim = features_a.shape[-1] 
     flat_features_a = np.reshape(features_a, [-1, feature_dim]) 
     flat_features_b = np.reshape(features_b, [-1, feature_dim]) 
@@ -36,7 +50,6 @@ def cdist(features_a: np.ndarray,
             - 2 * np.matmul(flat_features_a, flat_transpose_b) 
             + np.sum(np.square(flat_transpose_b), 0, keepdims=True) 
     ) 
-    y, x = distances.shape[-2:]
     return distances
 
 def compute_nearest_neighbors(
@@ -44,7 +57,7 @@ def compute_nearest_neighbors(
         dataset_feature: np.ndarray,
         knn: int,
         memory_efficient_computation: bool = True
-    ) -> np.ndarray:
+    ) -> sparse.csr_matrix:
     """
     Compute batch_feature's nearest-neighbors among dataset_feature.
     
@@ -97,23 +110,27 @@ def compute_nearest_neighbors(
                 np.expand_dims(sample_feature, 0), dataset_feature
             )  # [1, dataset_size]
             col_indices.append(
-                torch.topk(torch.tensor(-pairwise_distances), torch.tensor(neighbors))[1][:, 1:]
-            )  # [1, neighbors-1]
+                torch.topk(
+                    torch.tensor(-pairwise_distances), 
+                    torch.tensor(neighbors) #type: ignore 
+                )[1][:, 1:] 
+            )  
+                #[1, neighbors-1] 
             assert int(col_indices[-1].shape[0])==1
         col_indices = torch.stack(col_indices).numpy() #(23, *)
     else:
-        #pairwise_distances = scipy.spatial.distance.cdist(
         pairwise_distances = cdist(
             batch_feature, dataset_feature
         )  # [batch_size, dataset_size]
-        col_indices = torch.topk(-pairwise_distances, neighbors)[1][
+        col_indices = torch.topk(-pairwise_distances, neighbors)[1][ #type: ignore 
             :, 1:
         ]  # [batch_size, neighbors-1]
     col_indices = col_indices.flatten()  # [batch_size * neighbors-1]
     row_indices = np.repeat(
         np.arange(batch_shape[0]), neighbors - 1
     )  # [0, ..., 0, 1, ...]
-    nn_matrix = np.zeros((batch_shape[0], dataset_shape[0]), dtype=np.uint8) #[batch_size, dataset_size]
+    nn_matrix = np.zeros((batch_shape[0], dataset_shape[0]), dtype=np.uint8) 
+    #[batch_size, dataset_size]
 
     data = np.ones(row_indices.shape[0])
     nn_matrix = sparse.csr_matrix(
@@ -125,7 +142,7 @@ def compute_nearest_neighbors(
 def teacher_step(
         batch_prob: np.ndarray,
         dataset_prob: np.ndarray,
-        nn_matrix: np.ndarray,
+        nn_matrix: sparse.csr_matrix,
         lambda_: float,
         alpha: float = 1.0,
         normalize_pseudo_labels: bool = True,
@@ -154,11 +171,9 @@ def teacher_step(
       The soft pseudo-labels for the current batch of data, shape
         [batch_size, proba_dim]
     """
-    if isinstance(nn_matrix, sparse.csr_matrix):
-        # By default, sum operation on a csr_matrix keeps the dimensions of the
-        # original matrix.
-        denominator = nn_matrix.sum(axis=-1)
-    #denominator = np.sum(nn_matrix.sum(axis=-1, keepdims=True)
+    # By default, sum operation on a csr_matrix keeps the dimensions of the
+    # original matrix.
+    denominator = nn_matrix.sum(axis=-1)
 
     # In the limit where alpha goes to zero, we can rewrite the expression as
     #
@@ -183,27 +198,13 @@ def teacher_step(
         pseudo_label = np.multiply((batch_prob ** (1 / alpha)), np.exp(
             (lambda_ / alpha) * (nn_matrix @ dataset_prob) / (denominator + eps)
         ))  # [*, batch_size, proba_dim]
-#        exp = np.exp(
-#                (lambda_ / alpha) 
-#                * (nn_matrix @ dataset_prob) 
-#                / (denominator + eps),
-#        )
-#        print(f"{exp.shape=}")
-#        print(f"{(batch_prob**1/alpha).shape=}")
-#        print(f"{exp[:,-10:]=}")
-#        print(f"{batch_prob[:,-10:]=}")
-#        assert(batch_prob.shape==exp.shape)
-#        pseudo_label = np.multiply((batch_prob ** 1/alpha), exp)
-##                (lambda_ / alpha) 
-##                * (nn_matrix @ dataset_prob) 
-##                / (denominator + eps),
-##        )
         if normalize_pseudo_labels:
             assert isinstance(pseudo_label, np.ndarray)
             pseudo_label /= np.asarray(pseudo_label).sum(axis=-1, keepdims=True) + eps
     return pseudo_label
 
 def get_dataset_info(model, dl):
+    """Get indices, images, predictions, and features from dataset"""
     indices = []
     data = []
     predictions = []
@@ -215,49 +216,48 @@ def get_dataset_info(model, dl):
         predictions.append(torch.sigmoid(model(mels.cuda()).cpu()))
         features.append(model.get_features(mels.cuda()).cpu())
     
-    indices = torch.cat(indices, dim=0)
-    data = torch.cat(data, dim=0)
-    features = torch.cat(features, dim=0)
-    predictions = torch.cat(predictions, dim=0)
-#    indices = torch.stack(indices, dim=0)
-#    data = torch.stack(data, dim=0)
-#    features = torch.stack(features, dim=0)
-#    predictions = torch.stack(predictions, dim=0)
-    print(f"{indices=}")
-    return indices, data, predictions, features
+    #indices = torch.cat(indices, dim=0)
+    #data = torch.cat(data, dim=0)
+    #features = torch.cat(features, dim=0)
+    #predictions = torch.cat(predictions, dim=0)
+    return [torch.cat(lst, dim=0) for lst in (indices, data, predictions, features)]
+    #return indices, data, predictions, features
 
-def apply_thresholding(predictions): #[dataset_size, num_classes]
-    threshold = cfg.pseudo_threshold
-    #predictions = predictions.cpu().detach().numpy()
-    pseudo_labels = np.vectorize(lambda x: 1 if x > threshold else 0)(predictions)
-    return torch.tensor(pseudo_labels)
+#def apply_thresholding(predictions): #[dataset_size, num_classes]
+#    threshold = cfg.pseudo_threshold
+#    pseudo_labels = np.vectorize(lambda x: 1 if x > threshold else 0)(predictions)
+#    return torch.tensor(pseudo_labels)
 
-def one_hot_to_name(annotation: torch.Tensor, class_to_idx):
-    annotation_to_name = {v: k for k, v in class_to_idx.items()}
+def one_hot_to_name(annotation: np.ndarray, class_to_idx):
+    """Convert one hot annotation to species name"""
+    if 1 not in annotation: 
+        return None
+    # class_to_idx should be bijective
+    annotation_to_name = {v: k for k, v in class_to_idx.items()} 
     name = annotation_to_name[int(np.argmax(annotation))]
     return name
 
-def one_hot(probabilities: torch.Tensor):
-    one_hot = np.zeros(probabilities.shape)
-    max_val = np.max(probabilities, axis=1)
-    max_idx = np.argmax(probabilities, axis=1)
+#TODO: Convert to multilabel?
+def one_hot(prediction: np.ndarray) -> np.ndarray:
+    """Convert prediction to one hot annotation"""
+    #TODO: What happens if you have empty annotation?
+    one_hot_annotation = np.zeros(prediction.shape)
+    max_val = np.max(prediction, axis=1)
+    max_idx = np.argmax(prediction, axis=1)
     if max_val>cfg.pseudo_threshold:
-        one_hot[0, max_idx] = 1
-    return one_hot
+        one_hot_annotation[0, max_idx] = 1
+    return one_hot_annotation
     
 
-def get_names(pseudolabels, indices, class_to_idx):
-    print(f"{pseudolabels.shape=}")
-    #max_indices = torch.argmax(pseudolabels, dim=1)
-    #print("{max_indices.shape=}")
+def get_names(pseudolabels, class_to_idx):
+    """Get pseudolabels species names"""
     pseudolabels = [one_hot(pseudolabel) for pseudolabel in pseudolabels]
-    print(f"{pseudolabels=}")
     pseudolabels = [one_hot_to_name(annotation, class_to_idx) for annotation in pseudolabels]
-    print(f"{pseudolabels=}")
     return pseudolabels
 
 
-def regularized_pseudolabels(model, features, predictions):
+def get_regularized_pseudolabels(features, predictions):
+    """Get pseudolabels regularized by feature distances"""
     nn_matrix = compute_nearest_neighbors(
             features.detach().numpy(), copy.deepcopy(features.detach().numpy()), knn=cfg.notela_knn
     ) # [dataset_size, dataset_size]
@@ -267,21 +267,22 @@ def regularized_pseudolabels(model, features, predictions):
             nn_matrix,
             lambda_ = cfg.notela_lambda
     ) # [dataset_size, num_classes]
-    print(f"{type(regularized_pseudolabels)=}")
-    return regularized_pseudolabels #TODO: Convert to one hot 
-    # [dataset_size, num_classes]
+    return regularized_pseudolabels 
 
 def update_dataset_predictions(pseudo_labels, indices, train_process):
-    train_process.train_dl.dataset.samples[cfg.manual_id_col].iloc[indices] = pseudo_labels
+    """Add new predictions to dataset"""
+    (train_process
+            .train_dl
+            .dataset
+            .samples[cfg.manual_id_col]
+            .iloc[indices]
+    ) = pseudo_labels
 
 
 
-# TODO: Factor out wandb init with suffixes to project
-def finetune(mode):
-    """
-    Fine tune on pseudo labels
-    """
-    pseudo_df, train_dl, valid_dl, infer_dl = pseudolabel.pseudo_label_data(model)
+def finetune(model):
+    """Fine tune on pseudo labels"""
+    _, train_dl, valid_dl, infer_dl = pseudolabel.pseudo_label_data(model)
 
     logger.info("Finetuning on pseudo labels...")
     train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)
@@ -289,23 +290,23 @@ def finetune(mode):
     #train_process.valid()
     #train_process.inference_valid()
     for _ in range(cfg.epochs):
-        indices, dataset, predictions, features = get_dataset_info(model, train_dl)
+        indices, _, predictions, features = get_dataset_info(model, train_dl)
         assert torch.all(predictions>0)
-        pseudolabels = regularized_pseudolabels(train_process.model, features, predictions)
-        pseudolabels = get_names(
-                pseudolabels, 
-                indices, 
-                train_process.train_dl.dataset.class_to_idx
-        )
+        pseudolabels = get_regularized_pseudolabels(features, predictions)
+        class_to_idx = train_process.train_dl.dataset.class_to_idx #type: ignore
+        pseudolabels = get_names(pseudolabels, class_to_idx)
         update_dataset_predictions(
                 train_process = train_process, 
-                indices=indices,
-                pseudo_labels=pseudolabels
+                indices = indices,
+                pseudo_labels = pseudolabels
         )
         train_process.run_epoch()
         train_process.valid()
         train_process.inference_valid()
 
-if __name__=="__main__":
-    model = TimmModel(len(cfg.class_list)).to(cfg.device)
+def main():
+    model = TimmModel(len(cfg.class_list), model_name=cfg.model).to(cfg.device)
     finetune(model)
+
+if __name__=="__main__":
+    main()
