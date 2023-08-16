@@ -16,8 +16,8 @@ def cross_entropy_loss_fn(self,train_dataset):
     else: # weighted loss
         self.loss_fn = nn.CrossEntropyLoss(
             weight=torch.tensor(
-                [1 / p for p in train_dataset.class_id_to_num_samples.values()]
-            ).to(self.device))
+                [1 / p for p in train_dataset.class_dist]
+            ).to(cfg.device))
     return self.loss_fn
 
 def bce_loss_fn(self, without_logits=False):

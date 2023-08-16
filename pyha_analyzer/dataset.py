@@ -80,6 +80,8 @@ class PyhaDFDataset(Dataset):
         self.num_classes = len(species)
         self.serialize_data()
 
+        self.class_dist = self.calc_class_distribution()
+
         #Data augmentations
         self.mixup = Mixup(self.samples, self.class_to_idx, cfg)
         audio_augs = {
@@ -98,6 +100,23 @@ class PyhaDFDataset(Dataset):
         self.image_augmentations = torch.nn.Sequential(
                 RandomApply([audtr.FrequencyMasking(cfg.freq_mask_param)], p=cfg.freq_mask_p),
                 RandomApply([audtr.TimeMasking(cfg.time_mask_param)],      p=cfg.time_mask_p))
+
+    def calc_class_distribution(self) -> torch.Tensor:
+        """ Returns class distribution (number of samples per class) """
+        class_dist = []
+        if self.onehot:
+            for class_name in self.classes:
+                class_dist.append(self.samples[class_name].sum())
+            return torch.tensor(class_dist, dtype=torch.float32)
+
+        class_dist = torch.zeros(len(self.classes), dtype=torch.float32)
+        for _, row in self.samples.iterrows():
+            if isinstance(row[cfg.manual_id_col],str):
+                class_dist[self.classes.index(row[cfg.manual_id_col])] += 1
+            else: # Dictionary manual id
+                for name, val in row[cfg.manual_id_col]:
+                    class_dist[self.classes.index(name)] += val
+        return class_dist
 
     def verify_audio(self) -> None:
         """
