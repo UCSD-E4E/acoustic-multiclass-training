@@ -130,9 +130,13 @@ class TimmModel(nn.Module):
                 model.conv_head,
                 model.bn2,
         )(images) #[batch_size, *features_dims]
-        return torch.squeeze(
+        if cfg.features_flattened:
+            x = torch.flatten(x, start_dim=1, end_dim=-1)
+        else:
+            x = torch.squeeze(
                 torch.nn.AvgPool2d(x.shape[2:])(x)
-        ) # Squeeze feature dims to 1D
+            ) # Squeeze feature dims to 1D
+        return x
 
     def __eca_nfnet_l0_features(self, images):
         """ Get features from eca_nfnet_l0 model"""
@@ -143,6 +147,11 @@ class TimmModel(nn.Module):
             model.final_conv,
             model.final_act,
         )(images)
-        return torch.squeeze(
+        x = torch.flatten(x, start_dim=1, end_dim=-1)
+        if cfg.features_flattened:
+            x = torch.flatten(x, start_dim=1, end_dim=-1)
+        else:
+            x = torch.squeeze(
                 torch.nn.AvgPool2d(x.shape[2:])(x)
-        ) # Squeeze feature dims to 1D
+            ) # Squeeze feature dims to 1D
+        return x
