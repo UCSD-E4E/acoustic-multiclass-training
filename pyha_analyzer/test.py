@@ -126,16 +126,18 @@ class TestTrain(unittest.TestCase):
 
     def test_map(self):
         """ Tests if macro average precision meets expected values """
-        map_val = map_metric(
+        cmap, smap = map_metric(
             torch.tensor([[0.1,0.2,0.3,0.4],[0.1,0.2,0.3,0.4]]),
             torch.tensor([[1,0,0,0],[0,0,0,1]]).to(dtype=torch.float),
-            4)
-        assert map_val == 0.5, "mAP expected to be 0.5"
-        map_val = map_metric(
+            torch.tensor([1,0,1,0]))
+        assert cmap == 0.5, "cmAP expected to be 0.5"
+        assert smap == 0.25, "smAP expected to be 0.25"
+        cmap, smap = map_metric(
             torch.tensor([[1,0,0,0],[0,0,0,1]]).to(dtype=torch.float),
             torch.tensor([[1,0,0,0],[0,0,0,1]]).to(dtype=torch.float),
-            4)
-        assert map_val == 1.0, "mAP expected to be 1"
+            torch.tensor([0.5,0.5,0,0]))
+        assert cmap == 1.0, "cmAP expected to be 1.0"
+        assert smap == 0.5, "smAP expected to be 1.0"
 
     def test_model_save(self):
         """ Tests that model saving does not crash """
