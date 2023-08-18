@@ -29,7 +29,7 @@ def make_raw_df() -> pd.DataFrame:
     # Split into raw chunks
     chunks = []
     #TODO: Fix
-    for file in tqdm(files[:10]):
+    for file in tqdm(files):
         file_len = 0
         path = Path(file)
         if path.suffix not in valid_formats:
