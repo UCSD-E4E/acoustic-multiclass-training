@@ -11,8 +11,11 @@ class_list:
 pseudo_data_augs: true
 pseudo_threshold: 0.7
 
+# Notela params
 notela_knn: 4
 notela_lambda: 0.5
+notela_alpha: 1.0
+features_flattened: true
 
 # Dataframe column names
 offset_col: "OFFSET"
