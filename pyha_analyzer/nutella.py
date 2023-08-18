@@ -211,20 +211,21 @@ def get_dataset_info(model, dl):
     data = []
     predictions = []
     features = []
-    for (mels, _, index) in dl:
-        assert all(float(idx).is_integer() for idx in index)
-        indices.append(index)
-        data.append(mels)
-        prediction = model(mels.cuda()).cpu()
-        predictions.append(torch.sigmoid(prediction))
-        feature = model.get_features(mels.cuda()).cpu()
-        features.append(feature)
+    with torch.no_grad():
+        for (mels, _, index) in dl:
+            assert all(float(idx).is_integer() for idx in index)
+            indices.append(index.numpy())
+            data.append(mels.numpy())
+            prediction = model(mels.cuda()).cpu()
+            predictions.append(torch.sigmoid(prediction).numpy())
+            feature = model.get_features(mels.cuda()).cpu().numpy()
+            features.append(feature)
     
-    indices = torch.cat(indices, dim=0)
-    data = torch.cat(data, dim=0)
-    features = torch.cat(features, dim=0)
-    predictions = torch.cat(predictions, dim=0)
-    #return [torch.cat(lst, dim=0) for lst in (indices, data, predictions, features)]
+    indices = np.concatenate(indices, axis=0)
+    data = np.concatenate(data, axis=0)
+    features = np.concatenate(features, axis=0)
+    predictions = np.concatenate(predictions, axis=0)
+    #return [torch.concatenate(lst, dim=0) for lst in (indices, data, predictions, features)]
     return indices, data, predictions, features
 
 #def apply_thresholding(predictions): #[dataset_size, num_classes]
@@ -256,15 +257,17 @@ def one_hot(prediction: np.ndarray) -> Optional[np.ndarray]:
     else:
         return None
 
+def valid(pair):
+    return not( type(pair[0])==type(None) or type(pair[1])==type(None) )
+
 def get_names(pseudolabels, indices, class_to_idx):
     """Get pseudolabels species names"""
     pseudolabels = [one_hot(pseudolabel) for pseudolabel in pseudolabels]
-    if [x for x in pseudolabels if x is not None]:
+    pseudolabels_empty = not [x for x in pseudolabels if x is not None]
+    if pseudolabels_empty:
         raise RuntimeError("No valid pseudolabels found, check data or confidence threshold")
     valid_pseudolabels, valid_indices = zip(
-        *[pair for pair in 
-        zip(pseudolabels, indices) 
-        if None not in pair]
+        *[pair for pair in zip(pseudolabels, indices) if valid(pair)]
     )
     #TODO; Investigate type error
     name_pseudolabels = [one_hot_to_name(annotation, class_to_idx) for annotation in valid_pseudolabels]
@@ -274,23 +277,27 @@ def get_names(pseudolabels, indices, class_to_idx):
 def get_regularized_pseudolabels(features, predictions):
     """Get pseudolabels regularized by feature distances"""
     nn_matrix = compute_nearest_neighbors(
-            features.detach().numpy(), copy.deepcopy(features.detach().numpy()), knn=cfg.notela_knn
+            features, copy.deepcopy(features), knn=cfg.notela_knn
     ) # [dataset_size, dataset_size]
     regularized_pseudolabels = teacher_step(
-            predictions.detach().numpy(), 
-            copy.deepcopy(predictions.detach().numpy()),
+            predictions, 
+            copy.deepcopy(predictions),
             nn_matrix,
-            lambda_ = cfg.notela_lambda
+            lambda_ = cfg.notela_lambda,
+            alpha = cfg.notela_alpha,
     ) # [dataset_size, num_classes]
     return regularized_pseudolabels 
 
 def update_dataset_predictions(pseudo_labels, indices, train_process):
     """Add new predictions to dataset"""
+#    df = train_process.train_dl.dataset.samples
+#    for i in range(len(df)):
+#        df.loc[indices[i], cfg.manual_id_col] = pseudo_labels[i]
     (train_process
             .train_dl
             .dataset
-            .samples[cfg.manual_id_col]
-            .iloc[indices]
+            .samples
+            .loc[indices, cfg.manual_id_col]
     ) = pseudo_labels
 
 
@@ -309,18 +316,19 @@ def finetune(model):
     train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)
     utils.wandb_init(in_sweep = False, project_suffix = "nutella")
     #TODO: Restore
-    #train_process.valid()
-    #train_process.inference_valid()
+    train_process.valid()
+    train_process.inference_valid()
     for _ in range(cfg.epochs):
         indices, _, predictions, features = get_dataset_info(model, train_dl)
-        assert torch.all(predictions>=0)
+        assert np.all(predictions>=0)
+        good_preds = [pred for pred in predictions if np.max(pred)>0.5]
         pseudolabels = get_regularized_pseudolabels(features, predictions)
         class_to_idx = train_process.train_dl.dataset.class_to_idx #type: ignore
-        pseudolabels, indices = get_names(pseudolabels, indices, class_to_idx)
+        name_pseudolabels, indices = get_names(pseudolabels, indices, class_to_idx)
         update_dataset_predictions(
                 train_process = train_process, 
                 indices = indices,
-                pseudo_labels = pseudolabels
+                pseudo_labels = name_pseudolabels
         )
         train_process.run_epoch()
         train_process.valid()
