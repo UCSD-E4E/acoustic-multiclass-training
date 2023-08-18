@@ -8,8 +8,8 @@ import matplotlib.pyplot as plt
 import copy
 import numpy as np
 from scipy import sparse
-import torch
-
+import scipy
+import torch 
 from pyha_analyzer import pseudolabel, config, utils, dataset
 from pyha_analyzer.models.timm_model import TimmModel
 from pyha_analyzer.train import TrainProcess
@@ -107,7 +107,8 @@ def compute_nearest_neighbors(
         i = 0
         for sample_feature in batch_feature:
             i +=1
-            pairwise_distances = cdist(
+            pairwise_distances = scipy.spatial.distance.cdist( 
+            #pairwise_distances = cdist(
                 np.expand_dims(sample_feature, 0), dataset_feature
             )  # [1, dataset_size]
             col_indices.append(
