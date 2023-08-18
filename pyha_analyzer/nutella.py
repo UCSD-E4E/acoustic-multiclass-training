@@ -10,7 +10,7 @@ import numpy as np
 from scipy import sparse
 import torch
 
-from pyha_analyzer import pseudolabel, config, utils
+from pyha_analyzer import pseudolabel, config, utils, dataset
 from pyha_analyzer.models.timm_model import TimmModel
 from pyha_analyzer.train import TrainProcess
 
@@ -296,8 +296,14 @@ def update_dataset_predictions(pseudo_labels, indices, train_process):
 
 def finetune(model):
     """Fine tune on pseudo labels"""
-    _, train_dl, valid_dl, infer_dl = pseudolabel.pseudo_label_data(model)
-
+    pseudo_df = pseudolabel.pseudo_labels(model)
+    train_ds = dataset.PyhaDFDataset(
+        pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list
+    )
+    _, valid_ds, infer_ds = dataset.get_datasets()
+    train_dl, valid_dl, infer_dl = (
+        dataset.get_dataloader(train_ds, valid_ds, infer_ds)
+    )
     logger.info("Finetuning on pseudo labels...")
     train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)
     utils.wandb_init(in_sweep = False, project_suffix = "nutella")
