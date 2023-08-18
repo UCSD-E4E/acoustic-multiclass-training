@@ -31,7 +31,6 @@ logger = logging.getLogger("acoustic_multiclass_training")
 def log_metrics(epoch, i, start_time, log_n, log_loss, log_map):
     """Print run metrics to console and log in WandB"""
     duration = (datetime.datetime.now() - start_time).total_seconds()
-    start_time = datetime.datetime.now()
     annotations = ((i % cfg.logging_freq) or cfg.logging_freq) * cfg.train_batch_size
     #Log to Weights and Biases
     wandb.log({
@@ -129,6 +128,7 @@ class TrainProcess():
             #Log and reset metrics
             if (i != 0 and i % (cfg.logging_freq) == 0) or i == len(self.train_dl) - 1:
                 log_metrics(self.epoch, i, start_time, log_n, log_loss, log_map)
+                start_time = datetime.datetime.now()
                 log_n = log_loss = log_map = 0
     
             # Free memory so gpu is freed before validation run
@@ -144,7 +144,6 @@ class TrainProcess():
                 start_time += datetime.datetime.now() - valid_start_time
     
         return self.best_valid_map
-
 
     def valid(self):
         """Perform validation"""
@@ -227,6 +226,7 @@ class TrainProcess():
         domain_shift = np.abs(self.valid_map - infer_map)
         wandb.log({
             "valid/domain_shift_diff": domain_shift,
+            "valid/inferance_map": infer_map,
             "epoch_progress": self.epoch,
         })
     
@@ -262,6 +262,7 @@ def main(in_sweep=True) -> None:
     logger.info("Training...")
     for _ in range(cfg.epochs):
         train_process.run_epoch()
+        train_process.valid()
 
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')

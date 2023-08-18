@@ -17,7 +17,6 @@ from tqdm import tqdm
 
 from pyha_analyzer import config, dataset, utils
 from pyha_analyzer.models.timm_model import TimmModel
-from pyha_analyzer.train import TrainProcess
 
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
@@ -29,6 +28,7 @@ def make_raw_df() -> pd.DataFrame:
     valid_formats += tuple(f.upper() for f in valid_formats)
     # Split into raw chunks
     chunks = []
+    #TODO: Fix
     for file in tqdm(files[:10]):
         file_len = 0
         path = Path(file)
@@ -60,8 +60,6 @@ def run_raw(model: TimmModel, df: pd.DataFrame):
     """ Returns predictions tensor from raw chunk dataframe """
     assert len(df)>0
     # Get dataset
-    if cfg.config_dict["class_list"] is None:
-        raise ValueError("Pseudo-labeling requires class list")
     raw_ds = dataset.PyhaDFDataset(df,train=False, species=cfg.config_dict["class_list"])
     dataloader = DataLoader(raw_ds, cfg.train_batch_size, num_workers=cfg.jobs)
 
@@ -108,8 +106,12 @@ def add_pseudolabels(model: TimmModel, cur_df: pd.DataFrame, threshold: float) -
     pseudo_df = get_pseudolabels(pred, raw_df, threshold)
     return merge_with_cur(cur_df, pseudo_df)
 
-
-def pseudo_label_data(model): 
+def pseudo_labels(model):
+    """
+    Fine tune on pseudo labels
+    """
+    if cfg.config_dict["class_list"] is None:
+        raise ValueError("Pseudo-labeling requires class list")
     logger.info("Generating raw dataframe...")
     raw_df = make_raw_df()
     model.create_loss_fn(raw_df)
@@ -118,52 +120,26 @@ def pseudo_label_data(model):
     predictions = run_raw(model, raw_df)
     logger.info("Generating pseudo labels...")
     print(f"{raw_df=}")
-    pseudo_df = get_pseudolabels(
+    return get_pseudolabels(
         predictions, raw_df, cfg.pseudo_threshold
     )
-    pseudo_df.to_csv("tmp_pseudo_labels.csv")
-    logger.info("Saved pseudo dataset to tmp_pseudo_labels.csv")
 
-    logger.info("Loading dataset...")
-    train_ds = dataset.PyhaDFDataset(
-        pseudo_df, train=cfg.pseudo_data_augs, species=cfg.class_list
-    )
-    _, valid_ds, infer_ds = dataset.get_datasets()
-    train_dl, valid_dl, infer_dl = (
-        dataset.get_dataloader(train_ds, valid_ds, infer_ds)
-    )
-    return pseudo_df, train_dl, valid_dl, infer_dl
-
-def finetune(model):
-    """
-    Fine tune on pseudo labels
-    """
-    _, train_dl, valid_dl, infer_dl = pseudo_label_data(model)
-
-    logger.info("Finetuning on pseudo labels...")
-    train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)
-    train_process.valid()
-    train_process.inference_valid()
-    for _ in range(cfg.epochs):
-        train_process.run_epoch()
-        train_process.valid()
-        train_process.inference_valid()
-
-def main(in_sweep=True):
+def main():
     """ Main function """
     torch.multiprocessing.set_start_method('spawn', force=True)
     torch.multiprocessing.set_sharing_strategy('file_system')
     print(f"Device is: {cfg.device}, Preprocessing Device is {cfg.prepros_device}")
     utils.logging_setup()
     utils.set_seed(cfg.seed)
-    utils.wandb_init(in_sweep, project_suffix="pseudolabel")
+    utils.wandb_init(in_sweep=False, disable=True, project_suffix="pseudolabel")
     print("Creating model...")
     model = TimmModel(num_classes=len(cfg.class_list), model_name=cfg.model).to(cfg.device)
     model.create_loss_fn(None)
     if not model.try_load_checkpoint():
         raise RuntimeError("No model checkpoint found")
-    finetune(model)
-
+    pseudo_df = pseudo_labels(model)
+    pseudo_df.to_csv("tmp_pseudo_labels.csv")
+    logger.info("Pseudo labels saved to tmp_pseudo_labels.csv")
 
 if __name__ == "__main__":
-    main(in_sweep=False)
+    main()

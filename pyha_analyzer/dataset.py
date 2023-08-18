@@ -12,6 +12,7 @@ import logging
 import os
 from typing import List, Optional, Tuple
 
+import librosa
 import numpy as np
 import pandas as pd
 import torch
@@ -219,15 +220,36 @@ class PyhaDFDataset(Dataset):
         """
         Convert audio clip to 3-channel spectrogram image
         """
-        convert_to_mel = audtr.MelSpectrogram(
-                sample_rate=cfg.sample_rate,
-                n_mels=cfg.n_mels,
-                n_fft=cfg.n_fft)
-        convert_to_mel = convert_to_mel.to(self.device)
-        # Mel spectrogram
-        # Pylint complains this is not callable, but it is a torch.nn.Module
-        # pylint: disable-next=not-callable
-        mel = convert_to_mel(audio)
+        mel = librosa.feature.melspectrogram(
+            y=audio.detach().numpy(),
+            sr=cfg.sample_rate,
+            n_mels=cfg.n_mels,
+            n_fft=cfg.n_fft,
+            hop_length=int(cfg.n_fft//2),
+            power=1)
+        #log_S = librosa.amplitude_to_db(S, ref=np.max)
+        hop_length = int(cfg.n_fft//2)
+        mel_pcen = librosa.pcen(
+            mel * (2**31),
+            sr=cfg.sample_rate,
+            hop_length = hop_length,
+            gain=0.8,
+            power=0.25,
+            bias=10,
+            time_constant=60 * hop_length / cfg.sample_rate
+            #
+        )
+        # See https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8514023 for
+        # reasoning behind parameters
+
+        # possible to do: improve this method
+        # GOAL: Multiplying by a power greater than one increases background
+        # This could help make calls sound further in the background
+        # and hopefully reduce domain shift
+        #if self.train:
+            #mel_pcen = mel_pcen ** 1.2
+
+        mel = torch.Tensor(mel_pcen)
         # Convert to Image
         image = torch.stack([mel, mel, mel])
         
@@ -257,8 +279,7 @@ class PyhaDFDataset(Dataset):
         audio, target = utils.get_annotation(
                 df = self.samples,
                 index = index,
-                class_to_idx = self.class_to_idx
-        )
+                class_to_idx = self.class_to_idx)
 
         audio, target = self.mixup(audio, target)
         if self.train:
