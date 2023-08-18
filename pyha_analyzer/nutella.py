@@ -3,6 +3,7 @@ Code originally from Google's Chirp project implementation of NOTELA:
 https://github.com/google-research/chirp/blob/main/chirp/projects/sfda/methods/notela.py
 """
 import logging
+from typing import Optional
 import matplotlib.pyplot as plt
 import copy
 import numpy as np
@@ -215,15 +216,11 @@ def get_dataset_info(model, dl):
         data.append(mels)
         prediction = model(mels.cuda()).cpu()
         predictions.append(torch.sigmoid(prediction))
-        print(f"{prediction=}", flush=True)
-        print(f"{torch.min(prediction)=}", flush=True)
         feature = model.get_features(mels.cuda()).cpu()
         features.append(feature)
     
     indices = torch.cat(indices, dim=0)
     data = torch.cat(data, dim=0)
-    for f in features:
-        print(f"{f.shape=}")
     features = torch.cat(features, dim=0)
     predictions = torch.cat(predictions, dim=0)
     #return [torch.cat(lst, dim=0) for lst in (indices, data, predictions, features)]
@@ -246,16 +243,13 @@ def one_hot_to_name(annotation: np.ndarray, class_to_idx):
     return name
 
 #TODO: Convert to multilabel?
-def one_hot(prediction: np.ndarray) -> np.ndarray:
+def one_hot(prediction: np.ndarray) -> Optional[np.ndarray]:
     """Convert prediction to one hot annotation"""
     #TODO: What happens if you have empty annotation?
     one_hot_annotation = np.zeros(prediction.shape)
-    print(f"{prediction}")
     max_val = np.max(prediction, axis=1)
-    print(f"{max_val}")
     if max_val>cfg.pseudo_threshold:
         max_idx = np.argmax(prediction, axis=1)
-        print(f"{max_idx}")
         one_hot_annotation[0, max_idx] = 1
         return one_hot_annotation
     else:
@@ -264,16 +258,14 @@ def one_hot(prediction: np.ndarray) -> np.ndarray:
 def get_names(pseudolabels, indices, class_to_idx):
     """Get pseudolabels species names"""
     pseudolabels = [one_hot(pseudolabel) for pseudolabel in pseudolabels]
-    if not any(label.any() for label in pseudolabels):
+    if [x for x in pseudolabels if x is not None]:
         raise RuntimeError("No valid pseudolabels found, check data or confidence threshold")
-    print(f"{pseudolabels=}")
-    print(f"{[pair for pair in zip(pseudolabels, indices) if None not in pair]=}")
-    print(f"{tuple(zip(*[pair for pair in zip(pseudolabels, indices) if None not in pair]))=}")
     valid_pseudolabels, valid_indices = zip(
         *[pair for pair in 
         zip(pseudolabels, indices) 
         if None not in pair]
     )
+    #TODO; Investigate type error
     name_pseudolabels = [one_hot_to_name(annotation, class_to_idx) for annotation in valid_pseudolabels]
     return name_pseudolabels, valid_indices
 
@@ -328,7 +320,6 @@ def finetune(model):
         train_process.inference_valid()
 
 def main():
-    print(f"{len(cfg.class_list)=}")
     model = TimmModel(
             len(cfg.class_list), 
             model_name=cfg.model,
