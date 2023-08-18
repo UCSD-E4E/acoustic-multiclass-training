@@ -248,7 +248,7 @@ def one_hot(prediction: np.ndarray) -> Optional[np.ndarray]:
     """Convert prediction to one hot annotation"""
     #TODO: What happens if you have empty annotation?
     one_hot_annotation = np.zeros(prediction.shape)
-    max_val = np.max(prediction, axis=1)
+    max_val = prediction.max()
     if max_val>cfg.pseudo_threshold:
         max_idx = np.argmax(prediction, axis=1)
         one_hot_annotation[0, max_idx] = 1
