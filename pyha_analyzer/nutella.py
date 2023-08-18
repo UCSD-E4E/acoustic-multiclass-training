@@ -3,6 +3,7 @@ Code originally from Google's Chirp project implementation of NOTELA:
 https://github.com/google-research/chirp/blob/main/chirp/projects/sfda/methods/notela.py
 """
 import logging
+import matplotlib.pyplot as plt
 import copy
 import numpy as np
 from scipy import sparse
@@ -20,8 +21,7 @@ def cdist(
         features_a: np.ndarray, 
         features_b: np.ndarray
     ) -> np.ndarray: 
-    """
-    A numpy equivalent of scipy.spatial.distance.cdist. 
+    """ A numpy equivalent of scipy.spatial.distance.cdist. 
     Computes the pairwise squared euclidean distance between 
     each pair of features from features_a and features_b. 
     Args: 
@@ -213,15 +213,21 @@ def get_dataset_info(model, dl):
         assert all(float(idx).is_integer() for idx in index)
         indices.append(index)
         data.append(mels)
-        predictions.append(torch.sigmoid(model(mels.cuda()).cpu()))
-        features.append(model.get_features(mels.cuda()).cpu())
+        prediction = model(mels.cuda()).cpu()
+        predictions.append(torch.sigmoid(prediction))
+        print(f"{prediction=}", flush=True)
+        print(f"{torch.min(prediction)=}", flush=True)
+        feature = model.get_features(mels.cuda()).cpu()
+        features.append(feature)
     
-    #indices = torch.cat(indices, dim=0)
-    #data = torch.cat(data, dim=0)
-    #features = torch.cat(features, dim=0)
-    #predictions = torch.cat(predictions, dim=0)
-    return [torch.cat(lst, dim=0) for lst in (indices, data, predictions, features)]
-    #return indices, data, predictions, features
+    indices = torch.cat(indices, dim=0)
+    data = torch.cat(data, dim=0)
+    for f in features:
+        print(f"{f.shape=}")
+    features = torch.cat(features, dim=0)
+    predictions = torch.cat(predictions, dim=0)
+    #return [torch.cat(lst, dim=0) for lst in (indices, data, predictions, features)]
+    return indices, data, predictions, features
 
 #def apply_thresholding(predictions): #[dataset_size, num_classes]
 #    threshold = cfg.pseudo_threshold
@@ -234,6 +240,8 @@ def one_hot_to_name(annotation: np.ndarray, class_to_idx):
         return None
     # class_to_idx should be bijective
     annotation_to_name = {v: k for k, v in class_to_idx.items()} 
+    assert None not in annotation_to_name.keys()
+    assert None not in annotation_to_name.values()
     name = annotation_to_name[int(np.argmax(annotation))]
     return name
 
@@ -242,18 +250,32 @@ def one_hot(prediction: np.ndarray) -> np.ndarray:
     """Convert prediction to one hot annotation"""
     #TODO: What happens if you have empty annotation?
     one_hot_annotation = np.zeros(prediction.shape)
+    print(f"{prediction}")
     max_val = np.max(prediction, axis=1)
-    max_idx = np.argmax(prediction, axis=1)
+    print(f"{max_val}")
     if max_val>cfg.pseudo_threshold:
+        max_idx = np.argmax(prediction, axis=1)
+        print(f"{max_idx}")
         one_hot_annotation[0, max_idx] = 1
-    return one_hot_annotation
-    
+        return one_hot_annotation
+    else:
+        return None
 
-def get_names(pseudolabels, class_to_idx):
+def get_names(pseudolabels, indices, class_to_idx):
     """Get pseudolabels species names"""
     pseudolabels = [one_hot(pseudolabel) for pseudolabel in pseudolabels]
-    pseudolabels = [one_hot_to_name(annotation, class_to_idx) for annotation in pseudolabels]
-    return pseudolabels
+    if not any(label.any() for label in pseudolabels):
+        raise RuntimeError("No valid pseudolabels found, check data or confidence threshold")
+    print(f"{pseudolabels=}")
+    print(f"{[pair for pair in zip(pseudolabels, indices) if None not in pair]=}")
+    print(f"{tuple(zip(*[pair for pair in zip(pseudolabels, indices) if None not in pair]))=}")
+    valid_pseudolabels, valid_indices = zip(
+        *[pair for pair in 
+        zip(pseudolabels, indices) 
+        if None not in pair]
+    )
+    name_pseudolabels = [one_hot_to_name(annotation, class_to_idx) for annotation in valid_pseudolabels]
+    return name_pseudolabels, valid_indices
 
 
 def get_regularized_pseudolabels(features, predictions):
@@ -287,14 +309,15 @@ def finetune(model):
     logger.info("Finetuning on pseudo labels...")
     train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)
     utils.wandb_init(in_sweep = False, project_suffix = "nutella")
+    #TODO: Restore
     #train_process.valid()
     #train_process.inference_valid()
     for _ in range(cfg.epochs):
         indices, _, predictions, features = get_dataset_info(model, train_dl)
-        assert torch.all(predictions>0)
+        assert torch.all(predictions>=0)
         pseudolabels = get_regularized_pseudolabels(features, predictions)
         class_to_idx = train_process.train_dl.dataset.class_to_idx #type: ignore
-        pseudolabels = get_names(pseudolabels, class_to_idx)
+        pseudolabels, indices = get_names(pseudolabels, indices, class_to_idx)
         update_dataset_predictions(
                 train_process = train_process, 
                 indices = indices,
@@ -305,7 +328,14 @@ def finetune(model):
         train_process.inference_valid()
 
 def main():
-    model = TimmModel(len(cfg.class_list), model_name=cfg.model).to(cfg.device)
+    print(f"{len(cfg.class_list)=}")
+    model = TimmModel(
+            len(cfg.class_list), 
+            model_name=cfg.model,
+            pretrained=False,
+        ).to(cfg.device)
+    if not model.try_load_checkpoint():
+        raise RuntimeError("No model checkpoint found")
     finetune(model)
 
 if __name__=="__main__":
