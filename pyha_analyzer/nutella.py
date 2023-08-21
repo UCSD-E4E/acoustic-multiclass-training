@@ -272,7 +272,8 @@ def get_names(pseudolabels, indices, class_to_idx):
     valid_pseudolabels, valid_indices = zip(
         *[pair for pair in zip(pseudolabels, indices) if valid(pair)]
     )
-    name_pseudolabels = [one_hot_to_name(annotation, class_to_idx) 
+    # Pyright is being silly here, not actually an issue
+    name_pseudolabels = [one_hot_to_name(annotation, class_to_idx) #type:ignore
                          for annotation in valid_pseudolabels]
     return name_pseudolabels, valid_indices
 
