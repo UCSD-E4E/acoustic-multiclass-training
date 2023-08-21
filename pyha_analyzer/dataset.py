@@ -116,10 +116,10 @@ class PyhaDFDataset(Dataset):
 
         class_dist = torch.zeros(len(self.classes), dtype=torch.float32)
         for _, row in self.samples.iterrows():
-            if isinstance(row[cfg.manual_id_col],str):
-                class_dist[self.classes.index(row[cfg.manual_id_col])] += 1
+            if isinstance(row[self.cfg.manual_id_col],str):
+                class_dist[self.classes.index(row[self.cfg.manual_id_col])] += 1
             else: # Dictionary manual id
-                for name, val in row[cfg.manual_id_col]:
+                for name, val in row[self.cfg.manual_id_col]:
                     class_dist[self.classes.index(name)] += val
         return class_dist
 

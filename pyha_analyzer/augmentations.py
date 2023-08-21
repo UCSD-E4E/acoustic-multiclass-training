@@ -97,6 +97,7 @@ class Mixup(torch.nn.Module):
             clip, target = utils.get_annotation(
                     df = self.df,
                     index = idx, 
+                    conf = self.cfg,
                     class_to_idx = self.class_to_idx)
             return clip, target
         except RuntimeError:
