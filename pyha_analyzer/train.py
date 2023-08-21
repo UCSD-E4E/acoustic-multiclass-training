@@ -122,8 +122,8 @@ def train(model: TimmModel,
             if scheduler is not None:
                 scheduler.step()
 
-        log_pred.append(F.sigmoid(outputs))
-        log_labels.append(labels)
+        log_pred.append(torch.clone(F.sigmoid(outputs).cpu()).detach())
+        log_labels.append(torch.clone(labels.cpu()).detach())
         log_loss += loss.item()
         log_n += 1
 
@@ -153,8 +153,8 @@ def train(model: TimmModel,
             )
             log_loss = 0
             log_n = 0
-            log_cmap = 0
-            log_smap = 0
+            log_pred = []
+            log_labels = []
 
         if (i != 0 and i % (cfg.valid_freq) == 0):
             # Free memory so gpu is freed before validation run
