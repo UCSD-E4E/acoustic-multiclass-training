@@ -117,7 +117,6 @@ def pseudo_labels(model):
     logger.info("Running model...")
     predictions = run_raw(model, raw_df)
     logger.info("Generating pseudo labels...")
-    print(f"{raw_df=}")
     return get_pseudolabels(
         predictions, raw_df, cfg.pseudo_threshold
     )
