@@ -33,25 +33,30 @@ class TestAugmentations(unittest.TestCase):
         audio, label = utils.get_annotation(dataset.samples, 0, dataset.class_to_idx, cfg)
         TestUtils.assert_one_hot(label, dataset.num_classes)
         label_id = (label == 1.0).nonzero()[0].item()
-        cfg.mixup_alpha_range = [0.25, 0.25] # type: ignore
+        mixup_alpha = 0.25
+        cfg.mixup_alpha_range = [mixup_alpha, mixup_alpha] # type: ignore
+        cfg.mixup_ceil_interval = 1. # type: ignore
+        num_clips_range = list(range(cfg.mixup_num_clips_range[0],
+                                     cfg.mixup_num_clips_range[1] + 1))
         mixup = Mixup(dataset.samples, dataset.class_to_idx, cfg)
         new_audio, new_label = mixup(audio, label)
         # Assert mixup output
         assert new_audio.shape == audio.shape, "Mixup should not change shape"
-        assert new_label[label_id] == 0.75 or new_label[label_id] == 1.0, \
-            "Mixup label should be equal to alpha"
-        assert new_label.sum() == 1.0, "Mixup label should sum to 1"
+        assert new_label[label_id] == 1., \
+                "Mixup labels should be rounded up to nearest interval"
+        assert float(new_label.sum()) in num_clips_range, \
+                "Mixup label sum should correspond to a possible number of clips"
 
         augs = []
         noise_colors = ["white", "pink", "brown", "blue", "violet"]
         for col in noise_colors:
             cfg.noise_type = col # type: ignore
             augs.append(SyntheticNoise(cfg))
-        augs.append(RandomEQ(cfg))
-        augs.append(BackgroundNoise(cfg))
-        augs.append(LowpassFilter(cfg))
-        augs.append(HighpassFilter(cfg))
-        augmented_audio = [aug.forward(audio) for aug in augs]
+        augs+= [RandomEQ(cfg),
+                BackgroundNoise(cfg),
+                LowpassFilter(cfg),
+                HighpassFilter(cfg)]
+        augmented_audio = [aug(audio) for aug in augs]
         for aug_audio in augmented_audio:
             assert aug_audio.shape == audio.shape, "Augmented audio should not change shape"
 
@@ -121,16 +126,18 @@ class TestTrain(unittest.TestCase):
 
     def test_map(self):
         """ Tests if macro average precision meets expected values """
-        map_val = map_metric(
+        cmap, smap = map_metric(
             torch.tensor([[0.1,0.2,0.3,0.4],[0.1,0.2,0.3,0.4]]),
             torch.tensor([[1,0,0,0],[0,0,0,1]]).to(dtype=torch.float),
-            4)
-        assert map_val == 0.5, "mAP expected to be 0.5"
-        map_val = map_metric(
+            torch.tensor([1,0,1,0]))
+        assert cmap == 0.5, "cmAP expected to be 0.5"
+        assert smap == 0.25, "smAP expected to be 0.25"
+        cmap, smap = map_metric(
             torch.tensor([[1,0,0,0],[0,0,0,1]]).to(dtype=torch.float),
             torch.tensor([[1,0,0,0],[0,0,0,1]]).to(dtype=torch.float),
-            4)
-        assert map_val == 1.0, "mAP expected to be 1"
+            torch.tensor([0.5,0.5,0,0]))
+        assert cmap == 1.0, "cmAP expected to be 1.0"
+        assert smap == 0.5, "smAP expected to be 1.0"
 
     def test_model_save(self):
         """ Tests that model saving does not crash """

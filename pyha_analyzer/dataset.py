@@ -80,6 +80,8 @@ class PyhaDFDataset(Dataset):
         self.num_classes = len(species)
         self.serialize_data()
 
+        self.class_dist = self.calc_class_distribution()
+
         #Data augmentations
         self.convert_to_mel = audtr.MelSpectrogram(
                 sample_rate=self.cfg.sample_rate,
@@ -104,6 +106,23 @@ class PyhaDFDataset(Dataset):
                 RandomApply([audtr.FrequencyMasking(cfg.freq_mask_param)], p=cfg.freq_mask_p),
                 RandomApply([audtr.TimeMasking(cfg.time_mask_param)],      p=cfg.time_mask_p))
 
+    def calc_class_distribution(self) -> torch.Tensor:
+        """ Returns class distribution (number of samples per class) """
+        class_dist = []
+        if self.onehot:
+            for class_name in self.classes:
+                class_dist.append(self.samples[class_name].sum())
+            return torch.tensor(class_dist, dtype=torch.float32)
+
+        class_dist = torch.zeros(len(self.classes), dtype=torch.float32)
+        for _, row in self.samples.iterrows():
+            if isinstance(row[cfg.manual_id_col],str):
+                class_dist[self.classes.index(row[cfg.manual_id_col])] += 1
+            else: # Dictionary manual id
+                for name, val in row[cfg.manual_id_col]:
+                    class_dist[self.classes.index(name)] += val
+        return class_dist
+
     def verify_audio(self) -> None:
         """
         Checks to make sure files exist that are referenced in input df
@@ -126,7 +145,6 @@ class PyhaDFDataset(Dataset):
         """
         Save waveform of audio file as a tensor and save that tensor to .pt
         """
-
         exts = "." + file_name.split(".")[-1]
         new_name = file_name.replace(exts, ".pt")
         if os.path.join(self.cfg.data_path, new_name) in self.data_dir:
@@ -183,8 +201,9 @@ class PyhaDFDataset(Dataset):
         files = pd.DataFrame(self.samples[self.cfg.file_name_col].unique(),
             columns=["files"]
         )
-        files = files["files"].progress_apply(self.process_audio_file)
 
+
+        files = files["files"].progress_apply(self.process_audio_file)
         logger.debug("%s", str(files.shape))
 
         num_files = files.shape[0]
@@ -240,9 +259,9 @@ class PyhaDFDataset(Dataset):
                 class_to_idx = self.class_to_idx,
                 conf=self.cfg)
 
+        audio, target = self.mixup(audio, target)
         if self.train:
             audio = self.audio_augmentations(audio)
-            audio, target = self.mixup(audio, target)
         image = self.to_image(audio)
         if self.train:
             image = self.image_augmentations(image)

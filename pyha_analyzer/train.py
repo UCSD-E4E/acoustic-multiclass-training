@@ -21,7 +21,7 @@ from tqdm import tqdm
 import wandb
 
 from pyha_analyzer import config
-from pyha_analyzer.dataset import get_datasets, make_dataloaders
+from pyha_analyzer.dataset import get_datasets, make_dataloaders, PyhaDFDataset
 from pyha_analyzer.utils import set_seed
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
@@ -30,9 +30,6 @@ tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
-
-EPOCH: int = 0
-BEST_VALID_MAP: float = 0.0
 
 def run_batch(model: TimmModel,
                 mels: torch.Tensor,
@@ -60,33 +57,44 @@ def run_batch(model: TimmModel,
     loss = loss.to(dtype=torch.float32)
     return loss, outputs
 
-def map_metric(outputs: torch.Tensor, labels: torch.Tensor, num_classes: int) -> float:
-    """ Returns macro average precision metric for a batch of outputs and labels """
-    metric = MultilabelAveragePrecision(num_labels=num_classes, average="macro")
+def map_metric(outputs: torch.Tensor,
+               labels: torch.Tensor,
+               class_dist: torch.Tensor) -> Tuple[float, float]:
+    """ Mean average precision metric for a batch of outputs and labels 
+        Returns tuple of (class-wise mAP, sample-wise mAP) """
+    metric = MultilabelAveragePrecision(num_labels=len(class_dist), average="none")
     out_for_score = outputs.detach().cpu()
     labels_for_score = labels.detach().cpu().long()
-    map_out = metric(out_for_score, labels_for_score).item()
+    map_by_class = metric(out_for_score, labels_for_score)
+    cmap = map_by_class.nanmean()
+    smap = (map_by_class * class_dist/class_dist.sum()).nansum()
     # https://forums.fast.ai/t/nan-values-when-using-precision-in-multi-classification/59767/2
     # Could be possible when model is untrained so we only have FNs
-    if np.isnan(map_out):
-        return 0
-    return map_out
+    if np.isnan(cmap):
+        return 0, 0
+    return cmap.item(), smap.item()
 
+# pylint: disable=too-many-arguments
+# pylint: disable=too-many-locals
 def train(model: TimmModel,
         data_loader: DataLoader,
         valid_loader: DataLoader,
         infer_loader: Optional[DataLoader],
         optimizer: torch.optim.Optimizer,
-        scheduler
-       ) -> None:
+        scheduler,
+        epoch: int,
+        best_valid_cmap: float,
+       ) -> float:
     """ Trains the model
+    Returns new best valid map
     """
     logger.debug('size of data loader: %d', len(data_loader))
     model.train()
 
     log_n = 0
     log_loss = 0
-    log_map = 0
+    log_cmap = 0
+    log_smap = 0
 
     #scaler = torch.cuda.amp.GradScaler()
     start_time = datetime.datetime.now()
@@ -115,7 +123,10 @@ def train(model: TimmModel,
                 scheduler.step()
 
         log_pred = F.sigmoid(outputs)
-        log_map += map_metric(log_pred, labels, model.num_classes)
+        dataset: PyhaDFDataset = data_loader.dataset # type: ignore
+        cmap, smap = map_metric(log_pred, labels, dataset.class_dist)
+        log_cmap += cmap
+        log_smap += smap
         log_loss += loss.item()
         log_n += 1
 
@@ -126,22 +137,25 @@ def train(model: TimmModel,
             #Log to Weights and Biases
             wandb.log({
                 "train/loss": log_loss / log_n,
-                "train/mAP": log_map / log_n,
+                "train/mAP": log_cmap / log_n,
+                "train/smAP": log_smap / log_n,
                 "i": i,
-                "epoch": EPOCH,
+                "epoch": epoch,
                 "clips/sec": annotations / duration,
-                "epoch_progress": EPOCH + float(i)/len(data_loader),
+                "epoch_progress": epoch + float(i)/len(data_loader),
             })
-            logger.info("i: %s   epoch: %s   clips/s: %s   Loss: %s   mAP: %s",
+            logger.info("i: %s   epoch: %s   clips/s: %s   Loss: %s   cmAP: %s   smAP: %s",
                 str(i).zfill(5),
-                str(round(EPOCH+float(i)/len(data_loader),3)).ljust(5, '0'),
+                str(round(epoch+float(i)/len(data_loader),3)).ljust(5, '0'),
                 str(round(annotations / duration,3)).ljust(7), 
                 str(round(log_loss / log_n,3)).ljust(5), 
-                str(round(log_map / log_n,3)).ljust(5)
+                str(round(log_cmap / log_n,3)).ljust(5),
+                str(round(log_smap / log_n,3)).ljust(5)
             )
             log_loss = 0
             log_n = 0
-            log_map = 0
+            log_cmap = 0
+            log_smap = 0
 
         if (i != 0 and i % (cfg.valid_freq) == 0):
             # Free memory so gpu is freed before validation run
@@ -150,16 +164,23 @@ def train(model: TimmModel,
             del labels
 
             valid_start_time = datetime.datetime.now()
-            valid(model, valid_loader,infer_loader, EPOCH + i / len(data_loader))
+            _, best_valid_cmap = valid(model,
+                                      valid_loader,
+                                      infer_loader,
+                                      epoch + i / len(data_loader),
+                                      best_valid_cmap)
             model.train()
             # Ignore the time it takes to validate in annotations/sec
             start_time += datetime.datetime.now() - valid_start_time
+
+    return best_valid_cmap
 
 def valid(model: Any,
           data_loader: DataLoader,
           infer_loader: Optional[DataLoader],
           epoch_progress: float,
-          ) -> float:
+          best_valid_cmap: float = 1.0,
+          ) -> Tuple[float, float]:
     """ Run a validation loop
     Arguments:
         model: the model to validate
@@ -200,35 +221,35 @@ def valid(model: Any,
     # softmax predictions
     log_pred = F.sigmoid(torch.cat(log_pred)).to(cfg.device)
 
-    valid_map = map_metric(log_pred, torch.cat(log_label), model.num_classes)
+    dataset: PyhaDFDataset = data_loader.dataset # type: ignore
+    cmap, smap = map_metric(log_pred, torch.cat(log_label), dataset.class_dist)
 
     # Log to Weights and Biases
     wandb.log({
         "valid/loss": running_loss/num_valid_samples,
-        "valid/map": valid_map,
+        "valid/map": cmap,
+        "valid/smAP": smap,
         "epoch_progress": epoch_progress,
     })
 
-    logger.info("Validation Loss:\t%f\nValidation mAP:\t%f", 
+    logger.info("Validation Loss:\t%f\nValidation cmAP:\t%f\nValidation smAP:\t%f", 
                 running_loss/len(data_loader),
-                valid_map)
+                cmap, smap)
 
-    # pylint: disable-next=global-statement
-    global BEST_VALID_MAP
-    if valid_map > BEST_VALID_MAP:
+    if cmap > best_valid_cmap:
         logger.info("Model saved in: %s", save_model(model))
-        logger.info("Validation mAP Improved - %f ---> %f", BEST_VALID_MAP, valid_map)
-        BEST_VALID_MAP = valid_map
+        logger.info("Validation cmAP Improved - %f ---> %f", best_valid_cmap, cmap)
+        best_valid_cmap = cmap
 
 
-    inference_valid(model, infer_loader, epoch_progress, valid_map)
-    return valid_map
+    inference_valid(model, infer_loader, epoch_progress, cmap)
+    return cmap, best_valid_cmap
 
 
 def inference_valid(model: Any,
           data_loader: Optional[DataLoader],
           epoch_progress: float,
-          valid_map: float):
+          valid_cmap: float):
 
     """ Test Domain Shift To Soundscapes
 
@@ -254,16 +275,20 @@ def inference_valid(model: Any,
     # sigmoid predictions
     log_pred = F.sigmoid(torch.cat(log_pred)).to(cfg.device)
 
-    infer_map = map_metric(log_pred, torch.cat(log_label), model.num_classes)
+    dataset: PyhaDFDataset = data_loader.dataset # type: ignore
+    cmap, smap = map_metric(log_pred, torch.cat(log_label), dataset.class_dist)
     # Log to Weights and Biases
-    domain_shift = np.abs(valid_map - infer_map)
+    domain_shift = np.abs(valid_cmap - cmap)
     wandb.log({
         "valid/domain_shift_diff": domain_shift,
+        "valid/inferance_map": cmap,
+        "valid/inference_smap": smap,
         "epoch_progress": epoch_progress,
     })
 
-    logger.info("Domain Shift Difference:\t%f", domain_shift)
-    
+    logger.info("Infer cmAP: %f", cmap)
+    logger.info("Infer smAP: %f", smap)
+    logger.info("Domain Shift Difference: %f", domain_shift)
 
 def save_model(model: TimmModel) -> str:
     """ Saves model in the models directory as a pt file, returns path """
@@ -331,32 +356,29 @@ def main(in_sweep=True) -> None:
     
     logger.info("Training...")
     early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
-    
-    # MAIN LOOP
-    # pylint: disable-next=global-statement
-    global EPOCH
-    # pylint: disable-next=global-statement
-    global BEST_VALID_MAP
-    EPOCH = 0
-    BEST_VALID_MAP = 0
 
-    for _ in range(cfg.epochs):
-        logger.info("Epoch %d", EPOCH)
+    best_valid_cmap = 0.0
 
-        train(
-            model_for_run,
-            train_dataloader,
-            val_dataloader,
-            infer_dataloader,
-            optimizer,
-            scheduler
-        )
-        EPOCH += 1
-        valid_map = valid( model_for_run, val_dataloader, infer_dataloader, EPOCH)
-        logger.info("Best validation map: %f", BEST_VALID_MAP)
+    for epoch in range(cfg.epochs):
+        logger.info("Epoch %d", epoch)
 
-        if cfg.early_stopping and early_stopper.early_stop(valid_map):
-            logger.info("Early stopping has triggered on epoch %d", EPOCH)
+        best_valid_cmap = train(model_for_run,
+                               train_dataloader,
+                               val_dataloader,
+                               infer_dataloader,
+                               optimizer,
+                               scheduler,
+                               epoch,
+                               best_valid_cmap)
+        valid_cmap, best_valid_cmap = valid(model_for_run,
+                                          val_dataloader,
+                                          infer_dataloader,
+                                          epoch + 1.0,
+                                          best_valid_cmap)
+        logger.info("Best validation cmAP: %f", best_valid_cmap)
+
+        if cfg.early_stopping and early_stopper.early_stop(valid_cmap):
+            logger.info("Early stopping has triggered on epoch %d", epoch)
             break
 
 if __name__ == '__main__':
