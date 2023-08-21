@@ -46,15 +46,18 @@ def make_raw_df() -> pd.DataFrame:
         # Append chunks to dataframe
         for i in range(int(file_len/cfg.chunk_length_s)):
             chunks.append(pd.Series({
-                cfg.offset_col: i * cfg.chunk_length_s,
-                cfg.duration_col: cfg.chunk_length_s,
-                cfg.manual_id_col: cfg.config_dict["class_list"][0], # Set to stop error
-                cfg.file_name_col: os.path.join("pseudo", file),
-                "CLIP LENGTH": file_len}))
-    return pd.DataFrame(chunks)
+                cfg.offset_col    : i * cfg.chunk_length_s,
+                cfg.duration_col  : cfg.chunk_length_s,
+                cfg.manual_id_col : cfg.config_dict["class_list"][0], # Set to stop error
+                cfg.file_name_col : os.path.join("pseudo", file),
+                "CLIP LENGTH"     : file_len}))
+    df = pd.DataFrame(chunks)
+    assert len(df)>0
+    return df
 
 def run_raw(model: TimmModel, df: pd.DataFrame):
     """ Returns predictions tensor from raw chunk dataframe """
+    assert len(df)>0
     # Get dataset
     raw_ds = dataset.PyhaDFDataset(df,train=False, species=cfg.config_dict["class_list"])
     dataloader = DataLoader(raw_ds, cfg.train_batch_size, num_workers=cfg.jobs)
@@ -67,7 +70,7 @@ def run_raw(model: TimmModel, df: pd.DataFrame):
     with torch.no_grad():
         for _, (mels, labels, _) in enumerate(dataloader):
             _, outputs = model.run_batch(mels, labels)
-            log_pred.append(torch.clone(outputs.cpu()).detach())
+            log_pred.append(torch.clone(torch.clone(outputs.cpu()).detach()))
     return torch.nn.functional.sigmoid(torch.concat(log_pred))
 
 
@@ -80,6 +83,8 @@ def get_pseudolabels(pred: torch.Tensor, raw_df: pd.DataFrame, threshold: float)
     raw_df = raw_df[allowed]
     raw_df[cfg.manual_id_col] = filtered_species
     raw_df["CONFIDENCE"] = confidence
+    if len(raw_df)==0: 
+        raise RuntimeError("No valid pseudolabels found")
     return raw_df
 
 def merge_with_cur(annotations: pd.DataFrame, pseudo_df: pd.DataFrame) -> pd.DataFrame:
@@ -94,13 +99,11 @@ def merge_with_cur(annotations: pd.DataFrame, pseudo_df: pd.DataFrame) -> pd.Dat
 def add_pseudolabels(model: TimmModel, cur_df: pd.DataFrame, threshold: float) -> pd.DataFrame:
     """ Return annotations dataframe merged with pseudolabels """
     raw_df = make_raw_df()
+    assert len(raw_df)>0
     pred = run_raw(model, raw_df)
     pseudo_df = get_pseudolabels(pred, raw_df, threshold)
-    print(f"Current dataset has {cur_df.shape[0]} rows")
-    print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
     return merge_with_cur(cur_df, pseudo_df)
 
-    
 def pseudo_labels(model):
     """
     Fine tune on pseudo labels
@@ -109,15 +112,14 @@ def pseudo_labels(model):
         raise ValueError("Pseudo-labeling requires class list")
     logger.info("Generating raw dataframe...")
     raw_df = make_raw_df()
+    model.create_loss_fn(raw_df)
+
     logger.info("Running model...")
     predictions = run_raw(model, raw_df)
     logger.info("Generating pseudo labels...")
-    pseudo_df = get_pseudolabels(
+    return get_pseudolabels(
         predictions, raw_df, cfg.pseudo_threshold
     )
-    pseudo_df.to_csv("tmp_pseudo_labels.csv")
-    logger.info("Saved pseudo dataset to tmp_pseudo_labels.csv")
-    print(f"Pseudo label dataset has {pseudo_df.shape[0]} rows")
 
 def main():
     """ Main function """
@@ -126,14 +128,15 @@ def main():
     print(f"Device is: {cfg.device}, Preprocessing Device is {cfg.prepros_device}")
     utils.logging_setup()
     utils.set_seed(cfg.seed)
-    utils.wandb_init(in_sweep=False, disable=True)
+    utils.wandb_init(in_sweep=False, disable=True, project_suffix="pseudolabel")
     print("Creating model...")
     model = TimmModel(num_classes=len(cfg.class_list), model_name=cfg.model).to(cfg.device)
     model.create_loss_fn(None)
     if not model.try_load_checkpoint():
         raise RuntimeError("No model checkpoint found")
-    pseudo_labels(model)
-
+    pseudo_df = pseudo_labels(model)
+    pseudo_df.to_csv("tmp_pseudo_labels.csv")
+    logger.info("Pseudo labels saved to tmp_pseudo_labels.csv")
 
 if __name__ == "__main__":
     main()
