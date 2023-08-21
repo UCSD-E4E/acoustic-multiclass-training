@@ -108,6 +108,7 @@ class TimmModel(nn.Module):
         return loss, outputs
 
     def get_features(self, images):
+        """ Get features for a batch of images """
         feature_fn_map = {
             "tf_efficientnet_b4": self.__tf_efficientnet_b4_features,
             "eca_nfnet_l0"      : self.__eca_nfnet_l0_features,

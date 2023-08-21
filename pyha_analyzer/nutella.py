@@ -2,15 +2,16 @@
 Code originally from Google's Chirp project implementation of NOTELA:
 https://github.com/google-research/chirp/blob/main/chirp/projects/sfda/methods/notela.py
 """
+import copy
 import logging
 from typing import Optional
-import matplotlib.pyplot as plt
-import copy
+
 import numpy as np
-from scipy import sparse
 import scipy
-import torch 
-from pyha_analyzer import pseudolabel, config, utils, dataset
+import torch
+from scipy import sparse
+
+from pyha_analyzer import config, dataset, pseudolabel, utils
 from pyha_analyzer.models.timm_model import TimmModel
 from pyha_analyzer.train import TrainProcess
 
@@ -205,14 +206,14 @@ def teacher_step(
             pseudo_label /= np.asarray(pseudo_label).sum(axis=-1, keepdims=True) + eps
     return pseudo_label
 
-def get_dataset_info(model, dl):
+def get_dataset_info(model, dataloader):
     """Get indices, images, predictions, and features from dataset"""
     indices = []
     data = []
     predictions = []
     features = []
     with torch.no_grad():
-        for (mels, _, index) in dl:
+        for (mels, _, index) in dataloader:
             assert all(float(idx).is_integer() for idx in index)
             indices.append(index.numpy())
             data.append(mels.numpy())
@@ -244,33 +245,35 @@ def one_hot_to_name(annotation: np.ndarray, class_to_idx):
     name = annotation_to_name[int(np.argmax(annotation))]
     return name
 
-#TODO: Convert to multilabel?
 def one_hot(prediction: np.ndarray) -> Optional[np.ndarray]:
     """Convert prediction to one hot annotation"""
-    #TODO: What happens if you have empty annotation?
     one_hot_annotation = np.zeros(prediction.shape)
     max_val = prediction.max()
     if max_val>cfg.pseudo_threshold:
         max_idx = np.argmax(prediction, axis=1)
         one_hot_annotation[0, max_idx] = 1
         return one_hot_annotation
-    else:
-        return None
+    return None
 
 def valid(pair):
-    return not( type(pair[0])==type(None) or type(pair[1])==type(None) )
+    """ Returns true if pair does not contain None, and false otherwise """
+    # Had to do hacky workaround because python doesn't like doing truth 
+    # comparisons with numpy arrays.
+    #pylint: disable-next=unidiomatic-typecheck
+    return not( type(pair[0])==type(None) or type(pair[1])==type(None) ) 
 
 def get_names(pseudolabels, indices, class_to_idx):
     """Get pseudolabels species names"""
     pseudolabels = [one_hot(pseudolabel) for pseudolabel in pseudolabels]
     pseudolabels_empty = not [x for x in pseudolabels if x is not None]
     if pseudolabels_empty:
-        raise RuntimeError("No valid pseudolabels found, check data or confidence threshold")
+        raise RuntimeError("No valid pseudolabels found, "
+                           "check data or confidence threshold")
     valid_pseudolabels, valid_indices = zip(
         *[pair for pair in zip(pseudolabels, indices) if valid(pair)]
     )
-    #TODO; Investigate type error
-    name_pseudolabels = [one_hot_to_name(annotation, class_to_idx) for annotation in valid_pseudolabels]
+    name_pseudolabels = [one_hot_to_name(annotation, class_to_idx) 
+                         for annotation in valid_pseudolabels]
     return name_pseudolabels, valid_indices
 
 
@@ -315,13 +318,11 @@ def finetune(model):
     logger.info("Finetuning on pseudo labels...")
     train_process = TrainProcess(model, train_dl, valid_dl, infer_dl)
     utils.wandb_init(in_sweep = False, project_suffix = "nutella")
-    #TODO: Restore
     train_process.valid()
     train_process.inference_valid()
     for _ in range(cfg.epochs):
         indices, _, predictions, features = get_dataset_info(model, train_dl)
         assert np.all(predictions>=0)
-        good_preds = [pred for pred in predictions if np.max(pred)>0.5]
         pseudolabels = get_regularized_pseudolabels(features, predictions)
         class_to_idx = train_process.train_dl.dataset.class_to_idx #type: ignore
         name_pseudolabels, indices = get_names(pseudolabels, indices, class_to_idx)
@@ -335,6 +336,7 @@ def finetune(model):
         train_process.inference_valid()
 
 def main():
+    """Main function, trains the model on regularized pseudo_labels"""
     model = TimmModel(
             len(cfg.class_list), 
             model_name=cfg.model,

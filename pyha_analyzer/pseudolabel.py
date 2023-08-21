@@ -28,7 +28,6 @@ def make_raw_df() -> pd.DataFrame:
     valid_formats += tuple(f.upper() for f in valid_formats)
     # Split into raw chunks
     chunks = []
-    #TODO: Fix
     for file in tqdm(files):
         file_len = 0
         path = Path(file)
@@ -78,7 +77,6 @@ def run_raw(model: TimmModel, df: pd.DataFrame):
 def get_pseudolabels(pred: torch.Tensor, raw_df: pd.DataFrame, threshold: float) -> pd.DataFrame:
     """ Returns dataframe of pseudolabels from predictions and raw dataframe """
     df = pd.DataFrame(pred, columns=cfg.class_list, dtype='float64')
-    #TODO: Decide how we want to do this as a team
     allowed = df.apply(lambda x: x.max() > threshold, axis=1)
     filtered_species = df.idxmax(axis=1)[allowed]
     confidence = df.max(axis=1)[allowed]
