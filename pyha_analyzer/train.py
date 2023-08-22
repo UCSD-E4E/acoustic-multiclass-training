@@ -93,12 +93,12 @@ def train(model: TimmModel,
 
     log_n = 0
     log_loss = 0
-    log_cmap = 0
-    log_smap = 0
 
     #scaler = torch.cuda.amp.GradScaler()
     start_time = datetime.datetime.now()
     scaler = torch.cuda.amp.grad_scaler.GradScaler()
+    log_pred = []
+    log_labels = []
 
     for i, (mels, labels) in enumerate(data_loader):
 
@@ -122,23 +122,22 @@ def train(model: TimmModel,
             if scheduler is not None:
                 scheduler.step()
 
-        log_pred = F.sigmoid(outputs)
-        dataset: PyhaDFDataset = data_loader.dataset # type: ignore
-        cmap, smap = map_metric(log_pred, labels, dataset.class_dist)
-        log_cmap += cmap
-        log_smap += smap
+        log_pred.append(torch.clone(F.sigmoid(outputs).cpu()).detach())
+        log_labels.append(torch.clone(labels.cpu()).detach())
         log_loss += loss.item()
         log_n += 1
 
         if (i != 0 and i % (cfg.logging_freq) == 0) or i == len(data_loader) - 1:
+            dataset: PyhaDFDataset = data_loader.dataset # type: ignore
+            cmap, smap = map_metric(torch.cat(log_pred),torch.cat(log_labels),dataset.class_dist)
             duration = (datetime.datetime.now() - start_time).total_seconds()
             start_time = datetime.datetime.now()
             annotations = ((i % cfg.logging_freq) or cfg.logging_freq) * cfg.train_batch_size
             #Log to Weights and Biases
             wandb.log({
                 "train/loss": log_loss / log_n,
-                "train/mAP": log_cmap / log_n,
-                "train/smAP": log_smap / log_n,
+                "train/mAP": cmap,
+                "train/smAP": smap,
                 "i": i,
                 "epoch": epoch,
                 "clips/sec": annotations / duration,
@@ -149,13 +148,13 @@ def train(model: TimmModel,
                 str(round(epoch+float(i)/len(data_loader),3)).ljust(5, '0'),
                 str(round(annotations / duration,3)).ljust(7), 
                 str(round(log_loss / log_n,3)).ljust(5), 
-                str(round(log_cmap / log_n,3)).ljust(5),
-                str(round(log_smap / log_n,3)).ljust(5)
+                str(round(cmap,3)).ljust(5),
+                str(round(smap,3)).ljust(5)
             )
             log_loss = 0
             log_n = 0
-            log_cmap = 0
-            log_smap = 0
+            log_pred = []
+            log_labels = []
 
         if (i != 0 and i % (cfg.valid_freq) == 0):
             # Free memory so gpu is freed before validation run
