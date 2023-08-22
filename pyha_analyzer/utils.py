@@ -59,7 +59,7 @@ def ceil(audio: torch.Tensor, interval: float = 1.):
 def pad_audio(audio: torch.Tensor, num_samples:int) -> torch.Tensor:
     """Fills the last dimension of the input audio with zeroes until it is num_samples long
     """
-    pad_length = num_samples - audio.shape[0]
+    pad_length = num_samples - audio.shape[1]
     last_dim_padding = (0, pad_length)
     audio = F.pad(audio, last_dim_padding)
     return audio
@@ -67,7 +67,7 @@ def pad_audio(audio: torch.Tensor, num_samples:int) -> torch.Tensor:
 def crop_audio(audio: torch.Tensor, num_samples:int) -> torch.Tensor:
     """Cuts audio to num_samples long
     """
-    return audio[:num_samples]
+    return audio[...,:num_samples]
 
 def to_mono(audio: torch.Tensor) -> torch.Tensor:
     """Converts audio to mono
@@ -84,6 +84,8 @@ def rand_offset():
     """
     Return a random offset in samples
     """
+
+    # TODO: FIX THE OFFSET PROBLEM IF GOES NEGATIVE
     max_offset = int(cfg.max_offset * cfg.sample_rate)
     if max_offset == 0:
         return 0
@@ -128,16 +130,32 @@ def get_annotation(
 
         # Load audio
         audio = torch.load(Path(cfg.data_path)/file_name)
-    
-        if audio.shape[0] > num_frames:
-            audio = audio[frame_offset:frame_offset+num_frames]
+        
+        # TODO Add something for sound seperation
+        if len(audio.shape) < 2:
+            print("WE DID NOT FULLY RUN AUDIO SEP")
+            print(audio.shape)
+            print(Path(cfg.data_path)/file_name)
+            print(index, (index + 1) % df.shape[0], index + 1)
+            return get_annotation(df, (index + 1) % df.shape[0], class_to_idx, offset)
+        
+        if audio.shape[1] > num_frames:
+            
+            start_shape = audio.shape
+            audio = audio[..., frame_offset:frame_offset+num_frames]
+            if (audio.shape[1] == 0):
+                print("start shape", start_shape)
+                print("new   shape", audio.shape)
+                print(frame_offset, frame_offset+num_frames, num_frames)
 
         # Crop if too long
-        if audio.shape[0] > target_num_samples:
+        if audio.shape[1] > target_num_samples:
             audio = crop_audio(audio, target_num_samples)
         # Pad if too short
-        if audio.shape[0] < target_num_samples:
+        if audio.shape[1] < target_num_samples:
+            #print("pre-pad", audio.shape)
             audio = pad_audio(audio, target_num_samples)
+            #print("post-pad", audio.shape)
     except Exception as e:
         print(e)
         print(file_name, index)

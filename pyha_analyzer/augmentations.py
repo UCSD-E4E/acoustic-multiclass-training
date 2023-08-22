@@ -223,9 +223,12 @@ class SyntheticNoise(torch.nn.Module):
 
         Returns: Clip mixed with noise according to noise_type and alpha
         """
+        if self.alpha == 0.0:
+            return clip
         noise_function = self.noise_names[self.noise_type]
-        noise = noise_function(len(clip)).to(self.device)
-        return (1 - self.alpha) * clip + self.alpha* noise
+        noise = noise_function(clip.shape[1]).to(self.device)
+        #print(((1 - self.alpha) * clip + self.alpha* noise[None, :]).shape)
+        return (1 - self.alpha) * clip + self.alpha* noise[None, :]
 
 
 class RandomEQ(torch.nn.Module):

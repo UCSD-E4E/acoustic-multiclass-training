@@ -12,6 +12,7 @@ import logging
 import os
 from typing import List, Tuple, Optional
 import ast
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -46,11 +47,11 @@ def load_separation_model(model_path, checkpoint_path):
     metagraph_path_ns = os.path.join(model_path, 'inference.meta')
     graph_ns = tf.Graph()
 
-    #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.1)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
 
     sess_ns = tf.Session(config=tf.ConfigProto(
         device_count={'GPU': 1},
-        #gpu_options=gpu_options
+        gpu_options=gpu_options
     ), graph=graph_ns)
     with graph_ns.as_default():
         new_saver = tf.train.import_meta_graph(metagraph_path_ns)
@@ -109,7 +110,8 @@ class PyhaDFDataset(Dataset):
         self.separator_state = load_separation_model(cfg.sep_model_path, cfg.sep_checkpoint_path)
         self.serialize_data()
         
-        del self.separator_state
+        # does this actually free?
+        self.separator_state.session.close()
         self.separator_state = None
 
         #Data augmentations
@@ -149,6 +151,37 @@ class PyhaDFDataset(Dataset):
             ~self.samples[cfg.file_name_col].isin(missing_files)
         ]
 
+
+    def run_sound_seperation(self, audio):
+        print(audio.shape)
+
+        #1 minute of audio data
+        chunk_length = self.num_samples * 12
+        audio_chunks = []
+        for i in range(0, audio.shape[0], chunk_length): 
+            end = min(i+chunk_length, audio.shape[0])
+            audio_chunk = audio[i:end]
+            #print
+            sep = self.separator_state.session.run(
+                self.separator_state.output_tensor,
+                feed_dict={
+                    self.separator_state.audio_placeholder: audio_chunk[
+                        np.newaxis, np.newaxis, :
+                    ]
+                },
+            )
+            sep = torch.Tensor(sep[0])
+            #print(sep.shape)
+            audio_stack = torch.stack([audio_chunk, sep[0], sep[1]])#, sep[2], sep[3]])
+            #print(audio_stack.shape)
+            audio_chunks.append(audio_stack)
+
+        audio = torch.cat(audio_chunks, dim=1)
+        print(audio.shape)
+        #print("stopping test of sound seperation")
+        #exit()
+        return audio
+
     def process_audio_file(self, file_name: str) -> pd.Series:
         """
         Save waveform of audio file as a tensor and save that tensor to .pt
@@ -157,10 +190,29 @@ class PyhaDFDataset(Dataset):
         new_name = file_name.replace(exts, ".pt")
         if not cfg.force_pt_regen and os.path.join(cfg.data_path, new_name) in self.data_dir:
             #ASSUME WE HAVE ALREADY PREPROCESSED THIS CORRECTLY
-            return pd.Series({
-                "FILE NAME": file_name,
-                "files": new_name
-            }).T
+                return pd.Series({
+                    "FILE NAME": file_name,
+                    "files": new_name
+                }).T
+            
+            # # Check if shape looks correct
+            # audio = torch.load(Path(cfg.data_path)/new_name)
+            
+            # if len(audio.shape) == 1:
+            #     audio = self.run_sound_seperation(audio)
+            #     torch.save(audio, os.path.join(cfg.data_path,new_name))
+            #     self.data_dir.add(new_name)
+            
+            # #TODO HANDLE NON SEPERATION CASE
+            # if len(audio.shape) == 2:
+            #     #ASSUME WE HAVE ALREADY PREPROCESSED THIS CORRECTLY
+            #     return pd.Series({
+            #         "FILE NAME": file_name,
+            #         "files": new_name
+            #     }).T
+            # else:
+            #     print(Path(cfg.data_path)/new_name, "wrong shape")
+            #     #print(audio.shape)
 
 
         try:
@@ -179,20 +231,7 @@ class PyhaDFDataset(Dataset):
                 resample = audtr.Resample(sample_rate, cfg.sample_rate)
                 audio = resample(audio)
             
-            sep = self.separator_state.session.run(
-                self.separator_state.output_tensor,
-                feed_dict={
-                    self.separator_state.audio_placeholder: audio[
-                        np.newaxis, np.newaxis, :
-                    ]
-                },
-            )
-            sep = torch.Tensor(sep[0])
-            #print(type(sep),sep.shape)
-            audio = torch.stack([audio, sep[0], sep[1]])#, sep[2], sep[3]])
-            #del sep
-            #print(audio.shape)
-            #exit()
+            audio = self.run_sound_seperation(audio)
             torch.save(audio, os.path.join(cfg.data_path,new_name))
             self.data_dir.add(new_name)
         # IO is messy, I want any file that could be problematic
@@ -258,8 +297,7 @@ class PyhaDFDataset(Dataset):
                 n_mels=cfg.n_mels,
                 n_fft=cfg.n_fft)
         convert_to_mel = convert_to_mel.to(self.device)
-
-        # idk how to make this less expensive sorry
+        
         # sep = separator_state.session.run(
         #     separator_state.output_tensor,
         #     feed_dict={
@@ -274,9 +312,8 @@ class PyhaDFDataset(Dataset):
         # image = torch.stack([convert_to_mel(audio), chan0, chan1])
         # del sep
         image = convert_to_mel(audio)
-        print(audio.shape)
-        print(image.shape)
-        exit()
+        #print("audio", audio.shape)
+        #print("image", image.shape)
         # Mel spectrogram
         # Pylint complains this is not callable, but it is a torch.nn.Module
         # pylint: disable-next=not-callable
