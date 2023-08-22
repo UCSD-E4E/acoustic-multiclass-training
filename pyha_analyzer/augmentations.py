@@ -4,6 +4,7 @@ Each augmentation is initialized with only a Config object
 """
 import logging
 import os
+import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Iterable
 
@@ -16,6 +17,12 @@ from pyha_analyzer import config, utils
 
 logger = logging.getLogger("acoustic_multiclass_training")
 
+def get_training_proportion(__start_time=time.time()):
+    approximate_training_time_sec = 6 * 3600;
+    elapsed_time_sec = time.time()-__start_time
+    return elapsed_time_sec/approximate_training_time_sec
+
+
 def invert(seq: Iterable[int]) -> List[float]:
     """
     Replace each element in list with its inverse
@@ -24,14 +31,18 @@ def invert(seq: Iterable[int]) -> List[float]:
         raise ValueError('Passed iterable cannot contain zero')
     return [1/x for x in seq]
 
+def get_unnormed_probabilities(seq: Iterable[int]) -> Iterable[float]:
+    power = 2 * (0.9 - get_training_proportion()) 
+    return [1/(x**power) for x in seq]
+
 def hyperbolic(seq: Iterable[int]) -> List[Tuple[float, int]]:
     """
     Takes a list of numbers and assigns them a probability
     distribution accourding to the inverse of their values
     """
-    invert_seq = invert(seq)
-    norm_factor = sum(invert_seq)
-    probabilities = [x/norm_factor for x in invert_seq]
+    unnormed_probabilities = get_unnormed_probabilities(seq)
+    norm_factor = sum(unnormed_probabilities)
+    probabilities = [x/norm_factor for x in unnormed_probabilities]
     return list(zip(probabilities, seq))
 
 def sample(distribution: List[Tuple[float, int]]) -> int:
@@ -225,9 +236,10 @@ class SyntheticNoise(torch.nn.Module):
 
         Returns: Clip mixed with noise according to noise_type and alpha
         """
+        alpha = self.alpha * get_training_proportion() * 1.3
         noise_function = self.noise_names[self.noise_type]
         noise = noise_function(len(clip)).to(self.device)
-        return (1 - self.alpha) * clip + self.alpha* noise
+        return (1 - self.alpha) * clip + self.alpha * noise
 
 
 class RandomEQ(torch.nn.Module):
@@ -309,6 +321,8 @@ class BackgroundNoise(torch.nn.Module):
         """
         # Skip loading if no noise path
         alpha = utils.rand(*self.alpha_range)
+        training_proportion = get_training_proportion()
+        alpha = alpha + (training_proportion-0.5) * alpha * 1.3
         if self.noise_path_str == "":
             return clip
         # If loading fails, skip for now
