@@ -78,6 +78,7 @@ class Mixup(torch.nn.Module):
         self.df = df
         self.class_to_idx = class_to_idx
         self.prob = cfg.mixup_p
+        self.cfg = cfg
         self.ceil_interval = cfg.mixup_ceil_interval
         self.min_alpha = cfg.mixup_min_alpha
 
@@ -96,6 +97,7 @@ class Mixup(torch.nn.Module):
             clip, target = utils.get_annotation(
                     df = self.df,
                     index = idx, 
+                    conf = self.cfg,
                     class_to_idx = self.class_to_idx)
             return clip, target
         except RuntimeError:

@@ -44,14 +44,13 @@ def plot_audio(audio_list: List[torch.Tensor]):
         plt.plot(audio.to("cpu").numpy())
     plt.show()
 
-def get_audio(dataset: PyhaDFDataset, n_clips: int=3):
+def get_audio(dataset: PyhaDFDataset, n_clips: int, cfg):
     """ Returns an array of audio waveforms and an array of one-hot labels """
     return [(
         get_annotation(
             dataset.samples,
             np.random.randint(len(dataset)),
-            dataset.class_to_idx)[0]
-    )
+            dataset.class_to_idx,cfg)[0])
             for _ in range(n_clips)]
 
 def get_augs(dataset: PyhaDFDataset, cfg) -> Tuple[List[Callable],List[str]]:
@@ -134,9 +133,9 @@ def plot(mels: List[Tuple[np.ndarray,str,Tuple[int,int]]], n_clips: int,
 
 def run_test(n_clips, norms, cfg): 
     """ Main function """
-    train_ds, _, _ = get_datasets()
+    train_ds, _, _ = get_datasets(cfg)
     # Get audio
-    audio = get_audio(train_ds, n_clips)
+    audio = get_audio(train_ds, n_clips, cfg)
     # Get augs
     augs, names = get_augs(train_ds, cfg)
     # Apply augs

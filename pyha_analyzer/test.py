@@ -24,13 +24,13 @@ from pyha_analyzer.train import run_batch, map_metric, save_model
 
 cfg = config.cfg
 wandb.init(mode="disabled")
-dataset, valid_ds, infer_ds = get_datasets()
+dataset, valid_ds, infer_ds = get_datasets(cfg)
 
 
 class TestAugmentations(unittest.TestCase):
     def test_augs(self):
         """ Test all augmentations and verify output is correct size """
-        audio, label = utils.get_annotation(dataset.samples, 0, dataset.class_to_idx)
+        audio, label = utils.get_annotation(dataset.samples, 0, dataset.class_to_idx, cfg)
         TestUtils.assert_one_hot(label, dataset.num_classes)
         label_id = (label == 1.0).nonzero()[0].item()
         mixup_alpha = 0.25
@@ -116,7 +116,7 @@ class TestTrain(unittest.TestCase):
     def test_train_batch(self):
         """ Tests if a training batch runs properly """
         cfg.jobs = 0 # type: ignore
-        train_dl, _, _ = make_dataloaders(dataset, valid_ds, infer_ds)
+        train_dl, _, _ = make_dataloaders(dataset, valid_ds, infer_ds, cfg)
         model = TimmModel(dataset.num_classes, "tf_efficientnet_b4", True).to(cfg.device)
         model.create_loss_fn(dataset)
         mels, labels = next(iter(train_dl))
@@ -193,7 +193,7 @@ class TestUtils(unittest.TestCase):
         """ Tests get_annotation 100 times """
         num_samples = 5 * cfg.sample_rate
         for i in range(20):
-            audio, label = utils.get_annotation(dataset.samples, i, dataset.class_to_idx)
+            audio, label = utils.get_annotation(dataset.samples, i, dataset.class_to_idx, cfg)
             assert audio.shape[0] == num_samples, "audio should be num_samples long"
             self.assert_one_hot(label,dataset.num_classes)
             assert str(audio.device) == "cpu", "get annotation returned wrong device"

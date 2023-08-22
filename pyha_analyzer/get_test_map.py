@@ -24,7 +24,7 @@ def get_test_map():
     df = pd.read_csv(cfg.dataframe_csv, index_col=0)
     if cfg.class_list is None:
         raise ValueError("Class list must be specified in config")
-    test_ds = dataset.PyhaDFDataset(df,train=False, species=cfg.class_list)
+    test_ds = dataset.PyhaDFDataset(df,train=False, species=cfg.class_list, cfg=cfg)
     dataloader = DataLoader(
         test_ds,
         cfg.train_batch_size,

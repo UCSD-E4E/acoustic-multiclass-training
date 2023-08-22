@@ -28,8 +28,6 @@ from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, 
                                          HighpassFilter, SyntheticNoise)
 from pyha_analyzer.chunking_methods import sliding_chunks
 
-cfg = config.cfg
-
 tqdm.pandas()
 logger = logging.getLogger("acoustic_multiclass_training")
 
@@ -46,6 +44,7 @@ class PyhaDFDataset(Dataset):
                  df: pd.DataFrame,
                  train: bool,
                  species: List[str],
+                 cfg: config.Config,
                  onehot:bool = False,
                  ) -> None:
         self.samples = df[~(df[cfg.file_name_col].isnull())]
@@ -59,6 +58,7 @@ class PyhaDFDataset(Dataset):
         self.train = train
         self.device = cfg.prepros_device
         self.onehot = onehot
+        self.cfg = cfg
 
         # List data directory and confirm it exists
         if not os.path.exists(cfg.data_path):
@@ -83,6 +83,11 @@ class PyhaDFDataset(Dataset):
         self.class_dist = self.calc_class_distribution()
 
         #Data augmentations
+        self.convert_to_mel = audtr.MelSpectrogram(
+                sample_rate=self.cfg.sample_rate,
+                n_mels=cfg.n_mels,
+                n_fft=cfg.n_fft).to(cfg.prepros_device)
+        self.decibel_convert = audtr.AmplitudeToDB(stype="power").to(cfg.prepros_device)
         self.mixup = Mixup(self.samples, self.class_to_idx, cfg)
         audio_augs = {
                 SyntheticNoise  : cfg.noise_p,
@@ -111,10 +116,10 @@ class PyhaDFDataset(Dataset):
 
         class_dist = torch.zeros(len(self.classes), dtype=torch.float32)
         for _, row in self.samples.iterrows():
-            if isinstance(row[cfg.manual_id_col],str):
-                class_dist[self.classes.index(row[cfg.manual_id_col])] += 1
+            if isinstance(row[self.cfg.manual_id_col],str):
+                class_dist[self.classes.index(row[self.cfg.manual_id_col])] += 1
             else: # Dictionary manual id
-                for name, val in row[cfg.manual_id_col]:
+                for name, val in row[self.cfg.manual_id_col]:
                     class_dist[self.classes.index(name)] += val
         return class_dist
 
@@ -122,10 +127,10 @@ class PyhaDFDataset(Dataset):
         """
         Checks to make sure files exist that are referenced in input df
         """
-        missing_files = pd.Series(self.samples[cfg.file_name_col].unique()) \
+        missing_files = pd.Series(self.samples[self.cfg.file_name_col].unique()) \
             .progress_apply(
                 lambda file: "good" if os.path.join(
-                    cfg.data_path,file
+                    self.cfg.data_path,file
                 ) in self.data_dir else file
         )
         missing_files = missing_files[missing_files != "good"].unique()
@@ -133,7 +138,7 @@ class PyhaDFDataset(Dataset):
             logger.info("ignoring %d missing files", missing_files.shape[0])
             logger.debug("Missing files are: %s", str(missing_files))
         self.samples = self.samples[
-            ~self.samples[cfg.file_name_col].isin(missing_files)
+            ~self.samples[self.cfg.file_name_col].isin(missing_files)
         ]
 
     def process_audio_file(self, file_name: str) -> pd.Series:
@@ -142,7 +147,7 @@ class PyhaDFDataset(Dataset):
         """
         exts = "." + file_name.split(".")[-1]
         new_name = file_name.replace(exts, ".pt")
-        if os.path.join(cfg.data_path, new_name) in self.data_dir:
+        if os.path.join(self.cfg.data_path, new_name) in self.data_dir:
             #ASSUME WE HAVE ALREADY PREPROCESSED THIS CORRECTLY
             return pd.Series({
                 "FILE NAME": file_name,
@@ -155,18 +160,18 @@ class PyhaDFDataset(Dataset):
             # Load is a known member of torchaudio:
             # https://pytorch.org/audio/stable/tutorials/audio_io_tutorial.html#loading-audio-data
             audio, sample_rate = torchaudio.load(       #pyright: ignore [reportGeneralTypeIssues ]
-                os.path.join(cfg.data_path, file_name)
+                os.path.join(self.cfg.data_path, file_name)
             )
 
             if len(audio.shape) > 1:
                 audio = utils.to_mono(audio)
 
             # Resample
-            if sample_rate != cfg.sample_rate:
-                resample = audtr.Resample(sample_rate, cfg.sample_rate)
+            if sample_rate != self.cfg.sample_rate:
+                resample = audtr.Resample(sample_rate, self.cfg.sample_rate)
                 audio = resample(audio)
 
-            torch.save(audio, os.path.join(cfg.data_path,new_name))
+            torch.save(audio, os.path.join(self.cfg.data_path,new_name))
             self.data_dir.add(new_name)
         # IO is messy, I want any file that could be problematic
         # removed from training so it isn't stopped after hours of time
@@ -193,7 +198,7 @@ class PyhaDFDataset(Dataset):
         Future training faster
         """
         self.verify_audio()
-        files = pd.DataFrame(self.samples[cfg.file_name_col].unique(),
+        files = pd.DataFrame(self.samples[self.cfg.file_name_col].unique(),
             columns=["files"]
         )
 
@@ -207,17 +212,17 @@ class PyhaDFDataset(Dataset):
 
         files = files[files["files"] != "bad"]
         self.samples = self.samples.merge(files, how="left",
-                       left_on=cfg.file_name_col,
+                       left_on=self.cfg.file_name_col,
                        right_on="FILE NAME").dropna()
 
         logger.debug("Serialized form, fixed size: %s", str(self.samples.shape))
 
         if "files" in self.samples.columns:
-            self.samples[cfg.file_name_col] = self.samples["files"].copy()
+            self.samples[self.cfg.file_name_col] = self.samples["files"].copy()
         if "files_y" in self.samples.columns:
-            self.samples[cfg.file_name_col] = self.samples["files_y"].copy()
+            self.samples[self.cfg.file_name_col] = self.samples["files_y"].copy()
 
-        self.samples["original_file_path"] = self.samples[cfg.file_name_col]
+        self.samples["original_file_path"] = self.samples[self.cfg.file_name_col]
 
     def __len__(self):
         return self.samples.shape[0]
@@ -226,34 +231,23 @@ class PyhaDFDataset(Dataset):
         """
         Convert audio clip to 3-channel spectrogram image
         """
-        convert_to_mel = audtr.MelSpectrogram(
-                sample_rate=cfg.sample_rate,
-                n_mels=cfg.n_mels,
-                n_fft=cfg.n_fft)
-        convert_to_mel = convert_to_mel.to(self.device)
         # Mel spectrogram
         # Pylint complains this is not callable, but it is a torch.nn.Module
         # pylint: disable-next=not-callable
-        mel = convert_to_mel(audio)
-        # Convert to Image
-        image = torch.stack([mel, mel, mel])
-        
+        mel = self.convert_to_mel(audio)
         # Convert to decibels
-        # Log scale the power
-        decibel_convert = audtr.AmplitudeToDB(stype="power")
-        image = decibel_convert(image)
+        # pylint: disable-next=not-callable
+        mel = self.decibel_convert(mel)
+        # Convert to Image
         
-        # Normalize Image
-        # Inspired by
-        # https://medium.com/@hasithsura/audio-classification-d37a82d6715
-        mean = image.mean()
-        std = image.std()
-        image = (image - mean) / (std + 1e-6)
+        # Normalize Image (https://medium.com/@hasithsura/audio-classification-d37a82d6715)
+        mean = mel.mean()
+        std = mel.std()
+        mel = (mel - mean) / (std + 1e-6)
         
         # Sigmoid to get 0 to 1 scaling (0.5 becomes mean)
-        image = torch.sigmoid(image)
-        return image
-
+        mel = torch.sigmoid(mel)
+        return torch.stack([mel, mel, mel])
 
     def __getitem__(self, index): #-> Any:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
@@ -262,7 +256,8 @@ class PyhaDFDataset(Dataset):
         audio, target = utils.get_annotation(
                 df = self.samples,
                 index = index,
-                class_to_idx = self.class_to_idx)
+                class_to_idx = self.class_to_idx,
+                conf=self.cfg)
 
         audio, target = self.mixup(audio, target)
         if self.train:
@@ -295,7 +290,7 @@ class PyhaDFDataset(Dataset):
         See https://www.kaggle.com/competitions/birdclef-2023/discussion/412808 
         Congrats on your win!
         """
-        manual_id = cfg.manual_id_col
+        manual_id = self.cfg.manual_id_col
         all_primary_labels = self.samples[manual_id]
         sample_weights = (
             all_primary_labels.value_counts() / 
@@ -305,7 +300,7 @@ class PyhaDFDataset(Dataset):
         return weight_list
 
 
-def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset]]:
+def get_datasets(cfg) -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset]]:
     """ Returns train and validation datasets
     does random sampling for train/valid split
     adds transforms to dataset
@@ -376,9 +371,9 @@ def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset
     train = data[data[cfg.file_name_col].isin(train_files)]
 
     valid = data[~data.index.isin(train.index)]
-    train_ds = PyhaDFDataset(train, train=True, species=classes)
+    train_ds = PyhaDFDataset(train, train=True, species=classes, cfg=cfg)
 
-    valid_ds = PyhaDFDataset(valid, train=False, species=classes)
+    valid_ds = PyhaDFDataset(valid, train=False, species=classes, cfg=cfg)
 
 
 
@@ -387,7 +382,7 @@ def get_datasets() -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset
         infer_ds = None
     else:
         infer = pd.read_csv(cfg.infer_csv)
-        infer_ds = PyhaDFDataset(infer, train=False, species=classes, onehot=True)
+        infer_ds = PyhaDFDataset(infer, train=False, species=classes, onehot=True, cfg=cfg)
 
 
 
@@ -400,7 +395,7 @@ def set_torch_file_sharing(_) -> None:
     torch.multiprocessing.set_sharing_strategy("file_system")
 
 
-def make_dataloaders(train_dataset, val_dataset, infer_dataset
+def make_dataloaders(train_dataset, val_dataset, infer_dataset, cfg
         )-> Tuple[DataLoader, DataLoader, Optional[DataLoader]]:
     """
         Loads datasets and dataloaders for train and validation
