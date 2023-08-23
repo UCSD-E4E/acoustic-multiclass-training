@@ -59,7 +59,7 @@ def convolving_chunk(row:dict,
     # calculate valid offsets for long annotations
     else:
         clip_num = int(round(duration_s / chunk_self_time))
-        for i in range(clip_num-1):
+        for i in range(clip_num):
             if (offset_s + chunk_length_s) + (i * chunk_self_time) < row['CLIP LENGTH']:
                 starts.append(offset_s + i * chunk_self_time)
     
@@ -142,6 +142,8 @@ def dynamic_yan_chunking(df: pd.DataFrame,
                                      chunk_margin_s,
                                      only_slide)
         return_dicts.extend(rows_dict)
+    print("Cur annotations:",len(df))
+    print("New chunks:",len(return_dicts))
     return pd.DataFrame(return_dicts)
 
 def dynamic_yan_chunking_old(df: pd.DataFrame,
