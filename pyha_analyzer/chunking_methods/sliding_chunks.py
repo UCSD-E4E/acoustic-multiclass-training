@@ -46,15 +46,15 @@ def convolving_chunk(row:dict,
         return []
     
     # calculate valid offsets for short annotations
-    if (duration_s <= chunk_length_s) and not only_slide:
+    if (duration_s <= chunk_length_s):
         # start of clip
-        if (offset_s + chunk_length_s) < float(row['CLIP LENGTH']):
+        if (offset_s + chunk_length_s) < float(row['CLIP LENGTH']) and not only_slide:
             starts.append(offset_s)
         # middle of clip
         if end_s - chunk_length_s/2.0 > 0 and end_s + chunk_length_s/2.0 < row['CLIP LENGTH']:
             starts.append(end_s - chunk_length_s/2.0)
         # end of clip
-        if end_s - chunk_length_s > 0:
+        if end_s - chunk_length_s > 0 and not only_slide:
             starts.append(end_s - chunk_length_s)
     # calculate valid offsets for long annotations
     else:
