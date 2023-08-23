@@ -328,8 +328,9 @@ def get_datasets(cfg) -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFData
             min_length_s=cfg.min_length_s,
             overlap=cfg.overlap,
             chunk_margin_s=cfg.chunk_margin_s,
-            only_slide=False)
-        logger.info("Chunking completed")
+            only_slide=cfg.only_slide)
+        data.to_csv("tmp_chunks_output.csv")
+        logger.info("Chunking completed, saved to tmp_chunks_output.csv")
     else:
         data = pd.read_csv(path, usecols = [
             cfg.file_name_col,
