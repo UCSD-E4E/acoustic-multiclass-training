@@ -321,6 +321,8 @@ def logging_setup() -> None:
 def main(in_sweep=True) -> None:
     """ Main function
     """
+
+    setattr(cfg, "current_epoch", 0)
     logger.info("Device is: %s, Preprocessing Device is %s", cfg.device, cfg.prepros_device)
     set_seed(cfg.seed)
     if in_sweep:

@@ -227,6 +227,7 @@ class SyntheticNoise(torch.nn.Module):
         self.noise_type = cfg.noise_type
         self.alpha = cfg.noise_alpha
         self.device = cfg.prepros_device
+        self.cfg = cfg
 
     def forward(self, clip: torch.Tensor)->torch.Tensor:
         """
@@ -298,6 +299,7 @@ class BackgroundNoise(torch.nn.Module):
         self.length = cfg.chunk_length_s
         self.device = cfg.prepros_device
         self.norm = norm
+        self.cfg = cfg
         if self.noise_path_str != "" and cfg.bg_noise_p > 0.0:
             files = list(os.listdir(self.noise_path))
             audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere",".pt")
@@ -325,7 +327,7 @@ class BackgroundNoise(torch.nn.Module):
         training_proportion = get_training_proportion()
         alpha = alpha + ((training_proportion-0.5) 
                          * alpha 
-                         * cfg.curriculum_learning_scale_factor)
+                         * self.cfg.curriculum_learning_scale_factor)
         if self.noise_path_str == "":
             return clip
         # If loading fails, skip for now
