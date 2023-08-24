@@ -17,7 +17,10 @@ from pyha_analyzer import config, utils
 
 logger = logging.getLogger("acoustic_multiclass_training")
 
-def get_training_proportion(__start_time=time.time()):
+def get_training_proportion():
+    total_epochs = config.cfg.epochs
+    current_epoch = config.cfg.current_epoch
+    return current_epoch/total_epochs
     approximate_training_time_sec = 6 * 3600;
     elapsed_time_sec = time.time()-__start_time
     return elapsed_time_sec/approximate_training_time_sec
@@ -236,10 +239,12 @@ class SyntheticNoise(torch.nn.Module):
 
         Returns: Clip mixed with noise according to noise_type and alpha
         """
-        alpha = self.alpha * get_training_proportion() * 1.3
+        alpha = (self.alpha 
+                 * get_training_proportion() 
+                 * self.cfg.curriculum_learning_scale_factor)
         noise_function = self.noise_names[self.noise_type]
         noise = noise_function(len(clip)).to(self.device)
-        return (1 - self.alpha) * clip + self.alpha * noise
+        return (1 - alpha) * clip + alpha * noise
 
 
 class RandomEQ(torch.nn.Module):
@@ -322,7 +327,9 @@ class BackgroundNoise(torch.nn.Module):
         # Skip loading if no noise path
         alpha = utils.rand(*self.alpha_range)
         training_proportion = get_training_proportion()
-        alpha = alpha + (training_proportion-0.5) * alpha * 1.3
+        alpha = alpha + ((training_proportion-0.5) 
+                         * alpha 
+                         * cfg.curriculum_learning_scale_factor)
         if self.noise_path_str == "":
             return clip
         # If loading fails, skip for now
