@@ -52,7 +52,7 @@ def convolving_chunk(row:dict,
             starts.append(offset_s)
         # middle of clip
         if end_s - chunk_length_s/2.0 > 0 and end_s + chunk_length_s/2.0 < row['CLIP LENGTH']:
-            starts.append(end_s - chunk_length_s/2.0)
+            starts.append((offset_s + end_s)/2.0 - chunk_length_s/2.0)
         # end of clip
         if end_s - chunk_length_s > 0 and not only_slide:
             starts.append(end_s - chunk_length_s)
