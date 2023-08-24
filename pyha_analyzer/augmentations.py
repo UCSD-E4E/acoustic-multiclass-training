@@ -4,9 +4,8 @@ Each augmentation is initialized with only a Config object
 """
 import logging
 import os
-import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Iterable
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -18,6 +17,7 @@ from pyha_analyzer import config, utils
 logger = logging.getLogger("acoustic_multiclass_training")
 
 def get_training_proportion():
+    """ Returns proportion of training done """
     total_epochs = config.cfg.epochs
     current_epoch = config.cfg.current_epoch
     return current_epoch/total_epochs
@@ -31,6 +31,10 @@ def invert(seq: Iterable[int]) -> List[float]:
     return [1/x for x in seq]
 
 def get_unnormed_probabilities(seq: Iterable[int]) -> Iterable[float]:
+    """
+    Get probabilities for each element in seq
+    Spread changes over time due to curriculum learning
+    """
     power = 2 * (0.9 - get_training_proportion()) 
     return [1/(x**power) for x in seq]
 
