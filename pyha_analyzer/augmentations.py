@@ -21,10 +21,6 @@ def get_training_proportion():
     total_epochs = config.cfg.epochs
     current_epoch = config.cfg.current_epoch
     return current_epoch/total_epochs
-    approximate_training_time_sec = 6 * 3600;
-    elapsed_time_sec = time.time()-__start_time
-    return elapsed_time_sec/approximate_training_time_sec
-
 
 def invert(seq: Iterable[int]) -> List[float]:
     """
