@@ -13,13 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 
 import pandas as pd
 import numpy as np
 import librosa
-
 import torchaudio
-import os
 from torchaudio import transforms as audtr
 import scipy.signal as scipy_signal
 
@@ -36,7 +35,8 @@ def find_peaks_from_melspec(melspec: np.ndarray, stft_fps: int) -> np.ndarray:
     Returns:
         A list of filtered peak indices.
 
-    From: https://github.com/google-research/chirp/blob/719eac91dbc716ec1d6d719b3f39367bf0de5acc/chirp/audio_utils.py#L656
+    From: 
+    https://github.com/google-research/chirp/blob/719eac91dbc716ec1d6d719b3f39367bf0de5acc/chirp/audio_utils.py#L656
     """
     summed_spectral_magnitudes = np.sum(melspec, axis=1)
     threshold = np.mean(summed_spectral_magnitudes) * 1.5
@@ -71,7 +71,8 @@ def pad_to_length_if_shorter(audio: np.ndarray, target_length: int):
         The audio sequence, padded through wrapping (if it's shorter than the target
         length).
 
-    From: https://github.com/google-research/chirp/blob/719eac91dbc716ec1d6d719b3f39367bf0de5acc/chirp/audio_utils.py#L539
+    From:
+    https://github.com/google-research/chirp/blob/719eac91dbc716ec1d6d719b3f39367bf0de5acc/chirp/audio_utils.py#L539
     """
     #print(audio.shape[0] , target_length)
     if audio.shape[0] < target_length:
@@ -100,7 +101,8 @@ def apply_mixture_denoising(
     Returns:
         The denoised melspectrogram.
 
-    From: https://github.com/google-research/chirp/blob/719eac91dbc716ec1d6d719b3f39367bf0de5acc/chirp/audio_utils.py#L539
+    From: 
+    https://github.com/google-research/chirp/blob/719eac91dbc716ec1d6d719b3f39367bf0de5acc/chirp/audio_utils.py#L539
 
     """
     x = melspec
@@ -131,6 +133,7 @@ def find_peaks_from_audio(
     sample_rate_hz: int = 32_000,
     max_peaks: int = 200,
     num_mel_bins: int = 194,
+    n_fft: int = 1024,
     pcen: bool = True
 ) -> np.ndarray:
     """Construct melspec and find peaks.
@@ -144,31 +147,32 @@ def find_peaks_from_audio(
     Returns:
         Sequence of scalar indices for the peaks found in the audio sequence.
 
-    From: https://github.com/google-research/chirp/blob/719eac91dbc716ec1d6d719b3f39367bf0de5acc/chirp/audio_utils.py#L597
+    From: 
+    https://github.com/google-research/chirp/blob/719eac91dbc716ec1d6d719b3f39367bf0de5acc/chirp/audio_utils.py#L597
     """
     #melspec_rate_hz = 100
     #frame_length_s = 0.08
     #nperseg = int(frame_length_s * sample_rate_hz)
     #nstep = sample_rate_hz // melspec_rate_hz
     # TODO REVIEW
-    hop_length = int(1024//2)
+    hop_length = int(n_fft//2)
     mel = librosa.feature.melspectrogram(
                 y=audio,
                 sr=sample_rate_hz,
                 n_mels=num_mel_bins,
-                n_fft=1024, #TODO NOT HARDCODE
+                n_fft=n_fft,
                 hop_length=hop_length,
                 power=1)
 
-    if (pcen):
+    if pcen:
         mel = librosa.pcen(
                 mel * (2**31),
-                sr=32_000,
+                sr=sample_rate_hz,
                 hop_length = hop_length,
                 gain=0.8,
                 power=0.25,
                 bias=10,
-                time_constant=60 * hop_length / 32_000
+                time_constant=60 * hop_length / sample_rate_hz
                 #
             )
     mel = np.swapaxes(mel, -1, -2)
@@ -232,7 +236,8 @@ def slice_peaked_audio(
         Sequence of extracted audio intervals, each of shape
         [sample_rate_hz * interval_length_s].
 
-    From: https://github.com/google-research/chirp/blob/719eac91dbc716ec1d6d719b3f39367bf0de5acc/chirp/audio_utils.py#L558
+    From:
+    https://github.com/google-research/chirp/blob/719eac91dbc716ec1d6d719b3f39367bf0de5acc/chirp/audio_utils.py#L558
     """
     target_length = int(sample_rate_hz * interval_length_s)
 
