@@ -95,7 +95,7 @@ def split_all(input_dir: str):
 def main():
     """ Main function """
     df = pd.read_csv(CONFIG["metadata_csv"], index_col=0)
-    #split_all(CONFIG["audio_dir"])
+    split_all(CONFIG["audio_dir"])
     df = edit_metadata(df)
     df.to_csv(CONFIG["metadata_output"])
 
