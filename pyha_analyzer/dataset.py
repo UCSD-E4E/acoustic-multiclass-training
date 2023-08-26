@@ -275,7 +275,7 @@ class PyhaDFDataset(Dataset):
         #If dataframe has saved onehot encodings, return those
         #Assume columns names are species names
         if  self.onehot:
-            target = self.samples.loc[index, self.classes].values.astype(np.int32)
+            target = self.samples.reset_index().loc[index, self.classes].values.astype(np.int32)
             target = torch.Tensor(target)
 
         return image, target
