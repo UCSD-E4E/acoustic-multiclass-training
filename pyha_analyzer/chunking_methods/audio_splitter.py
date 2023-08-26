@@ -45,7 +45,7 @@ def split_audio_file(path: str):
     
     for i in range(num_splits):
         # Create slice
-        aud_slice = audio[i*split_len*sample_rate:((i+1)*split_len+CONFIG["overlap_s"])*sample_rate]
+        aud_slice = audio[i*split_len*sample_rate:(i+1)*split_len*sample_rate]
         torchaudio.save(os.path.join(CONFIG["output_dir"], # type: ignore
                                      output_file_name(path,i,CONFIG["output_format"])),
                         torch.unsqueeze(aud_slice,0), sample_rate)
