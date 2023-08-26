@@ -63,7 +63,8 @@ def edit_row(row: pd.Series) -> List[pd.Series]:
     # Shift offset
     end = row[CONFIG["offset_col"]] + row[CONFIG["duration_col"]]
     row[CONFIG["offset_col"]] -= file_index * chunk_len
-    row[CONFIG["duration_col"]] = min(chunk_len - row[CONFIG["offset_col"]], row[CONFIG["duration_col"]])
+    row[CONFIG["duration_col"]] = \
+        min(chunk_len - row[CONFIG["offset_col"]], row[CONFIG["duration_col"]])
     row["CLIP LENGTH"] = chunk_len
     out = [row]
     while end > (file_index+1) * chunk_len:
