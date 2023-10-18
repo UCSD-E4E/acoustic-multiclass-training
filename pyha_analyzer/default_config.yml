@@ -7,6 +7,9 @@ infer_csv:
 # Optional, automatically generates class order if not given
 class_list:
 
+#Curriculum learning
+curriculum_learning_scale_factor: 1.3
+
 # Dataframe column names
 offset_col: "OFFSET"
 duration_col: "DURATION"
