@@ -449,7 +449,7 @@ class AddReverb(torch.nn.Module):
         fs (int): sample rate of the files in Hz
     """
 
-    def __init__(self, fs=44100):
+    def __init__(self, fs=44_100):
         """init
 
         Args:
@@ -471,7 +471,8 @@ class AddReverb(torch.nn.Module):
             series)
         """
         assert isinstance(clip, list)
-        # assert all([type(value) == calltype for value in clip]) uncomment and replace with whatever type the audio files come in
+        # assert all([type(value) == calltype for value in clip]) 
+        # TODO: uncomment and replace with whatever type the audio files come in
 
         # initialize list of outputs
         calls_with_reverb = []
@@ -486,9 +487,9 @@ class AddReverb(torch.nn.Module):
         calls_with_reverb = [np.pad(call, (0, max_len - call.size))
                              for call
                              in calls_with_reverb
-                             ]
+                            ]
 
-        # cannot convert because calls may have different lengths
+        # FIXME: cannot convert because calls may have different lengths
         calls_with_reverb = torch.tensor(np.array(calls_with_reverb))
         return calls_with_reverb
 
@@ -502,7 +503,8 @@ class AddReverb(torch.nn.Module):
             np.ndarray: Tensor representing the time series of the call after
             adding reverb
         """
-        # assert isinstance(call, calltype) uncomment and replace with whatever type the calls come in
+        # assert isinstance(call, calltype) 
+        # TODO: uncomment and replace with whatever type the calls come in
 
         # read in bird call as time series, convert to mono if needed
         if bird_call.ndim >= 2:
@@ -517,6 +519,7 @@ class AddReverb(torch.nn.Module):
 
         # randomize mic position
         micPoss = self.get_mic_pos(posSrc)
+        
         result = ForestReverb.simulateForestIR(
             nTrees=self.num_trees,
             posSrc=posSrc,
@@ -567,4 +570,5 @@ class AddReverb(torch.nn.Module):
 
 
 # sanity tests for reverb
-test = AddReverb()
+test = AddReverb(55000)
+print("hello")
