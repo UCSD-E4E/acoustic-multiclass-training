@@ -11,18 +11,23 @@ import numpy as np
 import pandas as pd
 import torch
 import torchaudio
+import scipy
+from forestIR_synthesis import (Constants, ForestReverb, SignalProcessing, Wav)
+import random
 
 from pyha_analyzer import config, utils
 
 logger = logging.getLogger("acoustic_multiclass_training")
 
+
 def invert(seq: Iterable[int]) -> List[float]:
     """
     Replace each element in list with its inverse
     """
-    if 0 in seq: 
+    if 0 in seq:
         raise ValueError('Passed iterable cannot contain zero')
     return [1/x for x in seq]
+
 
 def hyperbolic(seq: Iterable[int]) -> List[Tuple[float, int]]:
     """
@@ -34,14 +39,16 @@ def hyperbolic(seq: Iterable[int]) -> List[Tuple[float, int]]:
     probabilities = [x/norm_factor for x in invert_seq]
     return list(zip(probabilities, seq))
 
+
 def sample(distribution: List[Tuple[float, int]]) -> int:
     """
     Sample single value from distribution given by list of tuples
     """
     probabilities, values = zip(*distribution)
-    return np.random.choice(values, p = probabilities)
+    return np.random.choice(values, p=probabilities)
 
-def gen_uniform_values(n: int, min_value=0.05) -> List[float] :
+
+def gen_uniform_values(n: int, min_value=0.05) -> List[float]:
     """
     Generates n values uniformly such that their sum is 1
     Args:
@@ -50,15 +57,17 @@ def gen_uniform_values(n: int, min_value=0.05) -> List[float] :
     Returns: List of n values
     """
     step = 1/(n-1)
-    rand_points = np.arange(0, 1, step = step)
-    rand_points = [0.] + [p + utils.rand(0, step-min_value) for p in rand_points]
+    rand_points = np.arange(0, 1, step=step)
+    rand_points = [0.] + \
+        [p + utils.rand(0, step-min_value) for p in rand_points]
     alphas = (
         [1 - rand_points[-1]] +
         [rand_points[i] - rand_points[i-1] for i in range(1, n)]
     )
-    assert sum(alphas) <=1.00005
-    assert sum(alphas) >=0.99995
+    assert sum(alphas) <= 1.00005
+    assert sum(alphas) >= 0.99995
     return alphas
+
 
 class Mixup(torch.nn.Module):
     """
@@ -68,12 +77,13 @@ class Mixup(torch.nn.Module):
         proportion of new audio in augmented clip
         p: Probability of mixing
     """
+
     def __init__(
-            self, 
-            df: pd.DataFrame, 
+            self,
+            df: pd.DataFrame,
             class_to_idx: Dict[str, Any],
             cfg: config.Config
-            ):
+    ):
         super().__init__()
         self.df = df
         self.class_to_idx = class_to_idx
@@ -84,8 +94,8 @@ class Mixup(torch.nn.Module):
 
         # Get probability distribution for how many clips to mix
         possible_num_clips = list(range(
-                cfg.mixup_num_clips_range[0],
-                cfg.mixup_num_clips_range[1] + 1))
+            cfg.mixup_num_clips_range[0],
+            cfg.mixup_num_clips_range[1] + 1))
         self.num_clips_distribution = hyperbolic(possible_num_clips)
 
     def get_rand_clip(self) -> Optional[Tuple[torch.Tensor, torch.Tensor]]:
@@ -95,26 +105,27 @@ class Mixup(torch.nn.Module):
         idx = utils.randint(0, len(self.df))
         try:
             clip, target = utils.get_annotation(
-                    df = self.df,
-                    index = idx, 
-                    conf = self.cfg,
-                    class_to_idx = self.class_to_idx)
+                df=self.df,
+                index=idx,
+                conf=self.cfg,
+                class_to_idx=self.class_to_idx)
             return clip, target
         except RuntimeError:
             logger.error('Error loading other clip, ommitted from mixup')
             return None
 
-    def mix_clips(self, 
-                  clip: torch.Tensor, 
-                  target: torch.Tensor, 
+    def mix_clips(self,
+                  clip: torch.Tensor,
+                  target: torch.Tensor,
                   other_annotations: List[Tuple[torch.Tensor, torch.Tensor]]
-        ) -> Tuple[torch.Tensor, torch.Tensor]:
+                  ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Mixup clips and targets of clip, target, other_annotations
         """
         annotations = other_annotations + [(clip, target)]
         clips, targets = zip(*annotations)
-        mix_factors = gen_uniform_values(len(annotations), min_value = self.min_alpha)
+        mix_factors = gen_uniform_values(
+            len(annotations), min_value=self.min_alpha)
 
         mixed_clip = sum(c * f for c, f in zip(clips, mix_factors))
         mixed_target = sum(t * f for t, f in zip(targets, mix_factors))
@@ -122,14 +133,14 @@ class Mixup(torch.nn.Module):
         assert isinstance(mixed_clip, torch.Tensor)
         assert mixed_clip.shape == clip.shape
         assert mixed_target.shape == target.shape
-        mixed_target = utils.ceil(mixed_target, interval = self.ceil_interval)
+        mixed_target = utils.ceil(mixed_target, interval=self.ceil_interval)
         return mixed_clip, mixed_target
 
     def forward(
-            self,
-            clip: torch.Tensor,
-            target: torch.Tensor
-        ) -> Tuple[torch.Tensor, torch.Tensor]:
+        self,
+        clip: torch.Tensor,
+        target: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
             clip: Tensor of audio data
@@ -139,11 +150,12 @@ class Mixup(torch.nn.Module):
         chosen clip, Tensor of target mixed with the
         target of the randomly chosen file
         """
-        if utils.rand(0,1) < self.prob:
+        if utils.rand(0, 1) < self.prob:
             return clip, target
 
         num_other_clips = sample(self.num_clips_distribution)
-        other_annotations = [self.get_rand_clip() for _ in range(num_other_clips)]
+        other_annotations = [self.get_rand_clip()
+                             for _ in range(num_other_clips)]
         other_annotations = list(filter(None, other_annotations))
         return self.mix_clips(clip, target, other_annotations)
 
@@ -158,16 +170,18 @@ def gen_noise(num_samples: int, psd_shape_func: Callable) -> torch.Tensor:
 
     Returns: noise Tensor of length num_samples
     """
-    #Reverse fourier transfrom of random array to get white noise
+    # Reverse fourier transfrom of random array to get white noise
     white_signal = torch.fft.rfft(torch.rand(num_samples))
     # Adjust frequency amplitudes according to
     # function determining the psd shape
     shape_signal = psd_shape_func(torch.fft.rfftfreq(num_samples))
     # Normalize signal
-    shape_signal = shape_signal / torch.sqrt(torch.mean(shape_signal.float()**2))
+    shape_signal = shape_signal / \
+        torch.sqrt(torch.mean(shape_signal.float()**2))
     # Adjust frequency amplitudes according to noise type
     noise = white_signal * shape_signal
     return torch.fft.irfft(noise)
+
 
 def noise_generator(func: Callable):
     """
@@ -176,30 +190,36 @@ def noise_generator(func: Callable):
     """
     return lambda N: gen_noise(N, func)
 
+
 @noise_generator
 def white_noise(vec: torch.Tensor):
     """White noise PSD shape"""
-    return torch.ones(vec.shape) 
+    return torch.ones(vec.shape)
+
 
 @noise_generator
 def blue_noise(vec: torch.Tensor):
     """Blue noise PSD shape"""
     return torch.sqrt(vec)
 
+
 @noise_generator
 def violet_noise(vec: torch.Tensor):
     """Violet noise PSD shape"""
     return vec
+
 
 @noise_generator
 def brown_noise(vec: torch.Tensor):
     """Brown noise PSD shape"""
     return 1/torch.where(vec == 0, float('inf'), vec)
 
+
 @noise_generator
 def pink_noise(vec: torch.Tensor):
     """Pink noise PSD shape"""
     return 1/torch.where(vec == 0, float('inf'), torch.sqrt(vec))
+
 
 class SyntheticNoise(torch.nn.Module):
     """
@@ -212,13 +232,14 @@ class SyntheticNoise(torch.nn.Module):
                    'violet': violet_noise,
                    'blue': blue_noise,
                    'white': white_noise}
+
     def __init__(self, cfg: config.Config):
         super().__init__()
         self.noise_type = cfg.noise_type
         self.alpha = cfg.noise_alpha
         self.device = cfg.prepros_device
 
-    def forward(self, clip: torch.Tensor)->torch.Tensor:
+    def forward(self, clip: torch.Tensor) -> torch.Tensor:
         """
         Args:
             clip: Tensor of audio data
@@ -227,7 +248,7 @@ class SyntheticNoise(torch.nn.Module):
         """
         noise_function = self.noise_names[self.noise_type]
         noise = noise_function(len(clip)).to(self.device)
-        return (1 - self.alpha) * clip + self.alpha* noise
+        return (1 - self.alpha) * clip + self.alpha * noise
 
 
 class RandomEQ(torch.nn.Module):
@@ -241,6 +262,7 @@ class RandomEQ(torch.nn.Module):
         iterations: number of times to randomly EQ a part of the clip
         sample_rate: sampling rate of audio
     """
+
     def __init__(self, cfg: config.Config):
         super().__init__()
         self.f_range = cfg.rand_eq_f_range
@@ -268,6 +290,8 @@ class RandomEQ(torch.nn.Module):
 
 # Mald about it pylint!
 # pylint: disable-next=too-many-instance-attributes
+
+
 class BackgroundNoise(torch.nn.Module):
     """
     torch module for adding background noise to audio tensors
@@ -276,6 +300,7 @@ class BackgroundNoise(torch.nn.Module):
         sample_rate: Sample rate (Hz)
         length: Length of audio clip (s)
     """
+
     def __init__(self, cfg: config.Config, norm=False):
         super().__init__()
         self.noise_path = Path(cfg.bg_noise_path)
@@ -287,17 +312,18 @@ class BackgroundNoise(torch.nn.Module):
         self.norm = norm
         if self.noise_path_str != "" and cfg.bg_noise_p > 0.0:
             files = list(os.listdir(self.noise_path))
-            audio_extensions = (".mp3",".wav",".ogg",".flac",".opus",".sphere",".pt")
-            self.noise_clips = [f for f in files if f.endswith(audio_extensions)]
+            audio_extensions = (".mp3", ".wav", ".ogg",
+                                ".flac", ".opus", ".sphere", ".pt")
+            self.noise_clips = [
+                f for f in files if f.endswith(audio_extensions)]
             if len(self.noise_clips) == 0:
-                raise RuntimeError("Background noise path specified, but no audio files found. " \
+                raise RuntimeError("Background noise path specified, but no audio files found. "
                                    + "Check supported format list in augmentations.py")
-        elif cfg.bg_noise_p!=0.0:
+        elif cfg.bg_noise_p != 0.0:
             raise RuntimeError("Background noise probability is non-zero, "
-            + "yet no background path was specified. Please update config.yml")
+                               + "yet no background path was specified. Please update config.yml")
         else:
-            pass # Background noise is disabled if p=0 and path=""
-            
+            pass  # Background noise is disabled if p=0 and path=""
 
     def forward(self, clip: torch.Tensor) -> torch.Tensor:
         """
@@ -315,7 +341,8 @@ class BackgroundNoise(torch.nn.Module):
         try:
             noise_clip = self.choose_random_noise()
         except RuntimeError as e:
-            logger.warning('Error loading noise clip, background noise augmentation not performed')
+            logger.warning(
+                'Error loading noise clip, background noise augmentation not performed')
             logger.error(e)
             return clip
         return (1 - alpha)*clip + alpha*noise_clip
@@ -329,19 +356,23 @@ class BackgroundNoise(torch.nn.Module):
         clip_len = self.sample_rate * self.length
 
         if str(noise_file).endswith(".pt"):
-            waveform = torch.load(noise_file).to(self.device, dtype=torch.float32)/32767.0
+            waveform = torch.load(noise_file).to(
+                self.device, dtype=torch.float32)/32767.0
         else:
             # pryright complains that load isn't called from torchaudio. It is.
-            waveform, sample_rate = torchaudio.load(noise_file, normalize=True) #pyright: ignore
+            waveform, sample_rate = torchaudio.load(
+                noise_file, normalize=True)  # pyright: ignore
             waveform = waveform[0].to(self.device)
             if sample_rate != self.sample_rate:
                 waveform = torchaudio.functional.resample(
-                        waveform, orig_freq=sample_rate, new_freq=self.sample_rate)
-                torch.save((waveform*32767).to(dtype=torch.int16), noise_file.with_suffix(".pt"))
+                    waveform, orig_freq=sample_rate, new_freq=self.sample_rate)
+                torch.save((waveform*32767).to(dtype=torch.int16),
+                           noise_file.with_suffix(".pt"))
                 os.remove(noise_file)
                 file_name = self.noise_clips[rand_idx]
                 self.noise_clips.remove(file_name)
-                self.noise_clips.append(str(Path(file_name).with_suffix(".pt").name))
+                self.noise_clips.append(
+                    str(Path(file_name).with_suffix(".pt").name))
         if self.norm:
             waveform = utils.norm(waveform)
         start_idx = utils.randint(0, len(waveform) - clip_len)
@@ -358,6 +389,7 @@ class LowpassFilter(torch.nn.Module):
         cutoff: cutoff frequency
         q_val: Q value for lowpass filter
     """
+
     def __init__(self, cfg: config.Config):
         super().__init__()
         self.sample_rate = cfg.sample_rate
@@ -377,6 +409,7 @@ class LowpassFilter(torch.nn.Module):
                                                     self.cutoff,
                                                     self.q_val)
 
+
 class HighpassFilter(torch.nn.Module):
     """
     Applies highpass filter to audio based on provided parameters.
@@ -387,6 +420,7 @@ class HighpassFilter(torch.nn.Module):
         cutoff: cutoff frequency
         q_val: Q value for highpass filter
     """
+
     def __init__(self, cfg: config.Config):
         super().__init__()
         self.sample_rate = cfg.sample_rate
@@ -402,6 +436,135 @@ class HighpassFilter(torch.nn.Module):
         Returns: Tensor of audio data with lowpass filter applied
         """
         return torchaudio.functional.highpass_biquad(clip,
-                                                    self.sample_rate,
-                                                    self.cutoff,
-                                                    self.q_val)
+                                                     self.sample_rate,
+                                                     self.cutoff,
+                                                     self.q_val)
+
+
+class AddReverb(torch.nn.Module):
+    """
+    Applies simulated reverb to a given clip.
+
+    Args:
+        fs (int): sample rate of the files in Hz
+    """
+
+    def __init__(self, fs=44100):
+        """init
+
+        Args:
+            fs (int, optional): sample rate of audio in Hz. Defaults to 44100.
+        """
+        self.num_trees = 100_000
+        self.fs = fs
+        self.min_distance = 0
+        self.max_distance = 1000
+
+    def forward(self, clip):
+        """Applies reverb to all files in the clip passed
+
+        Args:
+            clip (list): list of the ___ of all the audio clips
+
+        Returns:
+            list: list of each audio file, with reverb applied, as a list (time
+            series)
+        """
+        assert isinstance(clip, list)
+        # assert all([type(value) == calltype for value in clip]) uncomment and replace with whatever type the audio files come in
+
+        # initialize list of outputs
+        calls_with_reverb = []
+        for file in clip:  # loop through files in clip
+            call_reverb = self.add_reverb(file)
+            calls_with_reverb.append(call_reverb)
+        # print(calls_with_reverb)
+
+        # temp fix to below problem: pads calls with 0s
+        max_len = max([len(call) for call in calls_with_reverb])
+        print('max:', max_len)
+        calls_with_reverb = [np.pad(call, (0, max_len - call.size))
+                             for call
+                             in calls_with_reverb
+                             ]
+
+        # cannot convert because calls may have different lengths
+        calls_with_reverb = torch.tensor(np.array(calls_with_reverb))
+        return calls_with_reverb
+
+    def add_reverb(self, bird_call):
+        """Applies randomized reverb to the given call
+
+        Args:
+            bird_call (np.ndarray): time series of the call to process
+
+        Returns:
+            np.ndarray: Tensor representing the time series of the call after
+            adding reverb
+        """
+        # assert isinstance(call, calltype) uncomment and replace with whatever type the calls come in
+
+        # read in bird call as time series, convert to mono if needed
+        if bird_call.ndim >= 2:
+            bird_call = bird_call.T[0]
+        fs = self.fs
+
+        # set source position
+        pos_x = 500
+        pos_y = 500
+        pos_z = 1.5
+        posSrc = np.array([pos_x, pos_y, pos_z])
+
+        # randomize mic position
+        micPoss = self.get_mic_pos(posSrc)
+        result = ForestReverb.simulateForestIR(
+            nTrees=self.num_trees,
+            posSrc=posSrc,
+            micPoss=micPoss.reshape(
+                [1, 3]),
+            fs=fs,
+            sigLen_in_samples=fs*5
+        )
+
+        # apply reverb
+        impulse = np.reshape(result, result.shape[0])
+        call_with_reverb = scipy.signal.convolve(
+            impulse, bird_call, method='fft'
+        )
+        print(type(call_with_reverb))
+        return call_with_reverb
+
+    def get_mic_pos(self, src_pos):
+        """Generates a np array representing the position of a mic that is a 
+        random distance (within given limits) away from the source
+
+        Args:
+            src_pos (np.ndarray): position of the source
+            min (int): minimum distance
+            max (int): maximum distance
+
+        Returns:
+            np.ndArray: position of the mic
+        """
+        assert isinstance(src_pos, np.ndarray)
+        assert len(src_pos) == 3
+        # assert isinstance(min, int)
+        # assert min >= 0
+        # assert isinstance(max, int)
+        # assert max >= 0
+
+        # FIXME for some reason its not random after the first time (using np.random)
+        # temp fix import random and use that instead of np
+        x_offset = random.randint(self.min_distance, self.max_distance)
+        y_offset = random.randint(self.min_distance, self.max_distance)
+        mic_x = src_pos[0] + x_offset
+        mic_y = src_pos[1] + y_offset
+        print('mic:', x_offset, y_offset)
+        print('minmax', self.min_distance, self.max_distance)
+        mic_pos = np.array([mic_x, mic_y, src_pos[2]])
+        print('mic at:', mic_pos)
+        return mic_pos
+
+
+# sanity tests for reverb
+test = AddReverb()
