@@ -470,9 +470,8 @@ class AddReverb(torch.nn.Module):
             list: list of each audio file, with reverb applied, as a list (time
             series)
         """
-        assert isinstance(clip, list)
-        # assert all([type(value) == calltype for value in clip]) 
-        # TODO: uncomment and replace with whatever type the audio files come in
+        assert isinstance(clip, torch.Tensor)
+        assert all([type(value) == np.ndarray for value in clip]) 
 
         # initialize list of outputs
         calls_with_reverb = []
@@ -489,7 +488,6 @@ class AddReverb(torch.nn.Module):
                              in calls_with_reverb
                             ]
 
-        # FIXME: cannot convert because calls may have different lengths
         calls_with_reverb = torch.tensor(np.array(calls_with_reverb))
         return calls_with_reverb
 
@@ -503,8 +501,7 @@ class AddReverb(torch.nn.Module):
             np.ndarray: Tensor representing the time series of the call after
             adding reverb
         """
-        # assert isinstance(call, calltype) 
-        # TODO: uncomment and replace with whatever type the calls come in
+        assert isinstance(bird_call, np.ndarray) 
 
         # read in bird call as time series, convert to mono if needed
         if bird_call.ndim >= 2:
@@ -526,7 +523,7 @@ class AddReverb(torch.nn.Module):
             micPoss=micPoss.reshape(
                 [1, 3]),
             fs=fs,
-            sigLen_in_samples=fs*5
+            sigLen_in_samples=fs*5 # not sure why its x5 here
         )
 
         # apply reverb
@@ -570,5 +567,6 @@ class AddReverb(torch.nn.Module):
 
 
 # sanity tests for reverb
-test = AddReverb(55000)
 print("hello")
+test = AddReverb(55000)
+print("Goodbye")
