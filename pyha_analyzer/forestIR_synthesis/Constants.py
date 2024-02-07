@@ -1,3 +1,8 @@
+"""
+This file is taken from the repo found here: 
+https://github.com/microsoft/Forest_IR_synthesis/tree/main
+Date of retrieval: February 7, 2024
+"""
 __author__ = "Shoken KANEKO"
 
 import numpy as np

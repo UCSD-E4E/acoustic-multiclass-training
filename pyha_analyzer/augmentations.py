@@ -444,7 +444,10 @@ class HighpassFilter(torch.nn.Module):
 class AddReverb(torch.nn.Module):
     """
     Applies simulated reverb to a given clip.
-
+    This module depends on Microsoft's Forest IR Synthesis repo, which can be 
+    found here:
+    https://github.com/microsoft/Forest_IR_synthesis/tree/main
+    Date of retrieval: February 7, 2024
     Args:
         fs (int): sample rate of the files in Hz
     """
