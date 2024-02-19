@@ -259,8 +259,9 @@ class PyhaDFDataset(Dataset):
                 class_to_idx = self.class_to_idx,
                 conf=self.cfg)
 
-        audio, target = self.mixup(audio, target)
+        
         if self.train:
+            audio, target = self.mixup(audio, target)
             audio = self.audio_augmentations(audio)
         image = self.to_image(audio)
         if self.train:
