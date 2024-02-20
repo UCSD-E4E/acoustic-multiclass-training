@@ -12,7 +12,7 @@ import pandas as pd
 import torch
 import torchaudio
 import scipy
-from forestIR_synthesis import (Constants, ForestReverb, SignalProcessing, Wav)
+from pyha_analyzer.forestIR_synthesis import ForestReverb
 import random
 
 from pyha_analyzer import config, utils
@@ -452,14 +452,14 @@ class AddReverb(torch.nn.Module):
         fs (int): sample rate of the files in Hz
     """
 
-    def __init__(self, fs=44_100):
+    def __init__(self, cfg: config.Config):
         """init
 
         Args:
             fs (int, optional): sample rate of audio in Hz. Defaults to 44100.
         """
         self.num_trees = 100_000
-        self.fs = fs
+        self.sample_rate = cfg.sample_rate
         self.min_distance = 0
         self.max_distance = 1000
 
@@ -509,7 +509,7 @@ class AddReverb(torch.nn.Module):
         # read in bird call as time series, convert to mono if needed
         if bird_call.ndim >= 2:
             bird_call = bird_call.T[0]
-        fs = self.fs
+        fs = self.sample_rate
 
         # set source position
         pos_x = 500
@@ -570,6 +570,6 @@ class AddReverb(torch.nn.Module):
 
 
 # sanity tests for reverb
-print("hello")
-test = AddReverb(55000)
-print("Goodbye")
+# print("hello")
+# test = AddReverb(55000)
+# print("Goodbye")

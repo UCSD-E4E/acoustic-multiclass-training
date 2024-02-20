@@ -12,7 +12,8 @@ from matplotlib import pyplot as plt
 from pyha_analyzer import config
 from pyha_analyzer.utils import get_annotation
 from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, 
-                                         HighpassFilter, RandomEQ, SyntheticNoise)
+                                         HighpassFilter, RandomEQ, SyntheticNoise,
+                                         AddReverb)
 from pyha_analyzer.dataset import PyhaDFDataset, get_datasets
 
 SYNTH_COLORS = ["white","pink","brown","violet","blue"]
@@ -69,7 +70,8 @@ def get_augs(dataset: PyhaDFDataset, cfg) -> Tuple[List[Callable],List[str]]:
         LowpassFilter(cfg)   : "Lowpass Filter",
         HighpassFilter(cfg)  : "Highpass Filter",
         RandomEQ(cfg)        : "Random EQ",
-        BackgroundNoise(cfg) : "Background Noise"})
+        BackgroundNoise(cfg) : "Background Noise",
+        AddReverb(cfg): "Add Reverb"})
 
     #Mixup
     mixup = Mixup(df = dataset.samples,
