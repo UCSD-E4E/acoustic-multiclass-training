@@ -1,16 +1,17 @@
+"""
+This file is taken from the repo found here: 
+https://github.com/microsoft/Forest_IR_synthesis/tree/main
+and slightly modified to better fit our purposes.
+Date of retrieval: February 7, 2024
+"""
 __author__ = "Shoken KANEKO"
 
 import numpy as np
 import os
 from scipy.signal import stft as spstft
 from scipy.signal import istft as spistft
-"""
-This file is taken from the repo found here: 
-https://github.com/microsoft/Forest_IR_synthesis/tree/main
-Date of retrieval: February 7, 2024
-"""
 from scipy.fft import irfft
-from forestIR_synthesis.Constants import soundVel
+from pyha_analyzer.forestIR_synthesis.Constants import soundVel
 
 na = np.newaxis
 join = os.path.join

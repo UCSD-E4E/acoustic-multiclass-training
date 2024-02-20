@@ -1,6 +1,7 @@
 """
 This file is taken from the repo found here: 
 https://github.com/microsoft/Forest_IR_synthesis/tree/main
+and slightly modified to better fit our purposes.
 Date of retrieval: February 7, 2024
 """
 __author__ = "Shoken KANEKO"
@@ -15,13 +16,13 @@ na = np.newaxis
 join = os.path.join
 norm = np.linalg.norm
 
-from forestIR_synthesis.Constants import pi, soundVel
-import forestIR_synthesis.Wav
-import forestIR_synthesis.SignalProcessing as sigp
-from forestIR_synthesis.SignalProcessing import addSignal, getImpulse
-from forestIR_synthesis.SignalProcessing import getFreqsForGivenFilterLength
-from forestIR_synthesis.SignalProcessing import getIRFromSpectrum_irfft
-from forestIR_synthesis.SignalProcessing import dists, getDelayedSig, floatX
+from pyha_analyzer.forestIR_synthesis.Constants import pi, soundVel
+import pyha_analyzer.forestIR_synthesis.Wav
+import pyha_analyzer.forestIR_synthesis.SignalProcessing as sigp
+from pyha_analyzer.forestIR_synthesis.SignalProcessing import addSignal, getImpulse
+from pyha_analyzer.forestIR_synthesis.SignalProcessing import getFreqsForGivenFilterLength
+from pyha_analyzer.forestIR_synthesis.SignalProcessing import getIRFromSpectrum_irfft
+from pyha_analyzer.forestIR_synthesis.SignalProcessing import dists, getDelayedSig, floatX
 
 def computeAirAbsorptionCoef(
         freqs,
