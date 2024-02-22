@@ -454,7 +454,7 @@ class AddReverb(torch.nn.Module):
 
     def __init__(self, cfg: config.Config):
         """init
-        
+
         Relevant options in config file:
             sample_rate: sample rate of audio files
         """
@@ -463,6 +463,10 @@ class AddReverb(torch.nn.Module):
         self.sample_rate = cfg.sample_rate
         self.min_distance = 0
         self.max_distance = 1000
+        self.num_IRs = 10
+        
+        self.impulses = self.get_impulses(self.num_IRs)
+            
 
     def forward(self, clip):
         """Applies reverb to all files in the clip passed
@@ -474,23 +478,9 @@ class AddReverb(torch.nn.Module):
             torch.Tensor: audio clip with reverb added
         """
         assert isinstance(clip, torch.Tensor)
-        assert all([type(value) == torch.Tensor for value in clip]) 
-
-        # initialize list of outputs
-        # calls_with_reverb = []
-        # print('clip:',clip)
+        assert all([type(value) == torch.Tensor for value in clip])
+        
         call_reverb = self.add_reverb(clip)
-        # print(calls_with_reverb)
-
-        # # temp fix to below problem: pads calls with 0s
-        # max_len = max([len(call) for call in calls_with_reverb])
-        # # print('max:', max_len)
-        # calls_with_reverb = [np.pad(call, (0, max_len - call.size))
-        #                      for call
-        #                      in calls_with_reverb
-        #                     ]
-
-        # calls_with_reverb = torch.tensor(np.array(calls_with_reverb))
         return call_reverb
 
     def add_reverb(self, bird_call):
@@ -503,34 +493,17 @@ class AddReverb(torch.nn.Module):
             torch.Tensor: Tensor representing the time series of the call after
             adding reverb
         """
-        assert isinstance(bird_call, torch.Tensor) 
+        assert isinstance(bird_call, torch.Tensor)
 
         # read in bird call as time series, convert to mono if needed
         if bird_call.ndim >= 2:
             bird_call = bird_call.T[0]
         fs = self.sample_rate
 
-        # set source position
-        pos_x = 500
-        pos_y = 500
-        pos_z = 1.5
-        posSrc = np.array([pos_x, pos_y, pos_z])
+        # choose random impulse to convolve with
+        impulse_ind = np.random.choice(len(self.impulses))
+        impulse = self.impulses[impulse_ind]
 
-        # randomize mic position
-        micPoss = self.get_mic_pos(posSrc)
-        
-        result = ForestReverb.simulateForestIR(
-            nTrees=self.num_trees,
-            posSrc=posSrc,
-            micPoss=micPoss.reshape(
-                [1, 3]),
-            fs=fs,
-            sigLen_in_samples=fs*5 # not sure why its x5 here
-        )
-
-        # apply reverb
-        impulse = np.reshape(result, result.shape[0])
-        
         # print('impulse:',impulse.ndim)
         # print('call:',bird_call.ndim)
         call_with_reverb = scipy.signal.convolve(
@@ -540,6 +513,32 @@ class AddReverb(torch.nn.Module):
         # print('shape:',call_with_reverb.shape)
         return torch.Tensor(call_with_reverb)
 
+    def get_impulses(self, num_impulses):
+        # set source position
+        pos_x = 500
+        pos_y = 500
+        pos_z = 1.5
+        posSrc = np.array([pos_x, pos_y, pos_z])
+        
+        impulses = []
+        for _ in range(num_impulses):
+            # randomize mic position
+            micPoss = self.get_mic_pos(posSrc)
+
+            result = ForestReverb.simulateForestIR(
+                nTrees=self.num_trees,
+                posSrc=posSrc,
+                micPoss=micPoss.reshape(
+                    [1, 3]),
+                fs=self.sample_rate,
+                sigLen_in_samples=self.sample_rate*5  # not sure why its x5 here
+            )
+
+            # reshape to get 1d impulse
+            impulse = np.reshape(result, result.shape[0])
+            impulses.append(impulse)
+        return impulses
+        
     def get_mic_pos(self, src_pos):
         """Generates a np array representing the position of a mic that is a 
         random distance (within given limits) away from the source

@@ -263,7 +263,7 @@ def simulateForestIR(
     assert maxReflOrder<=1,"Higher order scattering is not supported."
     assert applyAirAbsorption==1
     assert applyCylindricalScatteringFilter==1
-    print("simulating forest IR...")
+    # print("simulating forest IR...")
     if forestRange_x is None:
         forestRange_x = [0.0,1000.0]
     if forestRange_y is None:
@@ -328,7 +328,7 @@ def simulateForestIR(
     micPoss_ = micPoss
 
     for m in range(nMic):
-        print("computing ir from src to mic",m,"...")
+        # print("computing ir from src to mic",m,"...")
         tic = time.time()
         if nTrees>0:
             distDiffs_src_to_mic_reflect = distDiffs_src_to_mics_reflect[m,:]  # [nTrees]
@@ -438,7 +438,7 @@ def simulateForestIR(
                 raise NotImplementedError
 
         toc = time.time()
-        print("  time:",toc-tic)
+        # print("  time:",toc-tic)
     return signal  # [T x mMic]
 
 
