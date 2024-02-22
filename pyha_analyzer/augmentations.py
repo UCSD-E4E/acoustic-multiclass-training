@@ -454,10 +454,11 @@ class AddReverb(torch.nn.Module):
 
     def __init__(self, cfg: config.Config):
         """init
-
-        Args:
-            fs (int, optional): sample rate of audio in Hz. Defaults to 44100.
+        
+        Relevant options in config file:
+            sample_rate: sample rate of audio files
         """
+        super().__init__()
         self.num_trees = 100_000
         self.sample_rate = cfg.sample_rate
         self.min_distance = 0
@@ -467,44 +468,42 @@ class AddReverb(torch.nn.Module):
         """Applies reverb to all files in the clip passed
 
         Args:
-            clip (list): list of the ___ of all the audio clips
+            clip (torch.Tensor): time series of audio clip
 
         Returns:
-            list: list of each audio file, with reverb applied, as a list (time
-            series)
+            torch.Tensor: audio clip with reverb added
         """
         assert isinstance(clip, torch.Tensor)
-        assert all([type(value) == np.ndarray for value in clip]) 
+        assert all([type(value) == torch.Tensor for value in clip]) 
 
         # initialize list of outputs
-        calls_with_reverb = []
-        for file in clip:  # loop through files in clip
-            call_reverb = self.add_reverb(file)
-            calls_with_reverb.append(call_reverb)
+        # calls_with_reverb = []
+        # print('clip:',clip)
+        call_reverb = self.add_reverb(clip)
         # print(calls_with_reverb)
 
-        # temp fix to below problem: pads calls with 0s
-        max_len = max([len(call) for call in calls_with_reverb])
-        print('max:', max_len)
-        calls_with_reverb = [np.pad(call, (0, max_len - call.size))
-                             for call
-                             in calls_with_reverb
-                            ]
+        # # temp fix to below problem: pads calls with 0s
+        # max_len = max([len(call) for call in calls_with_reverb])
+        # # print('max:', max_len)
+        # calls_with_reverb = [np.pad(call, (0, max_len - call.size))
+        #                      for call
+        #                      in calls_with_reverb
+        #                     ]
 
-        calls_with_reverb = torch.tensor(np.array(calls_with_reverb))
-        return calls_with_reverb
+        # calls_with_reverb = torch.tensor(np.array(calls_with_reverb))
+        return call_reverb
 
     def add_reverb(self, bird_call):
         """Applies randomized reverb to the given call
 
         Args:
-            bird_call (np.ndarray): time series of the call to process
+            bird_call (torch.Tensor): time series of the call to process
 
         Returns:
-            np.ndarray: Tensor representing the time series of the call after
+            torch.Tensor: Tensor representing the time series of the call after
             adding reverb
         """
-        assert isinstance(bird_call, np.ndarray) 
+        assert isinstance(bird_call, torch.Tensor) 
 
         # read in bird call as time series, convert to mono if needed
         if bird_call.ndim >= 2:
@@ -531,11 +530,15 @@ class AddReverb(torch.nn.Module):
 
         # apply reverb
         impulse = np.reshape(result, result.shape[0])
+        
+        # print('impulse:',impulse.ndim)
+        # print('call:',bird_call.ndim)
         call_with_reverb = scipy.signal.convolve(
             impulse, bird_call, method='fft'
         )
-        print(type(call_with_reverb))
-        return call_with_reverb
+        # print(type(call_with_reverb))
+        # print('shape:',call_with_reverb.shape)
+        return torch.Tensor(call_with_reverb)
 
     def get_mic_pos(self, src_pos):
         """Generates a np array representing the position of a mic that is a 
@@ -556,20 +559,12 @@ class AddReverb(torch.nn.Module):
         # assert isinstance(max, int)
         # assert max >= 0
 
-        # FIXME for some reason its not random after the first time (using np.random)
-        # temp fix import random and use that instead of np
         x_offset = random.randint(self.min_distance, self.max_distance)
         y_offset = random.randint(self.min_distance, self.max_distance)
         mic_x = src_pos[0] + x_offset
         mic_y = src_pos[1] + y_offset
-        print('mic:', x_offset, y_offset)
-        print('minmax', self.min_distance, self.max_distance)
+        # print('mic:', x_offset, y_offset)
+        # print('minmax', self.min_distance, self.max_distance)
         mic_pos = np.array([mic_x, mic_y, src_pos[2]])
-        print('mic at:', mic_pos)
+        # print('mic at:', mic_pos)
         return mic_pos
-
-
-# sanity tests for reverb
-# print("hello")
-# test = AddReverb(55000)
-# print("Goodbye")
