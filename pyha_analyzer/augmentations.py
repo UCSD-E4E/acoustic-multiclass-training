@@ -459,13 +459,13 @@ class AddReverb(torch.nn.Module):
             sample_rate: sample rate of audio files
         """
         super().__init__()
-        self.num_trees = 100_000
+        self.num_trees = cfg.num_trees
         self.sample_rate = cfg.sample_rate
-        self.min_distance = 0
-        self.max_distance = 1000
-        self.num_IRs = 10
+        self.min_distance = cfg.distance_range[0]
+        self.max_distance = cfg.distance_range[1]
+        self.num_impulses = cfg.num_impulses
         
-        self.impulses = self.get_impulses(self.num_IRs)
+        self.impulses = self.get_impulses(self.num_impulses)
             
 
     def forward(self, clip):
@@ -515,7 +515,9 @@ class AddReverb(torch.nn.Module):
 
     def get_impulses(self, num_impulses):
         # set source position
-        pos_x = 500
+        # since it's simulating a 1000 by 1000 square, (500, 500) is about center
+        # z coordinate chosen arbitrarily based on their input
+        pos_x = 500 
         pos_y = 500
         pos_z = 1.5
         posSrc = np.array([pos_x, pos_y, pos_z])
