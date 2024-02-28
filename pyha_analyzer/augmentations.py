@@ -469,7 +469,7 @@ class AddReverb(torch.nn.Module):
             
 
     def forward(self, clip):
-        """Applies reverb to all files in the clip passed
+        """Applies reverb to the clip passed
 
         Args:
             clip (torch.Tensor): time series of audio clip
@@ -477,8 +477,8 @@ class AddReverb(torch.nn.Module):
         Returns:
             torch.Tensor: audio clip with reverb added
         """
-        assert isinstance(clip, torch.Tensor)
-        assert all([type(value) == torch.Tensor for value in clip])
+        # assert isinstance(clip, torch.Tensor)
+        # assert all([type(value) == torch.Tensor for value in clip])
         
         call_reverb = self.add_reverb(clip)
         return call_reverb
@@ -493,7 +493,7 @@ class AddReverb(torch.nn.Module):
             torch.Tensor: Tensor representing the time series of the call after
             adding reverb
         """
-        assert isinstance(bird_call, torch.Tensor)
+        # assert isinstance(bird_call, torch.Tensor)
 
         # read in bird call as time series, convert to mono if needed
         if bird_call.ndim >= 2:
@@ -553,8 +553,8 @@ class AddReverb(torch.nn.Module):
         Returns:
             np.ndArray: position of the mic
         """
-        assert isinstance(src_pos, np.ndarray)
-        assert len(src_pos) == 3
+        # assert isinstance(src_pos, np.ndarray)
+        # assert len(src_pos) == 3
         # assert isinstance(min, int)
         # assert min >= 0
         # assert isinstance(max, int)
