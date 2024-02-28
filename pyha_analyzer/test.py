@@ -14,8 +14,7 @@ import wandb
 
 from pyha_analyzer import config
 from pyha_analyzer import utils
-from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
-                                         HighpassFilter, SyntheticNoise)
+from pyha_analyzer.augmentations import *
 from pyha_analyzer.chunking_methods.sliding_chunks import convolving_chunk
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
@@ -55,7 +54,8 @@ class TestAugmentations(unittest.TestCase):
         augs+= [RandomEQ(cfg),
                 BackgroundNoise(cfg),
                 LowpassFilter(cfg),
-                HighpassFilter(cfg)]
+                HighpassFilter(cfg),
+                AddReverb(cfg)]
         augmented_audio = [aug(audio) for aug in augs]
         for aug_audio in augmented_audio:
             assert aug_audio.shape == audio.shape, "Augmented audio should not change shape"

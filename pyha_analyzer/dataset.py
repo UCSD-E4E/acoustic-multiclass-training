@@ -24,8 +24,7 @@ import wandb
 
 from pyha_analyzer import config
 from pyha_analyzer import utils
-from pyha_analyzer.augmentations import (BackgroundNoise, LowpassFilter, Mixup, RandomEQ,
-                                         HighpassFilter, SyntheticNoise)
+from pyha_analyzer.augmentations import *
 from pyha_analyzer.chunking_methods import sliding_chunks
 
 tqdm.pandas()
@@ -94,7 +93,8 @@ class PyhaDFDataset(Dataset):
                 RandomEQ        : cfg.rand_eq_p,
                 LowpassFilter   : cfg.lowpass_p,
                 HighpassFilter  : cfg.highpass_p,
-                BackgroundNoise : cfg.bg_noise_p
+                BackgroundNoise : cfg.bg_noise_p,
+                AddReverb       : cfg.add_reverb_p
             }.items()
         # List around aug(cfg) is necessary
         # because RandomApply expects an iterable
@@ -464,5 +464,7 @@ def main() -> None:
     # _, _, infer_dataloader = get_datasets()
     # for _, (_, _) in enumerate(infer_dataloader):
     #     break
+
+    
 if __name__ == '__main__':
     main()
