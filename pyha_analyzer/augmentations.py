@@ -139,7 +139,7 @@ class Mixup(torch.nn.Module):
         chosen clip, Tensor of target mixed with the
         target of the randomly chosen file
         """
-        if utils.rand(0,1) < self.prob:
+        if utils.rand(0,1) <= self.prob:
             return clip, target
 
         num_other_clips = sample(self.num_clips_distribution)
