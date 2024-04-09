@@ -53,10 +53,10 @@ def run_batch(model: TimmModel,
     if cfg.device == "cuda":
         with autocast(device_type=cfg.device, dtype=dtype, enabled=cfg.mixed_precision):
             outputs = model(mels)
-            loss = model.loss_fn(outputs, labels) # type: ignoreelse
+            loss = model.loss_fn(outputs, labels) # type: ignore
     else:
         outputs = model(mels)
-        loss = model.loss_fn(outputs, labels)
+        loss = model.loss_fn(outputs, labels) #type: ignore
         
     outputs = outputs.to(dtype=torch.float32)
     loss = loss.to(dtype=torch.float32)
