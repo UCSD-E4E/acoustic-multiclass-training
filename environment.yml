@@ -6,7 +6,6 @@ dependencies:
   - importlib_resources
   - pip:
       - pandas
-      - --extra-index-url https://download.pytorch.org/whl/cu118
       - antlr4-python3-runtime==4.9.3
       - asttokens==2.2.1
       - audioread==3.0.0
@@ -56,13 +55,13 @@ dependencies:
       - sympy==1.11.1
       - threadpoolctl==3.1.0
       - timm==0.6.13
-      - torch==2.0.0+cu118
+        # - torch==2.3.0
       #- torch==2.0.0
       #figure out how to install versions of this for metal instead of cuda bcs of mac
-      - torchaudio==2.0.1+cu118
-      - torchaudio==2.0.1
-      - torchmetrics==0.11.4
-      - torchvision==0.15.1+cu118
+      # - torchaudio==2.0.1
+      # - torchaudio==2.0.1
+      # - torchmetrics==0.11.4
+      # - torchvision==0.15.1
       #- torchvision==0.15.1
       - tqdm==4.65.0
       - typing-extensions==4.4.0

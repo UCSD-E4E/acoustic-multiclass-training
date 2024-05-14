@@ -1,8 +1,8 @@
 # Acoustic Multiclass Training config file
 
 # Required path related config
-dataframe_csv: /home/seobrien/data/example_data/metadata.csv
-data_path: /home/seobrien/data/example_data
+dataframe_csv: /home/seobrien/data/birdclef-2024/train_metadata_chunked.csv
+data_path: /home/seobrien/data/birdclef-2024/train_audio
 infer_csv: 
 # Optional, automatically generates class order if not given
 class_list:
@@ -10,20 +10,20 @@ class_list:
 # Dataframe column names
 offset_col: "OFFSET"
 duration_col: "DURATION"
-file_name_col: "FILE NAME"
+file_name_col: "IN FILE"
 manual_id_col: "MANUAL ID"
 
 # Device Settings
 device: "auto" # Options: cuda, cpu, auto 
-prepros_device: "cuda" # Options: cuda, CPU
+prepros_device: "cpu" # Options: cuda, CPU
 agent_run_count: 5
 
 # Training params
 train_batch_size: 4
 validation_batch_size: 4
-jobs: 2
+jobs: 0
 valid_freq: 2000
-mixed_precision: true
+mixed_precision: False
 valid_dataset_ratio: 0.3
 does_weighted_sampling: False
 drop_rate: 0.5
@@ -37,12 +37,12 @@ overlap: 0.5 # Proportion of chunk length
 chunk_margin_s: 0.4 # Margin on either side of annotation
 
 # Logging
-logging: true
+logging: false
 logging_freq: 20 # Batches per log
-wandb_entity: "acoustic-species-identification"
-wandb_project: "acoustic-species-reu2023"
+wandb_entity: "sean-ob"
+wandb_project: "acoustic-id-dev"
 wandb_run_name: "auto"
-debug: false
+debug: true
 
 # Functional settings
 seed: 0
@@ -62,14 +62,15 @@ train_test_split: 0.8
 #     seresnext101_32x4d (200 MB)
 #     rexnet_200 (70 MB)
 #     mobilenetv3_large_100_miil_in21k (70 MB)
-model: "eca_nfnet_l0"
+model_type: 'mamba'
+model: "state-spaces/mamba-130m"
 epochs: 10
 learning_rate: 0.001
 # Loss function options:
 #   CE: Cross entropy
 #   BCE: Binary cross entropy
 #   BCEWL: Binary cross entropy with logits
-loss_fnc: "CE"
+loss_fnc: "BCEWL"
 imb: false
 # Specify path to load a checkpoint
 model_checkpoint: ""

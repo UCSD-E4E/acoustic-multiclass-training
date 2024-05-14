@@ -1,3 +1,5 @@
+import pdb
+
 """
     Contains the training and validation function and logging to Weights and Biases
     Methods:
@@ -24,14 +26,14 @@ from pyha_analyzer import config
 from pyha_analyzer.dataset import get_datasets, make_dataloaders, PyhaDFDataset
 from pyha_analyzer.utils import set_seed
 from pyha_analyzer.models.early_stopper import EarlyStopper
-from pyha_analyzer.models.timm_model import TimmModel
+from pyha_analyzer.models import get_model, BaseModel
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
 
-def run_batch(model: TimmModel,
+def run_batch(model: BaseModel,
                 mels: torch.Tensor,
                 labels: torch.Tensor,
                 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -81,7 +83,7 @@ def map_metric(outputs: torch.Tensor,
 
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-locals
-def train(model: TimmModel,
+def train(model: BaseModel,
         data_loader: DataLoader,
         valid_loader: DataLoader,
         infer_loader: Optional[DataLoader],
@@ -108,7 +110,6 @@ def train(model: TimmModel,
     for i, (mels, labels) in enumerate(data_loader):
 
         optimizer.zero_grad()
-
         loss, outputs = run_batch(model,  mels, labels)
 
         if cfg.mixed_precision and cfg.device != "cpu":
@@ -134,6 +135,7 @@ def train(model: TimmModel,
 
         if (i != 0 and i % (cfg.logging_freq) == 0) or i == len(data_loader) - 1:
             dataset: PyhaDFDataset = data_loader.dataset # type: ignore
+
             cmap, smap = map_metric(torch.cat(log_pred),torch.cat(log_labels),dataset.class_dist)
             duration = (datetime.datetime.now() - start_time).total_seconds()
             start_time = datetime.datetime.now()
@@ -294,7 +296,7 @@ def inference_valid(model: Any,
     logger.info("Infer smAP: %f", smap)
     logger.info("Domain Shift Difference: %f", domain_shift)
 
-def save_model(model: TimmModel) -> str:
+def save_model(model: BaseModel) -> str:
     """ Saves model in the models directory as a pt file, returns path """
     path = os.path.join("models", f"{cfg.model}-{time_now}.pt")
     if not os.path.exists("models"):
@@ -350,8 +352,10 @@ def main(in_sweep=True) -> None:
     )
 
     logger.info("Loading Model...")
-    model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
-                              model_name=cfg.model).to(cfg.device)
+    # TODO: change model selection process
+    model_for_run = get_model(num_classes=train_dataset.num_classes,
+                              model_name=cfg.model,
+                              pretrained=True)
     model_for_run.create_loss_fn(train_dataset)
     if cfg.model_checkpoint != "":
         model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))

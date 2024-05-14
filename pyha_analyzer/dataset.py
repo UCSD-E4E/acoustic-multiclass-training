@@ -15,12 +15,15 @@ import ast
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn.functional as F
 import torchaudio
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 from torchaudio import transforms as audtr
 from torchvision.transforms import RandomApply
 from tqdm import tqdm
 import wandb
+
+from pathlib import Path
 
 from pyha_analyzer import config
 from pyha_analyzer import utils
@@ -30,6 +33,7 @@ from pyha_analyzer.chunking_methods import sliding_chunks
 
 tqdm.pandas()
 logger = logging.getLogger("acoustic_multiclass_training")
+
 
 # pylint: disable=too-many-instance-attributes
 class PyhaDFDataset(Dataset):
@@ -59,6 +63,7 @@ class PyhaDFDataset(Dataset):
         self.device = cfg.prepros_device
         self.onehot = onehot
         self.cfg = cfg
+        self.use_mu_law = cfg.use_mamba
 
         # List data directory and confirm it exists
         if not os.path.exists(cfg.data_path):
@@ -147,6 +152,9 @@ class PyhaDFDataset(Dataset):
         """
         exts = "." + file_name.split(".")[-1]
         new_name = file_name.replace(exts, ".pt")
+
+        # TODO: change this if we change preprocessing for mu-law encoding
+
         if os.path.join(self.cfg.data_path, new_name) in self.data_dir:
             #ASSUME WE HAVE ALREADY PREPROCESSED THIS CORRECTLY
             return pd.Series({
@@ -171,7 +179,7 @@ class PyhaDFDataset(Dataset):
                 resample = audtr.Resample(sample_rate, self.cfg.sample_rate)
                 audio = resample(audio)
 
-            torch.save(audio, os.path.join(self.cfg.data_path,new_name))
+            torch.save(audio, os.path.join(self.cfg.data_path, new_name))
             self.data_dir.add(new_name)
         # IO is messy, I want any file that could be problematic
         # removed from training so it isn't stopped after hours of time
@@ -183,7 +191,6 @@ class PyhaDFDataset(Dataset):
                 "FILE NAME": file_name,
                 "files": "bad"
             }).T
-
 
         return pd.Series({
                 "FILE NAME": file_name,
@@ -249,6 +256,21 @@ class PyhaDFDataset(Dataset):
         mel = torch.sigmoid(mel)
         return torch.stack([mel, mel, mel])
 
+    def to_mu_law(self, audio, quantization_channels=64):
+        """
+        Mu-law scaling.
+        """
+        # 0, 1 scaling before mu-law scaling
+        import pdb
+        audio = audio - audio.min()
+        audio = (audio / (audio.max() + 1e-8) - 0.5)*1.99
+        # mu-law scaling
+        quant = torchaudio.functional.mu_law_encoding(audio,
+                                                      quantization_channels=quantization_channels)
+
+        one_hot = F.one_hot(quant, num_classes=quantization_channels).float()
+        return one_hot
+
     def __getitem__(self, index): #-> Any:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
         """
@@ -258,19 +280,28 @@ class PyhaDFDataset(Dataset):
                 index = index,
                 class_to_idx = self.class_to_idx,
                 conf=self.cfg)
-
         
         if self.train:
             audio, target = self.mixup(audio, target)
             audio = self.audio_augmentations(audio)
-        image = self.to_image(audio)
-        if self.train:
-            image = self.image_augmentations(image)
 
-        if image.isnan().any():
+        if self.use_mu_law:
+            if audio.isnan().any():
+                logger.error("ERROR IN ANNOTATION #%s", index)
+                self.bad_files.append(index)
+                signal = torch.zeros(*(tuple(audio.shape) + (64,)))
+                target = torch.zeros(target.shape)
+            else:
+                signal = self.to_mu_law(audio)
+        else:
+            signal = self.to_image(audio)
+            if self.train:
+                signal = self.image_augmentations(signal)
+
+        if signal.isnan().any():
             logger.error("ERROR IN ANNOTATION #%s", index)
             self.bad_files.append(index)
-            image = torch.zeros(image.shape)
+            signal = torch.zeros(signal.shape)
             target = torch.zeros(target.shape)
 
         #If dataframe has saved onehot encodings, return those
@@ -279,26 +310,7 @@ class PyhaDFDataset(Dataset):
             target = self.samples.loc[index, self.classes].values.astype(np.int32)
             target = torch.Tensor(target)
 
-        return image, target
-
-    def get_num_classes(self) -> int:
-        """ Returns number of classes
-        """
-        return self.num_classes
-
-    def get_sample_weights(self) -> pd.Series:
-        """ Returns the weights as computed by the first place winner of BirdCLEF 2023
-        See https://www.kaggle.com/competitions/birdclef-2023/discussion/412808 
-        Congrats on your win!
-        """
-        manual_id = self.cfg.manual_id_col
-        all_primary_labels = self.samples[manual_id]
-        sample_weights = (
-            all_primary_labels.value_counts() / 
-            all_primary_labels.value_counts().sum()
-        )  ** (-0.5)
-        weight_list = self.samples[manual_id].apply(lambda x: sample_weights.loc[x])
-        return weight_list
+        return signal, target
 
 
 def get_datasets(cfg) -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFDataset]]:
@@ -373,8 +385,9 @@ def get_datasets(cfg) -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFData
     train = data[data[cfg.file_name_col].isin(train_files)]
 
     valid = data[~data.index.isin(train.index)]
-    train_ds = PyhaDFDataset(train, train=True, species=classes, cfg=cfg)
 
+
+    train_ds = PyhaDFDataset(train, train=True, species=classes, cfg=cfg)
     valid_ds = PyhaDFDataset(valid, train=False, species=classes, cfg=cfg)
 
 
@@ -450,6 +463,7 @@ def make_dataloaders(train_dataset, val_dataset, infer_dataset, cfg
             )
     return train_dataloader, val_dataloader, infer_dataloader
 
+
 def main() -> None:
     """
     testing function.
@@ -465,5 +479,8 @@ def main() -> None:
     # _, _, infer_dataloader = get_datasets()
     # for _, (_, _) in enumerate(infer_dataloader):
     #     break
+
+
+
 if __name__ == '__main__':
     main()

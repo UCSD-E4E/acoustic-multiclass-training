@@ -9,6 +9,7 @@ import argparse
 def get_config():
     """ Returns a config variable with the command line arguments or defaults
     """
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-l', '--chunk_length_s', default=5, type=int, help='duration')
