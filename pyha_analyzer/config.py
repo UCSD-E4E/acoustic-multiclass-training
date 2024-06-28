@@ -130,27 +130,28 @@ class Config():
         Saves all command line arguments to config class
         Primarily intended for quick flags such as turning a property on or off
         """
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-l', '--logging', action='store_false')
-        parser.add_argument('-d', '--debug', action='store_true')
+        pass
+        # parser = argparse.ArgumentParser()
+        # parser.add_argument('-l', '--logging', action='store_false')
+        # parser.add_argument('-d', '--debug', action='store_true')
         
-        arg_cfgs = parser.parse_args()
+        # arg_cfgs = parser.parse_args()
         
-        # Add all command line args to config
-        # Overwrite because user is defining them most recently
-        # Unless they are default value
-        arg_cfgs = vars(arg_cfgs)
-        for key in arg_cfgs:
-            if self.config_dict[key] == parser.get_default(key):
-                setattr(self, key, arg_cfgs[key])
+        # # Add all command line args to config
+        # # Overwrite because user is defining them most recently
+        # # Unless they are default value
+        # arg_cfgs = vars(arg_cfgs)
+        # for key in arg_cfgs:
+        #     if self.config_dict[key] == parser.get_default(key):
+        #         setattr(self, key, arg_cfgs[key])
         
-        logger.setLevel(logging.DEBUG)
-        console_handler = logging.StreamHandler()
-        if self.debug:
-            console_handler.setLevel(logging.DEBUG)
-        else: 
-            console_handler.setLevel(logging.INFO)
-        logger.addHandler(console_handler)
+        # logger.setLevel(logging.DEBUG)
+        # console_handler = logging.StreamHandler()
+        # if self.debug:
+        #     console_handler.setLevel(logging.DEBUG)
+        # else: 
+        #     console_handler.setLevel(logging.INFO)
+        # logger.addHandler(console_handler)
 
     def required_checks(self, parameter):
         """

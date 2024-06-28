@@ -126,24 +126,36 @@ def get_annotation(
         if offset:
             frame_offset += rand_offset()
         num_frames = int(annotation[conf.duration_col] * sample_rate)
-
         # Load audio
-        audio = torch.load(Path(cfg.data_path)/file_name)
-    
-        if audio.shape[0] > num_frames:
-            audio = audio[frame_offset:frame_offset+num_frames]
+        audio = torch.load(Path(cfg.data_path2)/file_name)
 
-        # Crop if too long
-        if audio.shape[0] > target_num_samples:
-            audio = crop_audio(audio, target_num_samples)
-        # Pad if too short
-        if audio.shape[0] < target_num_samples:
-            audio = pad_audio(audio, target_num_samples)
     except Exception as e:
         print(e)
         print(file_name, index)
-        raise RuntimeError("Bad Audio") from e
+        audio = torch.zeros(1000)
+        #raise RuntimeError("Bad Audio") from e
 
+    #print(audio.shape, frame_offset)
+
+        
+    if audio.shape[-1] < frame_offset:
+        print(annotation, "TOO LONG")
+        raise "Bad File - Frame offset larger than annotation"
+
+    if audio.shape[-1] > num_frames:
+        audio = audio[frame_offset:frame_offset+num_frames]
+
+    # Crop if too long
+    if audio.shape[-1] > target_num_samples:
+        audio = crop_audio(audio, target_num_samples)
+
+
+    # Pad if too short
+    if audio.shape[-1] < target_num_samples:
+        audio = pad_audio(audio, target_num_samples)
+
+
+    
     audio = audio.to(conf.prepros_device)
     target = target.to(conf.prepros_device)
     return audio, target

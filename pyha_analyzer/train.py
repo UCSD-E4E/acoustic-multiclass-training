@@ -379,6 +379,7 @@ def main(in_sweep=True) -> None:
         if cfg.early_stopping and early_stopper.early_stop(valid_cmap):
             logger.info("Early stopping has triggered on epoch %d", epoch)
             break
+    return train_dataset, val_dataset, infer_dataset
 
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')

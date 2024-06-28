@@ -34,7 +34,8 @@ class TimmModel(nn.Module):
             model_name,
             pretrained=pretrained,
             num_classes=num_classes,
-            drop_rate=cfg.drop_rate)
+            drop_rate=cfg.drop_rate,
+            in_chans=cfg.channels)
         self.loss_fn = None
         self.without_logits = cfg.loss_fnc == "BCE"
 

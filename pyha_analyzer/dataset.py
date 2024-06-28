@@ -67,6 +67,12 @@ class PyhaDFDataset(Dataset):
         for root, _, files in os.walk(cfg.data_path):
             self.data_dir |= {os.path.join(root,file) for file in files}
 
+        if not os.path.exists(cfg.data_path2):
+            raise FileNotFoundError("Data path does not exist")
+        self.data_dir2 = set()
+        for root, _, files in os.walk(cfg.data_path2):
+            self.data_dir2 |= {os.path.join(root,file) for file in files}
+
         #Log bad files
         self.bad_files = []
 
@@ -147,7 +153,7 @@ class PyhaDFDataset(Dataset):
         """
         exts = "." + file_name.split(".")[-1]
         new_name = file_name.replace(exts, ".pt")
-        if os.path.join(self.cfg.data_path, new_name) in self.data_dir:
+        if os.path.join(self.cfg.data_path2, new_name) in self.data_dir2:
             #ASSUME WE HAVE ALREADY PREPROCESSED THIS CORRECTLY
             return pd.Series({
                 "FILE NAME": file_name,
@@ -171,13 +177,16 @@ class PyhaDFDataset(Dataset):
                 resample = audtr.Resample(sample_rate, self.cfg.sample_rate)
                 audio = resample(audio)
 
-            torch.save(audio, os.path.join(self.cfg.data_path,new_name))
-            self.data_dir.add(new_name)
+            temp_new_file = os.path.join(self.cfg.data_path2,new_name)    
+            os.makedirs(os.path.dirname(temp_new_file), exist_ok=True)
+            torch.save(audio, temp_new_file)
+            self.data_dir2.add(new_name)
         # IO is messy, I want any file that could be problematic
         # removed from training so it isn't stopped after hours of time
         # Hence broad exception
         # pylint: disable-next=W0718
         except Exception as exc:
+            print(exc)
             logger.debug("%s is bad %s", file_name, exc)
             return pd.Series({
                 "FILE NAME": file_name,
@@ -247,7 +256,7 @@ class PyhaDFDataset(Dataset):
         
         # Sigmoid to get 0 to 1 scaling (0.5 becomes mean)
         mel = torch.sigmoid(mel)
-        return torch.stack([mel, mel, mel])
+        return mel.unsqueeze(0) #torch.stack([mel, mel, mel])
 
     def __getitem__(self, index): #-> Any:
         """ Takes an index and returns tuple of spectrogram image with corresponding label
