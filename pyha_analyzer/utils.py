@@ -140,7 +140,7 @@ def get_annotation(
         
     if audio.shape[-1] < frame_offset:
         print(annotation, "TOO LONG")
-        raise "Bad File - Frame offset larger than annotation"
+        audio = torch.zeros(1000)
 
     if audio.shape[-1] > num_frames:
         audio = audio[frame_offset:frame_offset+num_frames]
