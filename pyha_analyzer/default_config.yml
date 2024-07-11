@@ -43,6 +43,7 @@ wandb_entity: "acoustic-species-identification"
 wandb_project: "acoustic-species-reu2023"
 wandb_run_name: "auto"
 debug: false
+save_samples: true
 
 # Functional settings
 seed: 0
