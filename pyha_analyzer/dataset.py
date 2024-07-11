@@ -47,7 +47,7 @@ class PyhaDFDataset(Dataset):
                  cfg: config.Config,
                  onehot:bool = False,
                  ) -> None:
-        self.samples = df[~(df[cfg.file_name_col].isnull())]
+        self.samples = df[~(df[cfg.file_name_col].isnull())].reset_index()
         if onehot:
             if self.samples.iloc[0][species].shape[0] != len(species):
                 logger.error(species)
@@ -279,7 +279,7 @@ class PyhaDFDataset(Dataset):
             target = self.samples.loc[index, self.classes].values.astype(np.int32)
             target = torch.Tensor(target)
 
-        return image, target
+        return image, target, index
 
     def get_num_classes(self) -> int:
         """ Returns number of classes
