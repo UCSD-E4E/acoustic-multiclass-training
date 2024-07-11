@@ -105,7 +105,7 @@ def train(model: TimmModel,
     log_pred = []
     log_labels = []
 
-    for i, (mels, labels) in enumerate(data_loader):
+    for i, (mels, labels, idxs) in enumerate(data_loader):
 
         optimizer.zero_grad()
 
@@ -209,7 +209,7 @@ def valid(model: Any,
     dl_iter = tqdm(data_loader, position=5, total=num_valid_samples)
 
     with torch.no_grad():
-        for index, (mels, labels) in enumerate(dl_iter):
+        for index, (mels, labels, idxs) in enumerate(dl_iter):
             if index > num_valid_samples:
                 # Stop early if not doing full validation
                 break
@@ -271,7 +271,7 @@ def inference_valid(model: Any,
     dl_iter = tqdm(data_loader, position=5, total=num_valid_samples)
 
     with torch.no_grad():
-        for _, (mels, labels) in enumerate(dl_iter):
+        for _, (mels, labels, idxs) in enumerate(dl_iter):
             _, outputs = run_batch(model, mels, labels)
             log_pred.append(torch.clone(outputs.cpu()).detach())
             log_label.append(torch.clone(labels.cpu()).detach())
