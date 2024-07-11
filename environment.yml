@@ -1,4 +1,4 @@
-name: asid
+name: asid2
 channels:
   - defaults
 dependencies:
@@ -6,6 +6,7 @@ dependencies:
   - importlib_resources
   - pip:
       - pandas
+      - grad-cam
       - --extra-index-url https://download.pytorch.org/whl/cu118
       - antlr4-python3-runtime==4.9.3
       - asttokens==2.2.1
@@ -66,4 +67,4 @@ dependencies:
       #- torchvision==0.15.1
       - tqdm==4.65.0
       - typing-extensions==4.4.0
-      - wandb==0.15.0
+      - wandb==0.16.0
