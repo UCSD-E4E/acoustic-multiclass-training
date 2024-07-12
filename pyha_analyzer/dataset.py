@@ -288,7 +288,7 @@ class PyhaDFDataset(Dataset):
             target = self.samples.loc[index, self.classes].values.astype(np.int32)
             target = torch.Tensor(target)
 
-        return image, target
+        return image, target, index
 
     def get_num_classes(self) -> int:
         """ Returns number of classes
