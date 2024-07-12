@@ -232,3 +232,15 @@ if __name__ == '__main__':
                 df_results = []
 
                 log_pred, log_label, idx_label = [], [], []
+    #print("save results")
+    # sigmoid predictions
+    log_pred_temp = F.sigmoid(torch.cat(log_pred)).cpu()
+    #print(log_pred_temp.shape)
+    idx_labels = torch.cat(idx_label)
+    #print(idx_labels)
+    df_results = pd.DataFrame(log_pred_temp, columns=classes)
+    df_results["index"] = idx_labels.numpy()
+    df_results.to_csv(f"result_test_{count}.csv")
+    df_results = []
+
+    log_pred, log_label, idx_label = [], [], []
