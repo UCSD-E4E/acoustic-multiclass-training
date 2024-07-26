@@ -326,9 +326,10 @@ def logging_setup() -> None:
 def main(in_sweep=True) -> None:
     """ Main function
     """
+
+    setattr(cfg, "current_epoch", 0)
     logger.info("Device is: %s, Preprocessing Device is %s", cfg.device, cfg.prepros_device)
     set_seed(cfg.seed)
-
     if in_sweep:
         run = wandb.init()
         for key, val in dict(wandb.config).items():
@@ -365,6 +366,7 @@ def main(in_sweep=True) -> None:
 
     for epoch in range(cfg.epochs):
         logger.info("Epoch %d", epoch)
+        setattr(cfg, "current_epoch", epoch)
 
         best_valid_cmap = train(model_for_run,
                                train_dataloader,
