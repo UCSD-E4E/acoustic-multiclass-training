@@ -223,7 +223,7 @@ def valid(model: Any,
 
 
     # softmax predictions
-    log_pred = F.sigmoid(torch.cat(log_pred)).to(cfg.device)
+    log_pred = F.sigmoid(torch.cat(log_pred)).cpu()#.to(cfg.device)
 
     dataset: PyhaDFDataset = data_loader.dataset # type: ignore
     cmap, smap = map_metric(log_pred, torch.cat(log_label), dataset.class_dist)
