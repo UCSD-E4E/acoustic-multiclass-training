@@ -21,17 +21,17 @@ from tqdm import tqdm
 import wandb
 
 from pyha_analyzer import config
-from pyha_analyzer.dataset import get_datasets, make_dataloaders, PyhaDFDataset
+from pyha_analyzer.dataset import get_datasets, make_dataloaders
 from pyha_analyzer.utils import set_seed
 from pyha_analyzer.models.early_stopper import EarlyStopper
-from pyha_analyzer.models.timm_model import TimmModel
+from pyha_analyzer.models.CustomModel import CustomModel
 
 tqdm.pandas()
-time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
+time_now = datetime.datetime.now().strftime('%Y%m%d-%H%M')
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
 
-def run_batch(model: TimmModel,
+def run_batch(model: CustomModel,
                 mels: torch.Tensor,
                 labels: torch.Tensor,
                 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -39,7 +39,7 @@ def run_batch(model: TimmModel,
         Args:
             model: the model to pass the batch through
             mels: single batch of input data
-            labels: single batch of expecte output
+            labels: single batch of expected output
         Returns (tuple of):
             loss: the loss of the batch
             outputs: the output of the model
@@ -52,10 +52,10 @@ def run_batch(model: TimmModel,
         dtype = torch.float16
     if cfg.device == "cuda":
         with autocast(device_type=cfg.device, dtype=dtype, enabled=cfg.mixed_precision):
-            outputs = model(mels)
+            _, outputs = model(mels)
             loss = model.loss_fn(outputs, labels) # type: ignore
     else:
-        outputs = model(mels)
+        _, outputs = model(mels)
         loss = model.loss_fn(outputs, labels) #type: ignore
         
     outputs = outputs.to(dtype=torch.float32)
@@ -81,7 +81,7 @@ def map_metric(outputs: torch.Tensor,
 
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-locals
-def train(model: TimmModel,
+def train(model: CustomModel,
         data_loader: DataLoader,
         valid_loader: DataLoader,
         infer_loader: Optional[DataLoader],
@@ -133,7 +133,7 @@ def train(model: TimmModel,
         log_n += 1
 
         if (i != 0 and i % (cfg.logging_freq) == 0) or i == len(data_loader) - 1:
-            dataset: PyhaDFDataset = data_loader.dataset # type: ignore
+            dataset = data_loader.dataset # type: ignore
             cmap, smap = map_metric(torch.cat(log_pred),torch.cat(log_labels),dataset.class_dist)
             duration = (datetime.datetime.now() - start_time).total_seconds()
             start_time = datetime.datetime.now()
@@ -166,6 +166,7 @@ def train(model: TimmModel,
             del mels
             del outputs
             del labels
+            del loss #might not be the problem
 
             valid_start_time = datetime.datetime.now()
             _, best_valid_cmap = valid(model,
@@ -199,7 +200,7 @@ def valid(model: Any,
 
     running_loss = 0
     log_pred, log_label = [], []
-    dataset_ratio: float = cfg.valid_dataset_ratio
+    dataset_ratio = cfg.valid_dataset_ratio
     if float(epoch_progress).is_integer():
         dataset_ratio = 1.0
 
@@ -225,7 +226,7 @@ def valid(model: Any,
     # softmax predictions
     log_pred = F.sigmoid(torch.cat(log_pred)).to(cfg.device)
 
-    dataset: PyhaDFDataset = data_loader.dataset # type: ignore
+    dataset = data_loader.dataset # type: ignore
     cmap, smap = map_metric(log_pred, torch.cat(log_label), dataset.class_dist)
 
     # Log to Weights and Biases
@@ -254,10 +255,7 @@ def inference_valid(model: Any,
           data_loader: Optional[DataLoader],
           epoch_progress: float,
           valid_cmap: float):
-
-    """ Test Domain Shift To Soundscapes
-
-    """
+    """ Test Domain Shift To Soundscapes """
     if data_loader is None:
         return
 
@@ -279,7 +277,7 @@ def inference_valid(model: Any,
     # sigmoid predictions
     log_pred = F.sigmoid(torch.cat(log_pred)).to(cfg.device)
 
-    dataset: PyhaDFDataset = data_loader.dataset # type: ignore
+    dataset = data_loader.dataset # type: ignore
     cmap, smap = map_metric(log_pred, torch.cat(log_label), dataset.class_dist)
     # Log to Weights and Biases
     domain_shift = np.abs(valid_cmap - cmap)
@@ -294,11 +292,17 @@ def inference_valid(model: Any,
     logger.info("Infer smAP: %f", smap)
     logger.info("Domain Shift Difference: %f", domain_shift)
 
-def save_model(model: TimmModel) -> str:
+# def save_model(model: CustomModel) -> str:
+#     """ Saves model in the models directory as a pt file, returns path """
+#     path = os.path.join("models", f"{cfg.model}-{time_now}.pt")
+#     if not os.path.exists("models"):
+#         os.mkdir("models")
+#     torch.save(model.state_dict(), path)
+#     return path
+
+def save_model(model: CustomModel) -> str:
     """ Saves model in the models directory as a pt file, returns path """
-    path = os.path.join("models", f"{cfg.model}-{time_now}.pt")
-    if not os.path.exists("models"):
-        os.mkdir("models")
+    path = os.path.join(f"{cfg.model}-{time_now}.pt")
     torch.save(model.state_dict(), path)
     return path
 
@@ -312,6 +316,21 @@ def set_name(run):
     run.name = f"{cfg.wandb_run_name}-{time_now}"
     return run
 
+def download_model_files():
+    """Download model files."""
+    import urllib.request
+
+    urls = [
+        #"https://storage.googleapis.com/esp-public-files/birdaves/birdaves-biox-large.torchaudio.pt",
+        #"https://storage.googleapis.com/esp-public-files/birdaves/birdaves-biox-large.torchaudio.model_config.json"
+        "https://storage.googleapis.com/esp-public-files/ported_aves/aves-base-bio.torchaudio.pt",
+        "https://storage.googleapis.com/esp-public-files/ported_aves/aves-base-bio.torchaudio.model_config.json"
+    ]
+    for url in urls:
+        filename = url.split("/")[-1]
+        if not os.path.exists(filename):
+            urllib.request.urlretrieve(url, filename)
+
 def logging_setup() -> None:
     """ Setup logging on the main process
     Display config information
@@ -324,8 +343,6 @@ def logging_setup() -> None:
     logger.debug("Git hash: %s", cfg.git_hash)
 
 def main(in_sweep=True) -> None:
-    """ Main function
-    """
     logger.info("Device is: %s, Preprocessing Device is %s", cfg.device, cfg.prepros_device)
     set_seed(cfg.seed)
 
@@ -342,7 +359,6 @@ def main(in_sweep=True) -> None:
             mode="online" if cfg.logging else "disabled")
         set_name(run)
 
-    # Load in dataset
     logger.info("Loading Dataset...")
     train_dataset, val_dataset, infer_dataset = get_datasets(cfg)
     train_dataloader, val_dataloader, infer_dataloader = make_dataloaders(
@@ -350,14 +366,18 @@ def main(in_sweep=True) -> None:
     )
 
     logger.info("Loading Model...")
-    model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
-                              model_name=cfg.model).to(cfg.device)
-    model_for_run.create_loss_fn(train_dataset)
-    if cfg.model_checkpoint != "":
-        model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))
+    download_model_files()
+    model_for_run = CustomModel(
+        config_path= "aves-base-bio.torchaudio.model_config.json", #aves-base-bio.torchaudio.model_config.json",
+        model_path= "aves-base-bio.torchaudio.pt", #"aves-base-bio.torchaudio.pt",
+        num_classes=train_dataset.num_classes,
+        trainable=cfg.trainable,
+    ).to(cfg.device)
+    model_for_run.create_loss_fn(cfg, train_dataset)
+    
     optimizer = Adam(model_for_run.parameters(), lr=cfg.learning_rate)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
-    
+
     logger.info("Training...")
     early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
 

@@ -83,11 +83,6 @@ class PyhaDFDataset(Dataset):
         self.class_dist = self.calc_class_distribution()
 
         #Data augmentations
-        self.convert_to_mel = audtr.MelSpectrogram(
-                sample_rate=self.cfg.sample_rate,
-                n_mels=cfg.n_mels,
-                n_fft=cfg.n_fft).to(cfg.prepros_device)
-        self.decibel_convert = audtr.AmplitudeToDB(stype="power").to(cfg.prepros_device)
         self.mixup = Mixup(self.samples, self.class_to_idx, cfg)
         audio_augs = {
                 SyntheticNoise  : cfg.noise_p,
@@ -101,10 +96,6 @@ class PyhaDFDataset(Dataset):
         self.audio_augmentations = torch.nn.Sequential(
                 *[RandomApply([aug(cfg)], p=p) for aug, p in audio_augs]
             )
-
-        self.image_augmentations = torch.nn.Sequential(
-                RandomApply([audtr.FrequencyMasking(cfg.freq_mask_param)], p=cfg.freq_mask_p),
-                RandomApply([audtr.TimeMasking(cfg.time_mask_param)],      p=cfg.time_mask_p))
 
     def calc_class_distribution(self) -> torch.Tensor:
         """ Returns class distribution (number of samples per class) """
@@ -227,30 +218,8 @@ class PyhaDFDataset(Dataset):
     def __len__(self):
         return self.samples.shape[0]
 
-    def to_image(self, audio):
-        """
-        Convert audio clip to 3-channel spectrogram image
-        """
-        # Mel spectrogram
-        # Pylint complains this is not callable, but it is a torch.nn.Module
-        # pylint: disable-next=not-callable
-        mel = self.convert_to_mel(audio)
-        # Convert to decibels
-        # pylint: disable-next=not-callable
-        mel = self.decibel_convert(mel)
-        # Convert to Image
-        
-        # Normalize Image (https://medium.com/@hasithsura/audio-classification-d37a82d6715)
-        mean = mel.mean()
-        std = mel.std()
-        mel = (mel - mean) / (std + 1e-6)
-        
-        # Sigmoid to get 0 to 1 scaling (0.5 becomes mean)
-        mel = torch.sigmoid(mel)
-        return torch.stack([mel, mel, mel])
-
-    def __getitem__(self, index): #-> Any:
-        """ Takes an index and returns tuple of spectrogram image with corresponding label
+    def __getitem__(self, index):
+        """ Takes an index and returns tuple of raw audio waveform with corresponding label
         """
         assert isinstance(index, int)
         audio, target = utils.get_annotation(
@@ -259,27 +228,23 @@ class PyhaDFDataset(Dataset):
                 class_to_idx = self.class_to_idx,
                 conf=self.cfg)
 
-        
         if self.train:
             audio, target = self.mixup(audio, target)
             audio = self.audio_augmentations(audio)
-        image = self.to_image(audio)
-        if self.train:
-            image = self.image_augmentations(image)
 
-        if image.isnan().any():
+        if audio.isnan().any():
             logger.error("ERROR IN ANNOTATION #%s", index)
             self.bad_files.append(index)
-            image = torch.zeros(image.shape)
+            audio = torch.zeros(audio.shape)
             target = torch.zeros(target.shape)
 
-        #If dataframe has saved onehot encodings, return those
-        #Assume columns names are species names
-        if  self.onehot:
+        # If dataframe has saved onehot encodings, return those
+        # Assume columns names are species names
+        if self.onehot:
             target = self.samples.loc[index, self.classes].values.astype(np.int32)
             target = torch.Tensor(target)
 
-        return image, target
+        return audio, target
 
     def get_num_classes(self) -> int:
         """ Returns number of classes
