@@ -25,13 +25,18 @@ from pyha_analyzer.dataset import get_datasets, make_dataloaders
 from pyha_analyzer.utils import set_seed
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.CustomModel import CustomModel
+from pyha_analyzer.models.leaf_classifier import Classifier
+
+from pyha_analyzer.leaf_pytorch.leaf_config_parser import parse_config, get_data_info, get_config
+
+
 
 tqdm.pandas()
 time_now = datetime.datetime.now().strftime('%Y%m%d-%H%M')
 cfg = config.cfg
 logger = logging.getLogger("acoustic_multiclass_training")
 
-def run_batch(model: CustomModel,
+def run_batch(model: Any,
                 mels: torch.Tensor,
                 labels: torch.Tensor,
                 ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -81,7 +86,7 @@ def map_metric(outputs: torch.Tensor,
 
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-locals
-def train(model: CustomModel,
+def train(model: Any,
         data_loader: DataLoader,
         valid_loader: DataLoader,
         infer_loader: Optional[DataLoader],
@@ -108,11 +113,14 @@ def train(model: CustomModel,
     for i, (mels, labels) in enumerate(data_loader):
 
         optimizer.zero_grad()
-
+        # print("INPUT")
+        # print(mels)
+        # print(mels.shape)
+        # print("=" * 50)
         loss, outputs = run_batch(model,  mels, labels)
 
         if cfg.mixed_precision and cfg.device != "cpu":
-            # Pyright complains about scaler.scale(loss) returning iterable of unknown types
+            # Pyright complains about scaler.scale(loss) returning i[terable of unknown types
             # Problem in the pytorch typing, documentation says it returns iterables of Tensors
             #  keep if needed - noqa: reportGeneralTypeIssues
             scaler.scale(loss).backward()  # type: ignore
@@ -300,7 +308,7 @@ def inference_valid(model: Any,
 #     torch.save(model.state_dict(), path)
 #     return path
 
-def save_model(model: CustomModel) -> str:
+def save_model(model: Any) -> str:
     """ Saves model in the models directory as a pt file, returns path """
     path = os.path.join(f"{cfg.model}-{time_now}.pt")
     torch.save(model.state_dict(), path)
@@ -367,13 +375,16 @@ def main(in_sweep=True) -> None:
 
     logger.info("Loading Model...")
     download_model_files()
-    model_for_run = CustomModel(
-        config_path= "aves-base-bio.torchaudio.model_config.json", #aves-base-bio.torchaudio.model_config.json",
-        model_path= "aves-base-bio.torchaudio.pt", #"aves-base-bio.torchaudio.pt",
-        num_classes=train_dataset.num_classes,
-        trainable=cfg.trainable,
-    ).to(cfg.device)
-    model_for_run.create_loss_fn(cfg, train_dataset)
+    # model_for_run = CustomModel(
+    #     config_path= "aves-base-bio.torchaudio.model_config.json", #aves-base-bio.torchaudio.model_config.json",
+    #     model_path= "aves-base-bio.torchaudio.pt", #"aves-base-bio.torchaudio.pt",
+    #     num_classes=train_dataset.num_classes,
+    #     trainable=cfg.trainable,
+    # ).to(cfg.device)
+    leaf_cfg_file = 'pyha_analyzer/efficientnet-b0-leaf-default.cfg'
+    leaf_cfg = get_config(leaf_cfg_file)
+    model_for_run = Classifier(leaf_cfg).to(cfg.device)
+    # model_for_run.create_loss_fn(cfg, train_dataset)
     
     optimizer = Adam(model_for_run.parameters(), lr=cfg.learning_rate)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)

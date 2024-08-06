@@ -29,7 +29,7 @@ class Config():
         self.required_checks("dataframe_csv")
         self.required_checks("data_path")
         self.get_git_hash()
-        self.cli_values()
+        #self.cli_values()
         self.get_device()
 
     def __new__(cls):
