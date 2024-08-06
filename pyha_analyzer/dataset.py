@@ -258,20 +258,10 @@ class PyhaDFDataset(Dataset):
                 index = index,
                 class_to_idx = self.class_to_idx,
                 conf=self.cfg)
-
-        
-        if self.train:
-            audio, target = self.mixup(audio, target)
-            audio = self.audio_augmentations(audio)
-        image = self.to_image(audio)
-        if self.train:
-            image = self.image_augmentations(image)
-
-        if image.isnan().any():
-            logger.error("ERROR IN ANNOTATION #%s", index)
-            self.bad_files.append(index)
-            image = torch.zeros(image.shape)
-            target = torch.zeros(target.shape)
+            
+        # if self.train:
+            # audio, target = self.mixup(audio, target)
+            # audio = self.audio_augmentations(audio)
 
         #If dataframe has saved onehot encodings, return those
         #Assume columns names are species names
@@ -279,7 +269,8 @@ class PyhaDFDataset(Dataset):
             target = self.samples.loc[index, self.classes].values.astype(np.int32)
             target = torch.Tensor(target)
 
-        return image, target
+        file_name = self.samples.iloc[index][self.cfg.file_name_col]
+        return audio, int(target.argmax()), file_name
 
     def get_num_classes(self) -> int:
         """ Returns number of classes
@@ -373,22 +364,21 @@ def get_datasets(cfg) -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFData
     train = data[data[cfg.file_name_col].isin(train_files)]
 
     valid = data[~data.index.isin(train.index)]
+
     train_ds = PyhaDFDataset(train, train=True, species=classes, cfg=cfg)
 
     valid_ds = PyhaDFDataset(valid, train=False, species=classes, cfg=cfg)
-
-
 
     #Handle inference datasets
     if cfg.infer_csv is None:
         infer_ds = None
     else:
         infer = pd.read_csv(cfg.infer_csv)
+        infer = infer[:len(infer)//100]
         infer_ds = PyhaDFDataset(infer, train=False, species=classes, onehot=True, cfg=cfg)
 
+    return train_ds, valid_ds, infer_ds, classes
 
-
-    return train_ds, valid_ds, infer_ds
 
 def set_torch_file_sharing(_) -> None:
     """

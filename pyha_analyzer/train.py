@@ -26,6 +26,12 @@ from pyha_analyzer.utils import set_seed
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
 
+from datasets import Dataset, DatasetDict, ClassLabel, Features, Value, Audio, Sequence
+
+from huggingface_hub import notebook_login
+
+notebook_login()
+
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')
 cfg = config.cfg
@@ -344,46 +350,142 @@ def main(in_sweep=True) -> None:
 
     # Load in dataset
     logger.info("Loading Dataset...")
-    train_dataset, val_dataset, infer_dataset = get_datasets(cfg)
-    train_dataloader, val_dataloader, infer_dataloader = make_dataloaders(
-        train_dataset, val_dataset, infer_dataset, cfg
+    train_dataset, val_dataset, infer_dataset, classes = get_datasets(cfg)
+    
+    print(train_dataset)
+    def pytorch_dataset_to_hf_dataset(pytorch_dataset):
+        def generator():
+            for i in range(len(pytorch_dataset)):
+                audio, target, file_name = pytorch_dataset[i]
+                audio = audio.numpy().astype(np.float32)
+                #print(f"Shape of audio: {audio.shape}")
+                #print(f"Type of image_list: {type(image)}")
+                #print(f"Length of image_list: {len(image)}")
+                yield {
+                    'audio': {'array': audio, 'path': file_name, 'sampling_rate': 16000},
+                    'file': file_name,
+                    'label': int(target)  # Ensure target is an integer
+                }
+
+        features = Features({
+            'audio': Audio(sampling_rate=16000),
+            'file': Value('string'),
+            'label': ClassLabel(names=classes)  # Use the ClassLabel feature here
+        })
+
+        hf_dataset = Dataset.from_generator(generator, features=features).with_format('torch')
+        return hf_dataset
+    
+
+    hf_train_ds = pytorch_dataset_to_hf_dataset(train_dataset).cast_column('label', ClassLabel(names=classes))
+    hf_valid_ds = pytorch_dataset_to_hf_dataset(val_dataset).cast_column('label', ClassLabel(names=classes))
+    if infer_dataset is not None: hf_test_ds = pytorch_dataset_to_hf_dataset(infer_dataset)
+
+    dataset = DatasetDict({
+        'train': hf_train_ds,
+        'validation': hf_valid_ds,
+        #'test': None
+    })
+
+    print(dataset)
+
+    print(classes)
+
+    dataset["train"].features["label"] = classes
+
+    labels = dataset["train"].features["label"].names
+    label2id, id2label = dict(), dict()
+    for i, label in enumerate(labels):
+        label2id[label] = str(i)
+        id2label[str(i)] = label
+
+
+    ## Training
+    model_checkpoint = "MIT/ast-finetuned-audioset-10-10-0.4593"
+    from transformers import AutoFeatureExtractor
+    feature_extractor = AutoFeatureExtractor.from_pretrained(model_checkpoint)
+    print(feature_extractor)
+    max_duration = 5.0
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print('device:', device)
+    def preprocess_function(examples):
+        audio_arrays = [np.array(x["array"]) for x in examples["audio"]]
+        inputs = feature_extractor(
+            audio_arrays,
+            sampling_rate=feature_extractor.sampling_rate,
+            max_length=int(feature_extractor.sampling_rate * max_duration),
+            truncation=True,
+        )
+        return inputs
+    
+    encoded_dataset = dataset.map(preprocess_function, remove_columns=["audio", "file"], batched=True)
+
+    from transformers import ASTForAudioClassification, TrainingArguments, Trainer
+
+    num_labels = len(id2label)
+    model = ASTForAudioClassification.from_pretrained(
+        model_checkpoint,
+        num_labels=num_labels,
+        label2id=label2id,
+        id2label=id2label,
+        ignore_mismatched_sizes=True
+    )
+    model.to(device)
+
+    model_name = model_checkpoint.split("/")[-1]
+
+    bs = 8
+    lr = 1e-5
+
+    args = TrainingArguments(
+        f"{model_name}-bs{bs}-lr{lr}",
+        eval_strategy = "epoch",
+        #eval_steps = 2815,
+        save_strategy = "epoch",
+        #save_steps = 2815,
+        learning_rate=lr,
+        per_device_train_batch_size=bs,
+        gradient_accumulation_steps=2,
+        per_device_eval_batch_size=bs,
+        num_train_epochs=6,
+        warmup_ratio=0.125,
+        logging_steps=10,
+        load_best_model_at_end=True,
+        metric_for_best_model="precision",
+        push_to_hub=False,
+        dataloader_num_workers=12,
+        gradient_checkpointing=False,
+        fp16 = True,
+        torch_compile=True,
+        save_safetensors=False
     )
 
-    logger.info("Loading Model...")
-    model_for_run = TimmModel(num_classes=train_dataset.num_classes, 
-                              model_name=cfg.model).to(cfg.device)
-    model_for_run.create_loss_fn(train_dataset)
-    if cfg.model_checkpoint != "":
-        model_for_run.load_state_dict(torch.load(cfg.model_checkpoint))
-    optimizer = Adam(model_for_run.parameters(), lr=cfg.learning_rate)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
-    
-    logger.info("Training...")
-    early_stopper = EarlyStopper(patience=cfg.patience, min_delta=cfg.min_valid_map_delta)
+    from datasets import load_metric
+    metric = load_metric("precision", trust_remote_code=True)
+    def compute_metrics(eval_pred):
+        """Computes accuracy on a batch of predictions"""
+        predictions = np.argmax(eval_pred.predictions, axis=1)
+        return metric.compute(predictions=predictions, references=eval_pred.label_ids, average='weighted')
 
-    best_valid_cmap = 0.0
+    for key, val in encoded_dataset['train'][0].items():
+        print(key, type(val), np.array(val).shape)
 
-    for epoch in range(cfg.epochs):
-        logger.info("Epoch %d", epoch)
+    trainer = Trainer(
+        model,
+        args,
+        train_dataset=encoded_dataset["train"],
+        eval_dataset=encoded_dataset["validation"],
+        tokenizer=feature_extractor,
+        compute_metrics=compute_metrics,
+    )
+    save_path = '.'
+    trainer.train(resume_from_checkpoint='ast-finetuned-audioset-10-10-0.4593-bs8-lr1e-05/checkpoint-24000')
+    trainer.save_model()
+    model.save_pretrained(save_path)
+    feature_extractor.save_pretrained(save_path)
+    trainer.push_to_hub()
 
-        best_valid_cmap = train(model_for_run,
-                               train_dataloader,
-                               val_dataloader,
-                               infer_dataloader,
-                               optimizer,
-                               scheduler,
-                               epoch,
-                               best_valid_cmap)
-        valid_cmap, best_valid_cmap = valid(model_for_run,
-                                          val_dataloader,
-                                          infer_dataloader,
-                                          epoch + 1.0,
-                                          best_valid_cmap)
-        logger.info("Best validation cmAP: %f", best_valid_cmap)
-
-        if cfg.early_stopping and early_stopper.early_stop(valid_cmap):
-            logger.info("Early stopping has triggered on epoch %d", epoch)
-            break
 
 if __name__ == '__main__':
     torch.multiprocessing.set_sharing_strategy('file_system')
