@@ -2,3 +2,4 @@
 from os import path
 from . import sweeps  
 from . import train
+from . import eval

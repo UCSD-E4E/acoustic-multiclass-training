@@ -374,7 +374,6 @@ def get_datasets(cfg) -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFData
         infer_ds = None
     else:
         infer = pd.read_csv(cfg.infer_csv)
-        infer = infer[:len(infer)//100]
         infer_ds = PyhaDFDataset(infer, train=False, species=classes, onehot=True, cfg=cfg)
 
     return train_ds, valid_ds, infer_ds, classes

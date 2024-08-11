@@ -352,6 +352,7 @@ def main(in_sweep=True) -> None:
     logger.info("Loading Dataset...")
     train_dataset, val_dataset, infer_dataset, classes = get_datasets(cfg)
     
+    
     print(train_dataset)
     def pytorch_dataset_to_hf_dataset(pytorch_dataset):
         def generator():
@@ -377,12 +378,12 @@ def main(in_sweep=True) -> None:
         return hf_dataset
     
 
-    hf_train_ds = pytorch_dataset_to_hf_dataset(train_dataset).cast_column('label', ClassLabel(names=classes))
+    #hf_train_ds = pytorch_dataset_to_hf_dataset(train_dataset).cast_column('label', ClassLabel(names=classes))
     hf_valid_ds = pytorch_dataset_to_hf_dataset(val_dataset).cast_column('label', ClassLabel(names=classes))
     if infer_dataset is not None: hf_test_ds = pytorch_dataset_to_hf_dataset(infer_dataset)
 
     dataset = DatasetDict({
-        'train': hf_train_ds,
+        #'train': hf_train_ds,
         'validation': hf_valid_ds,
         #'test': None
     })
@@ -391,9 +392,9 @@ def main(in_sweep=True) -> None:
 
     print(classes)
 
-    dataset["train"].features["label"] = classes
+    dataset["validation"].features["label"] = classes
 
-    labels = dataset["train"].features["label"].names
+    labels = dataset["validation"].features["label"].names
     label2id, id2label = dict(), dict()
     for i, label in enumerate(labels):
         label2id[label] = str(i)
@@ -401,7 +402,8 @@ def main(in_sweep=True) -> None:
 
 
     ## Training
-    model_checkpoint = "MIT/ast-finetuned-audioset-10-10-0.4593"
+    #model_checkpoint = "MIT/ast-finetuned-audioset-10-10-0.4593"
+    model_checkpoint = "ast-finetuned-audioset-10-10-0.4593-bs8-lr5e-06/checkpoint-24000"
     from transformers import AutoFeatureExtractor
     feature_extractor = AutoFeatureExtractor.from_pretrained(model_checkpoint)
     print(feature_extractor)
@@ -420,7 +422,7 @@ def main(in_sweep=True) -> None:
         return inputs
     
     encoded_dataset = dataset.map(preprocess_function, remove_columns=["audio", "file"], batched=True)
-
+    
     from transformers import ASTForAudioClassification, TrainingArguments, Trainer
 
     num_labels = len(id2label)
@@ -433,10 +435,12 @@ def main(in_sweep=True) -> None:
     )
     model.to(device)
 
+
+
     model_name = model_checkpoint.split("/")[-1]
 
-    bs = 8
-    lr = 5e-6
+    bs = 24
+    lr = 1e-5
 
     args = TrainingArguments(
         f"{model_name}-bs{bs}-lr{lr}",
@@ -454,7 +458,6 @@ def main(in_sweep=True) -> None:
         load_best_model_at_end=True,
         metric_for_best_model="precision",
         push_to_hub=False,
-        dataloader_num_workers=12,
         gradient_checkpointing=False,
         fp16 = True,
         torch_compile=True,
@@ -465,10 +468,18 @@ def main(in_sweep=True) -> None:
     from scipy.special import softmax
     # Load the metric for evaluation
     metric_precision = load("precision", trust_remote_code=True)
+    metric_precision_multi = load("precision", "multilabel", trust_remote_code=True)
+    metric_recall = load("recall", trust_remote_code=True)
+    metric_recall_multi = load("recall", "multilabel", trust_remote_code=True)
     metric_f1 = load("f1", trust_remote_code=True)
+    metric_f1_multi = load("f1", "multilabel", trust_remote_code=True)
     metric_roc_auc = load("roc_auc", "multiclass", trust_remote_code=True)
+    metric_roc_auc_multi = load("roc_auc", "multilabel", trust_remote_code=True)
     metric_accuracy = load("accuracy", trust_remote_code=True)
+    metric_accuracy_multi = load("accuracy", "multilabel", trust_remote_code=True)
 
+    all_logits = []
+    all_labels = []
     # Define the compute_metrics function
     def compute_metrics(eval_pred):
         logits, labels = eval_pred
@@ -476,29 +487,63 @@ def main(in_sweep=True) -> None:
         prob = softmax(logits, axis=-1)
 
         precision = metric_precision.compute(predictions=predictions, references=labels, average='macro')
+        recall = metric_recall.compute(predictions=predictions, references=labels, average='macro')
         f1 = metric_f1.compute(predictions=predictions, references=labels, average='macro')
         accuracy = metric_accuracy.compute(predictions=predictions, references=labels)
-        try:
-            roc_auc_mac = metric_roc_auc.compute(prediction_scores=prob, references=labels, average="macro", multi_class="ovr")
-            return {**precision, **f1, **roc_auc_mac, **accuracy}
-        except Exception as e:
-            return {**precision, **f1, **accuracy}
+        roc_auc = metric_roc_auc.compute(prediction_scores=prob, references=labels, average="macro", multi_class="ovr")
+
+        # onehot = np.zeros((labels.size, labels.max()+1), dtype=int)
+        # onehot[:,labels] = 1
+        # predictions_onehot = np.zeros((predictions.size, predictions.max()+1), dtype=int)
+        # predictions_onehot[:,predictions] = 1
+
+        # precision_multi = metric_precision_multi.compute(predictions=predictions_onehot, references=onehot, average='macro')
+        # recall_multi = metric_recall_multi.compute(predictions=predictions_onehot, references=labels, average='macro')
+        # f1_multi = metric_f1_multi.compute(predictions=predictions_onehot, references=onehot, average='macro')
+        # accuracy_multi = metric_accuracy_multi.compute(predictions=predictions_onehot, references=onehot)
+        # roc_auc_multi = metric_roc_auc_multi.compute(prediction_scores=prob, references=onehot, average="macro", multi_class="ovr")
+
+        all_logits.append(logits)
+        all_labels.append(labels)
+
+        return {
+            'precision': precision,
+            'recall': recall,
+            'f1': f1,
+            'accuracy': accuracy,
+            'roc_auc': roc_auc,
+            # 'precision_multi': precision_multi,
+            # 'recall_multi': recall_multi,
+            # 'f1_multi': f1_multi,
+            # 'accuracy_multi': accuracy_multi,
+            # 'roc_auc_multi': roc_auc_multi,
+        }
 
 
     trainer = Trainer(
         model,
         args,
-        train_dataset=encoded_dataset["train"],
+        #train_dataset=encoded_dataset["train"],
         eval_dataset=encoded_dataset["validation"],
         tokenizer=feature_extractor,
         compute_metrics=compute_metrics,
     )
-    save_path = '.'
-    trainer.train()
-    trainer.save_model()
-    model.save_pretrained(save_path)
-    feature_extractor.save_pretrained(save_path)
-    trainer.push_to_hub()
+    
+    trainer.evaluate()
+
+    import pickle
+    pickle_file = f'{model_checkpoint}/logits_labels.pkl'
+
+    data_to_pickle = {
+        'logits': all_logits,
+        'labels': all_labels,
+        'id2label': id2label
+    }
+
+    # Save the lists to a pickle file
+    with open(pickle_file, 'wb') as file:
+        pickle.dump(data_to_pickle, file)
+    
 
 
 if __name__ == '__main__':
