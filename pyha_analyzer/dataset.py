@@ -198,6 +198,7 @@ class PyhaDFDataset(Dataset):
         Future training faster
         """
         self.verify_audio()
+        print(self.samples[self.cfg.file_name_col].unique())
         files = pd.DataFrame(self.samples[self.cfg.file_name_col].unique(),
             columns=["files"]
         )
@@ -270,7 +271,7 @@ class PyhaDFDataset(Dataset):
             target = torch.Tensor(target)
 
         file_name = self.samples.iloc[index][self.cfg.file_name_col]
-        return audio, int(target.argmax()), file_name
+        return audio, int(target.argmax())
 
     def get_num_classes(self) -> int:
         """ Returns number of classes
@@ -357,10 +358,16 @@ def get_datasets(cfg) -> Tuple[PyhaDFDataset, PyhaDFDataset, Optional[PyhaDFData
         cfg.config_dict["class_list"] = classes
         wandb.config.update({"class_list": classes}, allow_val_change=True)
 
+    # change the filename form soundscape
+    data[cfg.file_name_col] = data[cfg.file_name_col].str.replace(r'^T:\\Peru\\', '/home/hejonathan/', regex=True)
+    data[cfg.file_name_col] = data[cfg.file_name_col].str.replace(r'\\', '/', regex=True)
+    print(data[cfg.file_name_col][0])
+
     #for each species, get a random sample of files for train/valid split
-    train_files = data.groupby(cfg.manual_id_col, as_index=False).apply(
-        lambda x: pd.Series(x[cfg.file_name_col].unique()).sample(frac=train_p)
-    )
+    train_files = data.groupby(cfg.manual_id_col)[cfg.file_name_col].apply(
+        lambda x: x.unique().tolist()
+    ).explode().sample(frac=train_p).reset_index(drop=True)
+
     train = data[data[cfg.file_name_col].isin(train_files)]
 
     valid = data[~data.index.isin(train.index)]
