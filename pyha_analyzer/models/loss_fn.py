@@ -27,7 +27,7 @@ def bce_loss_fn(self, without_logits=False):
     BCEwithLogitsLoss
     """
     if not without_logits:
-        self.loss_fn = nn.BCEWithLogitsLoss(reduction='sum')
+        self.loss_fn = nn.BCEWithLogitsLoss(reduction='mean')
     else:
         self.loss_fn = nn.BCELoss(reduction='mean')
     return self.loss_fn

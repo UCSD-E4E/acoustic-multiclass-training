@@ -321,10 +321,10 @@ def download_model_files():
     import urllib.request
 
     urls = [
-        #"https://storage.googleapis.com/esp-public-files/birdaves/birdaves-biox-large.torchaudio.pt",
-        #"https://storage.googleapis.com/esp-public-files/birdaves/birdaves-biox-large.torchaudio.model_config.json"
-        "https://storage.googleapis.com/esp-public-files/ported_aves/aves-base-bio.torchaudio.pt",
-        "https://storage.googleapis.com/esp-public-files/ported_aves/aves-base-bio.torchaudio.model_config.json"
+        "https://storage.googleapis.com/esp-public-files/birdaves/birdaves-biox-base.torchaudio.pt",
+        "https://storage.googleapis.com/esp-public-files/birdaves/birdaves-biox-base.torchaudio.model_config.json"
+        #"https://storage.googleapis.com/esp-public-files/ported_aves/aves-base-bio.torchaudio.pt",
+        #"https://storage.googleapis.com/esp-public-files/ported_aves/aves-base-bio.torchaudio.model_config.json"
     ]
     for url in urls:
         filename = url.split("/")[-1]
@@ -368,12 +368,15 @@ def main(in_sweep=True) -> None:
     logger.info("Loading Model...")
     download_model_files()
     model_for_run = CustomModel(
-        config_path= "aves-base-bio.torchaudio.model_config.json", #aves-base-bio.torchaudio.model_config.json",
-        model_path= "aves-base-bio.torchaudio.pt", #"aves-base-bio.torchaudio.pt",
+        config_path="birdaves-biox-base.torchaudio.model_config.json",
+        model_path="birdaves-biox-base.torchaudio.pt",
+        cfg=cfg,
+        #config_path= "aves-base-bio.torchaudio.model_config.json", #aves-base-bio.torchaudio.model_config.json",
+        #model_path= "aves-base-bio.torchaudio.pt", #"aves-base-bio.torchaudio.pt",
         num_classes=train_dataset.num_classes,
         trainable=cfg.trainable,
     ).to(cfg.device)
-    model_for_run.create_loss_fn(cfg, train_dataset)
+    model_for_run.create_loss_fn(train_dataset)
     
     optimizer = Adam(model_for_run.parameters(), lr=cfg.learning_rate)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, eta_min=1e-5, T_max=10)
