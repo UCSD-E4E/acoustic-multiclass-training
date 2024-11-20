@@ -95,22 +95,22 @@ highpass_p: 0.02
 bg_noise_p: 0
 
 # Data augmentation parameters
-noise_type: "white" # Type of noise to add to the clips
-noise_alpha: 0.05 # Strength (proportion) of noise audio in augmented clip
-freq_mask_param: 10 # Number of frequencies masked
-time_mask_param: 25 # Number of samples masked
-mixup_ceil_interval: 1. # Rounding interval to round elements of audio up to
-mixup_num_clips_range: [1, 5] # Tuple storing bounds to produce a range of clips for the probability distribution
-mixup_min_alpha: 0.05 # Minimum value of alpha for the audio clip after mixing 
-rand_eq_f_range: [100, 8000]  # Tuple storing upper and lower bounds for the frequency, stored in Hz
-rand_eq_q_range: [1, 9] # Tuple storing upper and lower bounds for the gain, in dB
-rand_eq_g_range: [-8, 8] # Tuple storing upper and lower bounds for the Q factor
-rand_eq_iters: 3 # Number of times to randomly equalize (EQ) a part of the clip
-lowpass_cutoff: 15000 # Maximum cutoff frequency
-lowpass_q_val: 0.7 # Q value for lowpass filter
-highpass_cutoff: 1000 # Minimum cutoff frequency 
-highpass_q_val: 0.7 # Q value for highpass filter
-bg_noise_alpha_range: [0.1, 0.2] # Tuple storing range of alpha parameter
+noise_type: "white" 
+noise_alpha: 0.05 
+freq_mask_param: 10 
+time_mask_param: 25 
+mixup_ceil_interval: 1.
+mixup_num_clips_range: [1, 5]
+mixup_min_alpha: 0.05 
+rand_eq_f_range: [100, 8000]
+rand_eq_q_range: [1, 9]
+rand_eq_g_range: [-8, 8]
+rand_eq_iters: 3
+lowpass_cutoff: 15000
+lowpass_q_val: 0.7 
+highpass_cutoff: 1000 
+highpass_q_val: 0.7 
+bg_noise_alpha_range: [0.1, 0.2]
 
 # Background noise params
 # Expects background_path to lead to a directory with only audio files
