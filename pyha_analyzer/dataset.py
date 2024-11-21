@@ -51,6 +51,7 @@ class PyhaDFDataset(Dataset):
 
             device (str): 
                 - which device the computations will occur.
+                  possible options include "cuda", "mps", and "cpu"
 
             onehot (bool): 
                 - whether the dataset has been one-hot encoded.
@@ -88,41 +89,6 @@ class PyhaDFDataset(Dataset):
 
             image_augmentations (torch.nn.Sequential): 
                 - pipeline for augmenting spectrogramimages.
-
-        Methods:
-            __init__(self, df, train, species, cfg, onehot = False):
-                - Initializes a PyhaDFDataset with the given attributes.
-            
-            calc_class_distribution(self):
-                - Returns class distribution (number of samples per class).
-
-            verify_audio(self):
-                - Checks to make sure files exist that are referenced in input df.
-            
-            process_audio_file(self, file_name: str):
-                - Save waveform of audio file as a tensor and save that tensor to .pt.
-            
-            serialize_data(self):
-                - For each file, check to see if the file is already a presaved tensor
-                  If the files is not a presaved tensor and is an audio file, convert 
-                  to tensor to make future training faster
-
-            __len__(self):
-                - Returns how many elements are in the sample DataFrame.
-
-            to_image(self, audio):
-                - Convert audio clip to 3-channel spectrogram image
-            
-            __getitem__(self, index):
-                - Takes an index and returns tuple of spectrogram image with 
-                  corresponding label
-
-            get_num_classes(self):
-                - Returns number of classes
-            
-            get_sample_weights(self):
-                - Returns the weights as computed by the first place winner of 
-                  BirdCLEF 2023
     """
 
     # df, train, and species decided outside of config, so those cannot be added in there
