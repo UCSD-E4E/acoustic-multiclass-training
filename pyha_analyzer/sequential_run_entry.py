@@ -1,5 +1,4 @@
 #script for running several training runs with different configurations
-import os
 import time
 import torch
 import json
