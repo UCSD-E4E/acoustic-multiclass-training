@@ -127,6 +127,20 @@ class PyhaDFDataset(Dataset):
         """
         Checks to make sure files exist that are referenced in input df
         """
+        # check frist file in df
+        # assume if frist file missing, all files missing
+        test_file_name = self.samples[self.cfg.file_name_col].iloc[0]
+        test_file_loc = os.path.join(self.cfg.data_path, test_file_name)
+
+        if not os.path.exists(test_file_loc):
+            logger.error("""
+            ERROR: Missing the frist file from the frist row of samples!!! 
+            file in question: %s
+            check manually CSV and datapath to fix this error
+            """, test_file_loc)
+            exit()
+
+        # check rest of the data 
         missing_files = pd.Series(self.samples[self.cfg.file_name_col].unique()) \
             .progress_apply(
                 lambda file: "good" if os.path.join(
@@ -211,6 +225,10 @@ class PyhaDFDataset(Dataset):
             raise FileNotFoundError("There were no valid filepaths found, check csv")
 
         files = files[files["files"] != "bad"]
+
+        if files.shape == 0:
+            raise FileNotFoundError("Filepaths were found, but all files could not be read, check for corrupted files")
+
         self.samples = self.samples.merge(files, how="left",
                        left_on=self.cfg.file_name_col,
                        right_on="FILE NAME").dropna()
