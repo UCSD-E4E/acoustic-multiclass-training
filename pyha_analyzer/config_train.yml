@@ -1,0 +1,125 @@
+# Acoustic Multiclass Training config file
+
+# Required path related config
+dataframe_csv:   "/home/jiw220/acoustic-multiclass-training/132PeruXC_RawChunks_Fixed.csv" #"/data/test_data/ArbimonCopy/abrimon_copy_ground_truth_input_for_pyhadataset_new1.csv"
+data_path: "/data/XC_wav" #"/data/test_data/ArbimonCopy/" #
+infer_csv: 
+# Optional, automatically generates class order if not given
+class_list:
+
+# Dataframe column names
+offset_col: "OFFSET"
+duration_col: "DURATION"
+file_name_col: "FILE NAME"
+manual_id_col: "SPECIES" # "MANUAL ID"
+
+# Device Settings
+device: "auto" # Options: cuda, cpu, auto 
+prepros_device: "cuda" # Options: cuda, CPU
+agent_run_count: 5
+
+# Training params
+train_batch_size: 32
+validation_batch_size: 32 # original: 4
+jobs: 4
+valid_freq: 2000
+mixed_precision: true
+valid_dataset_ratio: 0.3
+does_weighted_sampling: False
+drop_rate: 0.5
+max_offset: 1 #seconds
+
+# Chunking settings
+is_unchunked: false
+chunk_length_s: 5
+min_length_s: 0.4
+overlap: 0.5 # Proportion of chunk length
+chunk_margin_s: 0.4 # Margin on either side of annotation
+
+# Logging
+logging: true
+logging_freq: 20 # Batches per log
+wandb_entity: "acoustic-species-identification"
+wandb_project: "acoustic-species-data-aug-experiments"
+wandb_run_name: "data-augmentation-test-bg-noise-alpha-.1-.2-NEW"
+debug: false
+
+# Functional settings
+seed: 0
+sample_rate: 32_000
+train_test_split: 0.8
+
+# Model hyperparameters
+# Specifies default model architecture from timm library
+# Options:
+#     eca_nfnet_l0 (90 MB)
+#     tf_efficientnet_b4 (70 MB)
+#     convnext_nano (60 MB)
+#     convnext_tiny (110 MB)
+#     resnetv2_50 (100 MB)
+#     resnetv2_101 (170 MB)
+#     seresnext50_32x4d (100 MB)
+#     seresnext101_32x4d (200 MB)
+#     rexnet_200 (70 MB)
+#     mobilenetv3_large_100_miil_in21k (70 MB)
+model: "eca_nfnet_l0"
+epochs: 10
+learning_rate: 0.0001 #originally 0.001
+# Loss function options:
+#   CE: Cross entropy
+#   BCE: Binary cross entropy
+#   BCEWL: Binary cross entropy with logits
+loss_fnc: "BCEWL"
+imb: false
+# Specify path to load a checkpoint
+model_checkpoint: ""
+
+# Hyperparameter sweep settings
+sweep_id: 
+
+# Patience
+early_stopping: false
+patience: 3
+min_valid_map_delta: 0.01
+
+# Data augmentation probabilities
+mixup_p: 0 #.4
+time_shift_p: 0
+noise_p: 0 #.35
+freq_mask_p: 0 #.5
+time_mask_p: 0 #.5
+rand_eq_p: 0
+noise_p: 0 #1
+lowpass_p: 0 #.02
+highpass_p: 0 #.02
+bg_noise_p: 1 # originally 0
+
+# Data augmentation parameters
+noise_type: "white"
+noise_alpha: 0.05
+freq_mask_param: 10 # Number of frequencies masked
+time_mask_param: 25 # Number of samples masked
+mixup_ceil_interval: 1.
+mixup_num_clips_range: [1, 5]
+mixup_min_alpha: 0.05
+rand_eq_f_range: [100, 8000]
+rand_eq_q_range: [1, 9]
+rand_eq_g_range: [-8, 8]
+rand_eq_iters: 3
+lowpass_cutoff: 15000
+lowpass_q_val: 0.7
+highpass_cutoff: 1000
+highpass_q_val: 0.7
+bg_noise_alpha_range: [0.1, 0.2] #  [0.01, 0.02], [0.01, 0.05], [0.01, 0.1], [0.1, 0.2], [0.2, 0.3], [0.3, 0.4], [0.4, 0.5], [0.5, 0.6], [0.6, 0.7], [0.7, 0.8], [0.8, 0.9], and [0.9, 0.99].
+
+# Background noise params
+# Expects background_path to lead to a directory with only audio files
+# Example dataset: BirdVOX at https://dcase.community/challenge2018/task-bird-audio-detection
+# Make sure to delete all bird clips so it is only background noise
+# If path is blank and p=0, background noise will not be used
+bg_noise_path: "/data/BirdVOX_background_noise/wav"
+
+# FFT Settings
+hop_length: 512
+n_mels: 194
+n_fft: 1400

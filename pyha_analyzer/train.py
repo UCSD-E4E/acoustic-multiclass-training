@@ -25,6 +25,7 @@ from pyha_analyzer.dataset import get_datasets, make_dataloaders, PyhaDFDataset
 from pyha_analyzer.utils import set_seed
 from pyha_analyzer.models.early_stopper import EarlyStopper
 from pyha_analyzer.models.timm_model import TimmModel
+from pyha_analyzer import augmentations
 
 tqdm.pandas()
 time_now  = datetime.datetime.now().strftime('%Y%m%d-%H%M')

@@ -260,12 +260,12 @@ class PyhaDFDataset(Dataset):
                 conf=self.cfg)
 
         
-        if self.train:
-            audio, target = self.mixup(audio, target)
-            audio = self.audio_augmentations(audio)
+        # if self.train:
+        #     audio, target = self.mixup(audio, target)
+        #     audio = self.audio_augmentations(audio)
         image = self.to_image(audio)
-        if self.train:
-            image = self.image_augmentations(image)
+        # if self.train:
+        #     image = self.image_augmentations(image)
 
         if image.isnan().any():
             logger.error("ERROR IN ANNOTATION #%s", index)

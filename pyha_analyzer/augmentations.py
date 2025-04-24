@@ -139,7 +139,7 @@ class Mixup(torch.nn.Module):
         chosen clip, Tensor of target mixed with the
         target of the randomly chosen file
         """
-        if utils.rand(0,1) <= self.prob:
+        if utils.rand(0,1) >= self.prob:
             return clip, target
 
         num_other_clips = sample(self.num_clips_distribution)
@@ -318,6 +318,7 @@ class BackgroundNoise(torch.nn.Module):
             logger.warning('Error loading noise clip, background noise augmentation not performed')
             logger.error(e)
             return clip
+        #logger.warning("background noise augmentation performed successfully")
         return (1 - alpha)*clip + alpha*noise_clip
 
     def choose_random_noise(self):

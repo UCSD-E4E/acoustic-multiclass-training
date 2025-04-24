@@ -29,7 +29,7 @@ class Config():
         self.required_checks("dataframe_csv")
         self.required_checks("data_path")
         self.get_git_hash()
-        self.cli_values()
+        #self.cli_values()
         self.get_device()
 
     def __new__(cls):
@@ -130,11 +130,15 @@ class Config():
         Saves all command line arguments to config class
         Primarily intended for quick flags such as turning a property on or off
         """
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-l', '--logging', action='store_false')
-        parser.add_argument('-d', '--debug', action='store_true')
-        
-        arg_cfgs = parser.parse_args()
+        try:
+            parser = argparse.ArgumentParser()
+            parser.add_argument('-l', '--logging', action='store_false')
+            parser.add_argument('-d', '--debug', action='store_true')
+            
+            arg_cfgs = parser.parse_args()
+        except BaseException as e:
+            print(e)
+            arg_cfgs = dict()
         
         # Add all command line args to config
         # Overwrite because user is defining them most recently
