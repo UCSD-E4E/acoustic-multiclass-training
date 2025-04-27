@@ -1,0 +1,14 @@
+[
+    {
+        "dataframe_csv": "filepath to csv",
+        "data_path": "filepath to data",
+        "wandb_run_name": "run name"
+    },
+    {
+        "dataframe_csv": "filepath to csv",
+        "data_path": "filepath to data",
+        "wandb_run_name": "run name",
+        "learning_rate": 0.001,
+        "batch_size": 42
+    }
+]
