@@ -94,6 +94,7 @@ If a parameter specifies a range, then it is always a length two list with the f
 `freq_mask_param`: How many sequential pixels to mask in the FrequencyMasking augmentation\
 `time_mask_param`: How many sequential pixels to mask in the TimeMasking augmentation\
 `mixup_ceil_interval`: Rounding interval to the ceiling function applied to target in mixup
+`mixup_num_clips_range`: Range for the number of clips to mix. Should be greater than 1\
 `mixup_min_alpha`: Smallest alpha that can be assigned to a clip
 `bg_noise_alpha_range`: Range for the alpha parameter of BackgroundNoise. The alpha parameter gives the strength of the other clip in the augmented clip after applying BackgroundNoise. Min/max values are between 0 and 1\
 `rand_eq_f_range`: Range for the frequency parameter of RandomEQ. Min/max must be greater than zero\
