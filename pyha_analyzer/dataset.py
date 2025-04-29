@@ -106,6 +106,8 @@ class PyhaDFDataset(Dataset):
                 RandomApply([audtr.FrequencyMasking(cfg.freq_mask_param)], p=cfg.freq_mask_p),
                 RandomApply([audtr.TimeMasking(cfg.time_mask_param)],      p=cfg.time_mask_p))
 
+        samples.to_csv(f"train-{train}_df-{self.samples.shape}.csv")
+
     def calc_class_distribution(self) -> torch.Tensor:
         """ Returns class distribution (number of samples per class) """
         class_dist = []
