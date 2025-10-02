@@ -21,6 +21,7 @@ from torchaudio import transforms as audtr
 from torchvision.transforms import RandomApply
 from tqdm import tqdm
 import wandb
+import av
 
 from pyha_analyzer import config
 from pyha_analyzer import utils
@@ -155,40 +156,109 @@ class PyhaDFDataset(Dataset):
             }).T
 
 
+        # try:
+        #     # old error: "load" is not a known member of module "torchaudio"
+        #     # Load is a known member of torchaudio:
+        #     # https://pytorch.org/audio/stable/tutorials/audio_io_tutorial.html#loading-audio-data
+        #     audio, sample_rate = torchaudio.load(       #pyright: ignore [reportGeneralTypeIssues ]
+        #         os.path.join(self.cfg.data_path, file_name)
+        #     )
+            
+
+        #     if len(audio.shape) > 1:
+        #         print("len audio shape is greater than 1, converting to mono")
+        #         audio = utils.to_mono(audio)
+
+        #     # Resample
+        #     if sample_rate != self.cfg.sample_rate:
+        #         print("resampling")
+        #         resample = audtr.Resample(sample_rate, self.cfg.sample_rate)
+        #         audio = resample(audio)
+
+        #     print("saving: ", new_name)
+        #     torch.save(audio, os.path.join(self.cfg.data_path,new_name))
+        #     self.data_dir.add(new_name)
+        # # IO is messy, I want any file that could be problematic
+        # # removed from training so it isn't stopped after hours of time
+        # # Hence broad exception
+        # # pylint: disable-next=W0718
+        # except Exception as exc:
+        #     print(f"Error with {file_name}, skipping file: {exc}")
+        #     logger.debug("%s is bad %s", file_name, exc)
+        #     return pd.Series({
+        #         "FILE NAME": file_name,
+        #         "files": "bad"
+        #     }).T
+
+
+        # return pd.Series({
+        #         "FILE NAME": file_name,
+        #         "files": new_name
+        #     }).T
+
         try:
-            # old error: "load" is not a known member of module "torchaudio"
-            # Load is a known member of torchaudio:
-            # https://pytorch.org/audio/stable/tutorials/audio_io_tutorial.html#loading-audio-data
-            audio, sample_rate = torchaudio.load(       #pyright: ignore [reportGeneralTypeIssues ]
-                os.path.join(self.cfg.data_path, file_name)
-            )
+            path = os.path.join(self.cfg.data_path, file_name)
 
-            if len(audio.shape) > 1:
-                audio = utils.to_mono(audio)
+            with av.open(path, mode="r", metadata_errors="ignore") as container:
+                stream = next((s for s in container.streams if s.type == "audio"), None)
+                if stream is None:
+                    raise RuntimeError("No audio stream found.")
 
-            # Resample
-            if sample_rate != self.cfg.sample_rate:
-                resample = audtr.Resample(sample_rate, self.cfg.sample_rate)
-                audio = resample(audio)
+                resampler = av.audio.resampler.AudioResampler(
+                    format="fltp",                  
+                    layout="mono",                  # force mono
+                    rate=int(self.cfg.sample_rate), # target sample rate
+                )
 
-            torch.save(audio, os.path.join(self.cfg.data_path,new_name))
+                chunks = []
+                for frame in container.decode(stream):
+                    outs = resampler.resample(frame)          
+                    if not outs:
+                        continue
+                    if not isinstance(outs, (list, tuple)):
+                        outs = [outs]
+                    for of in outs:
+                        arr = of.to_ndarray()                
+                        if arr.ndim == 1:
+                            arr = arr[None, :]
+                        chunks.append(arr)
+
+                # Flush tail from resampler
+                outs = resampler.resample(None)
+                if outs:
+                    if not isinstance(outs, (list, tuple)):
+                        outs = [outs]
+                    for of in outs:
+                        arr = of.to_ndarray()
+                        if arr.ndim == 1:
+                            arr = arr[None, :]
+                        chunks.append(arr)
+
+            if not chunks:
+                raise RuntimeError("No audio frames decoded.")
+
+            audio_np = np.concatenate(chunks, axis=1)        # (channels, time) -> here (1, T)
+            audio = torch.from_numpy(audio_np.squeeze(0)).contiguous()  # decrease a dimension 
+
+            print("saving:", new_name) 
+            #no need to save because we would probably not repeat inference on same file in real-world scenario
+            torch.save(audio, os.path.join(self.cfg.data_path, new_name)) #final waveform tensor resampled, saved as pt file
             self.data_dir.add(new_name)
-        # IO is messy, I want any file that could be problematic
-        # removed from training so it isn't stopped after hours of time
-        # Hence broad exception
-        # pylint: disable-next=W0718
+
         except Exception as exc:
+            print(f"Error with {file_name}, skipping file: {exc}")
             logger.debug("%s is bad %s", file_name, exc)
             return pd.Series({
                 "FILE NAME": file_name,
                 "files": "bad"
             }).T
 
-
         return pd.Series({
-                "FILE NAME": file_name,
-                "files": new_name
-            }).T
+            "FILE NAME": file_name,
+            "files": new_name
+        }).T
+
+
 
 
     def serialize_data(self) -> None:
