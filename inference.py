@@ -114,7 +114,7 @@ def save_results_to_sqlite(results, conn, rec_id_by_filename):
         if not hits:
             continue
         file_name = row["FILE NAME"]
-        recording_id = rec_id_by_filename.get(file_name)
+        recording_id = rec_id_by_filename.get(Path(file_name).name)
         if not recording_id:
             print(f"[WARN] no recordingId for {file_name}, skipping")
             continue
@@ -153,8 +153,12 @@ def run_inference_on_filenames(base_dir: Path,
     rows = []
     audio_file_paths = []
     for r in file_rows:
-        filename = r["filename"]
+        #filename = r["filename"]
+        filename= Path(r["url"])
         full_path = base_dir / filename
+        filename = str(filename)
+        # print("full path is ", full_path)
+        #full_path = r["url"]
         if not full_path.exists():
             print(f"[WARN] missing file: {full_path}")
             continue
@@ -179,8 +183,7 @@ def run_inference_on_filenames(base_dir: Path,
     
     #Load model
     # TODO Eventually: see if u can run load the model outside loop so that it only loads once. issue is that you need to have cfg.data_path and that changes per directory. u also need to have something in df so it (to me) seems like it needs to be there
-    train_dataset = PyhaDFDataset(df,
-                              train=True, species=classes, cfg=cfg)
+    train_dataset = PyhaDFDataset(df, train=True, species=classes, cfg=cfg)
     model = TimmModel(num_classes=len(classes), model_name=cfg.model).to(cfg.device)
     model.create_loss_fn(train_dataset)
     checkpoint = torch.load(weights, map_location=cfg.device)
@@ -199,9 +202,13 @@ def run_inference_on_filenames(base_dir: Path,
             log_pred.append(np.array(torch.clone(F.sigmoid(outputs).cpu()).detach()))
     log_pred = np.concatenate(log_pred)
 
+
     results = pd.DataFrame(log_pred, columns=infer_dataset.classes)
     results = pd.concat([infer_dataset.samples.reset_index(drop=True), results], axis=1)
     results["_hits"] = results.apply(lambda r: row_hits(r, infer_dataset.classes), axis=1)
+    if "original_file_path" in results.columns:
+        results["PT FILE NAME"] = results["FILE NAME"]
+        results["FILE NAME"] = results["original_file_path"].fillna(results["FILE NAME"])
     return results
 
 
@@ -223,33 +230,54 @@ with sqlite3.connect(str(DB_PATH)) as conn:
 
 #for every unique directory, set the base path and do batched inference on those files
 for directory in dirs:
-    base = Path(directory)
+    #base = Path(directory)
+    base=directory
+    # with sqlite3.connect(str(DB_PATH)) as conn:
+    #     conn.row_factory = sqlite3.Row
+    #     file_rows = conn.execute("""
+    #         SELECT recordingId, filename
+    #         FROM Recording
+    #         WHERE directory = ?
+    #         ORDER BY filename
+    #     """, (directory,)).fetchall()
+
+    #     if not file_rows:
+    #         continue
+
+    #     # filename -> recordingId map for this directory
+    #     # rec_id_by_filename = {r["filename"]: r["recordingId"] for r in file_rows if r["filename"]}
+    #     #replace with pt extension so that it works later on when mapping recordings to its id
+    #     rec_id_by_filename = {
+    #         Path(r["filename"]).with_suffix(".pt").name: r["recordingId"]
+    #         for r in file_rows
+    #         if r["filename"]
+    #     }
     with sqlite3.connect(str(DB_PATH)) as conn:
         conn.row_factory = sqlite3.Row
         file_rows = conn.execute("""
-            SELECT recordingId, filename
+            SELECT recordingId, url
             FROM Recording
             WHERE directory = ?
-            ORDER BY filename
+            ORDER BY url
         """, (directory,)).fetchall()
 
         if not file_rows:
             continue
 
-        # filename -> recordingId map for this directory
-        # rec_id_by_filename = {r["filename"]: r["recordingId"] for r in file_rows if r["filename"]}
-        #replace with pt extension so that it works later on when mapping recordings to its id
+        # Extract filename from the end of the URL ;;;;; NO LONGER DOING THIS: and replace its suffix with .pt
         rec_id_by_filename = {
-            Path(r["filename"]).with_suffix(".pt").name: r["recordingId"]
+            Path(r["url"]).name: r["recordingId"]
             for r in file_rows
-            if r["filename"]
+            if r["url"]
         }
+
+
+        #print("base is ", base)
 
         results = run_inference_on_filenames(base, file_rows, classes, cfg)
         if results is None:
             print(f"[INFO] No valid audio in {directory}")
             continue
-        # print(results.head())
 
         save_results_to_sqlite(results, conn, rec_id_by_filename)
         print(f"[OK] processed {directory}")

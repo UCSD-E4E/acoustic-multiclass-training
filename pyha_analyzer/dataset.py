@@ -281,18 +281,24 @@ class PyhaDFDataset(Dataset):
             raise FileNotFoundError("There were no valid filepaths found, check csv")
 
         files = files[files["files"] != "bad"]
-        self.samples = self.samples.merge(files, how="left",
-                       left_on=self.cfg.file_name_col,
-                       right_on="FILE NAME").dropna()
+        self.samples = self.samples.merge(
+            files,
+            how="left",
+            left_on=self.cfg.file_name_col,
+            right_on="FILE NAME"
+        ).dropna()
 
         logger.debug("Serialized form, fixed size: %s", str(self.samples.shape))
+
+        # Preserve original filenames (with extensions) before replacing with cached tensors
+        original_files = self.samples[self.cfg.file_name_col].copy()
 
         if "files" in self.samples.columns:
             self.samples[self.cfg.file_name_col] = self.samples["files"].copy()
         if "files_y" in self.samples.columns:
             self.samples[self.cfg.file_name_col] = self.samples["files_y"].copy()
 
-        self.samples["original_file_path"] = self.samples[self.cfg.file_name_col]
+        self.samples["original_file_path"] = original_files
 
     def __len__(self):
         return self.samples.shape[0]
