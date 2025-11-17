@@ -148,12 +148,13 @@ class PyhaDFDataset(Dataset):
         """
         exts = "." + file_name.split(".")[-1]
         new_name = file_name.replace(exts, ".pt")
-        if os.path.join(self.cfg.data_path, new_name) in self.data_dir:
-            #ASSUME WE HAVE ALREADY PREPROCESSED THIS CORRECTLY
-            return pd.Series({
-                "FILE NAME": file_name,
-                "files": new_name
-            }).T
+        # if os.path.join(self.cfg.data_path, new_name) in self.data_dir:
+        #     #ASSUME WE HAVE ALREADY PREPROCESSED THIS CORRECTLY
+        #     return pd.Series({
+        #         "FILE NAME": file_name,
+        #         "files": new_name,
+        #         "audio_tensor": torch.load(os.path.join(self.cfg.data_path, new_name))
+        #     }).T
 
 
         # try:
@@ -242,7 +243,7 @@ class PyhaDFDataset(Dataset):
 
             print("saving:", new_name) 
             #no need to save because we would probably not repeat inference on same file in real-world scenario
-            torch.save(audio, os.path.join(self.cfg.data_path, new_name)) #final waveform tensor resampled, saved as pt file
+            # torch.save(audio, os.path.join(self.cfg.data_path, new_name)) #final waveform tensor resampled, saved as pt file
             self.data_dir.add(new_name)
 
         except Exception as exc:
@@ -255,7 +256,8 @@ class PyhaDFDataset(Dataset):
 
         return pd.Series({
             "FILE NAME": file_name,
-            "files": new_name
+            "files": new_name,
+            "audio_tensor": audio
         }).T
 
 

@@ -127,8 +127,15 @@ def get_annotation(
             frame_offset += rand_offset()
         num_frames = int(annotation[conf.duration_col] * sample_rate)
 
-        # Load audio
-        audio = torch.load(Path(cfg.data_path)/file_name)
+       
+        if 'audio_tensor' in annotation and annotation['audio_tensor'] is not None:
+            # Load from DataFrame column
+            audio = annotation['audio_tensor']
+        else:
+            # Fallback to disk loading (original behavior)
+            print(f"[INFO] File is not in dataframe {file_name}")
+            return None, None
+            # audio = torch.load(Path(cfg.data_path)/file_name)
     
         if audio.shape[0] > num_frames:
             audio = audio[frame_offset:frame_offset+num_frames]
