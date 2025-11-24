@@ -97,8 +97,10 @@ def get_annotation(
         conf,
         offset: bool = True,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-    """ Returns tuple of audio waveform and its one-hot label
+    """ Returns tuple of audio waveform and its one-hot label. Processes raw audio data on-the-fly to tensors;.
+    
     """
+    import av  # Lazy import to avoid dependency if not used
     assert isinstance(index, int)
     sample_rate = conf.sample_rate
     target_num_samples = conf.sample_rate * conf.chunk_length_s
@@ -127,9 +129,51 @@ def get_annotation(
             frame_offset += rand_offset()
         num_frames = int(annotation[conf.duration_col] * sample_rate)
 
-        # Load audio
-        audio = torch.load(Path(cfg.data_path)/file_name)
-    
+        # # Load audio
+        # audio = torch.load(Path(cfg.data_path)/file_name)
+        path = Path(conf.data_path) / file_name
+        
+        with av.open(str(path), mode="r", metadata_errors="ignore") as container:
+            stream = next((s for s in container.streams if s.type == "audio"), None)
+            if stream is None:
+                raise RuntimeError("No audio stream found.")
+
+            resampler = av.audio.resampler.AudioResampler(
+                format="fltp",
+                layout="mono",
+                rate=int(conf.sample_rate),
+            )
+
+            chunks = []
+            for frame in container.decode(stream):
+                outs = resampler.resample(frame)
+                if not outs:
+                    continue
+                if not isinstance(outs, (list, tuple)):
+                    outs = [outs]
+                for of in outs:
+                    arr = of.to_ndarray()
+                    if arr.ndim == 1:
+                        arr = arr[None, :]
+                    chunks.append(arr)
+
+            # Flush resampler
+            outs = resampler.resample(None)
+            if outs:
+                if not isinstance(outs, (list, tuple)):
+                    outs = [outs]
+                for of in outs:
+                    arr = of.to_ndarray()
+                    if arr.ndim == 1:
+                        arr = arr[None, :]
+                    chunks.append(arr)
+
+        if not chunks:
+            raise RuntimeError("No audio frames decoded.")
+
+        audio_np = np.concatenate(chunks, axis=1)
+        audio = torch.from_numpy(audio_np.squeeze(0)).contiguous()
+
         if audio.shape[0] > num_frames:
             audio = audio[frame_offset:frame_offset+num_frames]
 
