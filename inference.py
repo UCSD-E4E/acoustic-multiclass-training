@@ -24,6 +24,9 @@ if not _db:
     sys.exit(2)
 #When called by desktop app, contians absolute path to db
 DB_PATH = Path(_db).expanduser().resolve()
+_recording_ids = pop_flag_and_value("--recording-ids")
+RECORDING_IDS = _recording_ids.split(",") if _recording_ids else None
+
 
 
 import pandas as pd
@@ -218,14 +221,25 @@ with sqlite3.connect(str(DB_PATH)) as conn:
     conn.execute("CREATE INDEX IF NOT EXISTS idx_recording_directory ON Recording(directory)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_roi_unique ON RegionOfInterest(recordingId, starttime, endtime)")
 
-    # Get directories (get the ones with most files first)
-    dirs = [r["directory"] for r in conn.execute("""
-        SELECT directory
-        FROM Recording
-        WHERE directory IS NOT NULL
-        GROUP BY directory
-        ORDER BY COUNT(*) DESC, directory
-    """).fetchall()]
+    # select directories in RECORDING_IDS if provided, else get all directories
+    if RECORDING_IDS:
+        placeholders = ",".join("?" * len(RECORDING_IDS))
+        dirs = [r["directory"] for r in conn.execute(f"""
+            SELECT DISTINCT directory
+            FROM Recording
+            WHERE directory IS NOT NULL
+              AND recordingId IN ({placeholders})
+            ORDER BY directory
+        """, RECORDING_IDS).fetchall()]
+    else:
+         # Get directories (get the ones with most files first)
+        dirs = [r["directory"] for r in conn.execute("""
+            SELECT directory
+            FROM Recording
+            WHERE directory IS NOT NULL
+            GROUP BY directory
+            ORDER BY COUNT(*) DESC, directory
+        """).fetchall()]
 
 
 #for every unique directory, set the base path and do batched inference on those files
@@ -254,12 +268,22 @@ for directory in dirs:
     #     }
     with sqlite3.connect(str(DB_PATH)) as conn:
         conn.row_factory = sqlite3.Row
-        file_rows = conn.execute("""
-            SELECT recordingId, url
-            FROM Recording
-            WHERE directory = ?
-            ORDER BY url
-        """, (directory,)).fetchall()
+        if RECORDING_IDS:
+            placeholders = ",".join("?" * len(RECORDING_IDS))
+            file_rows = conn.execute(f"""
+                SELECT recordingId, url
+                FROM Recording
+                WHERE directory = ?
+                  AND recordingId IN ({placeholders})
+                ORDER BY url
+            """, (directory, *RECORDING_IDS)).fetchall()
+        else:
+            file_rows = conn.execute("""
+                SELECT recordingId, url
+                FROM Recording
+                WHERE directory = ?
+                ORDER BY url
+            """, (directory,)).fetchall()
 
         if not file_rows:
             continue
