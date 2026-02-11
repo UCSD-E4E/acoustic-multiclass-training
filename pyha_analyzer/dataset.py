@@ -146,42 +146,105 @@ class PyhaDFDataset(Dataset):
         """
         Save waveform of audio file as a tensor and save that tensor to .pt
         """
-        exts = "." + file_name.split(".")[-1]
-        new_name = file_name.replace(exts, ".pt")
-        if os.path.join(self.cfg.data_path, new_name) in self.data_dir:
-            #ASSUME WE HAVE ALREADY PREPROCESSED THIS CORRECTLY
-            return pd.Series({
-                "FILE NAME": file_name,
-                "files": new_name
-            }).T
+        # exts = "." + file_name.split(".")[-1]
+        # new_name = file_name.replace(exts, ".pt")
+        # if os.path.join(self.cfg.data_path, new_name) in self.data_dir:
+        #     #ASSUME WE HAVE ALREADY PREPROCESSED THIS CORRECTLY
+        #     return pd.Series({
+        #         "FILE NAME": file_name,
+        #         "files": new_name
+        #     }).T
 
 
-        # try:
-        #     # old error: "load" is not a known member of module "torchaudio"
-        #     # Load is a known member of torchaudio:
-        #     # https://pytorch.org/audio/stable/tutorials/audio_io_tutorial.html#loading-audio-data
-        #     audio, sample_rate = torchaudio.load(       #pyright: ignore [reportGeneralTypeIssues ]
-        #         os.path.join(self.cfg.data_path, file_name)
-        #     )
+        # # try:
+        # #     # old error: "load" is not a known member of module "torchaudio"
+        # #     # Load is a known member of torchaudio:
+        # #     # https://pytorch.org/audio/stable/tutorials/audio_io_tutorial.html#loading-audio-data
+        # #     audio, sample_rate = torchaudio.load(       #pyright: ignore [reportGeneralTypeIssues ]
+        # #         os.path.join(self.cfg.data_path, file_name)
+        # #     )
             
 
-        #     if len(audio.shape) > 1:
-        #         print("len audio shape is greater than 1, converting to mono")
-        #         audio = utils.to_mono(audio)
+        # #     if len(audio.shape) > 1:
+        # #         print("len audio shape is greater than 1, converting to mono")
+        # #         audio = utils.to_mono(audio)
 
-        #     # Resample
-        #     if sample_rate != self.cfg.sample_rate:
-        #         print("resampling")
-        #         resample = audtr.Resample(sample_rate, self.cfg.sample_rate)
-        #         audio = resample(audio)
+        # #     # Resample
+        # #     if sample_rate != self.cfg.sample_rate:
+        # #         print("resampling")
+        # #         resample = audtr.Resample(sample_rate, self.cfg.sample_rate)
+        # #         audio = resample(audio)
 
-        #     print("saving: ", new_name)
-        #     torch.save(audio, os.path.join(self.cfg.data_path,new_name))
+        # #     print("saving: ", new_name)
+        # #     torch.save(audio, os.path.join(self.cfg.data_path,new_name))
+        # #     self.data_dir.add(new_name)
+        # # # IO is messy, I want any file that could be problematic
+        # # # removed from training so it isn't stopped after hours of time
+        # # # Hence broad exception
+        # # # pylint: disable-next=W0718
+        # # except Exception as exc:
+        # #     print(f"Error with {file_name}, skipping file: {exc}")
+        # #     logger.debug("%s is bad %s", file_name, exc)
+        # #     return pd.Series({
+        # #         "FILE NAME": file_name,
+        # #         "files": "bad"
+        # #     }).T
+
+
+        # # return pd.Series({
+        # #         "FILE NAME": file_name,
+        # #         "files": new_name
+        # #     }).T
+
+        # try:
+        #     path = os.path.join(self.cfg.data_path, file_name)
+
+        #     with av.open(path, mode="r", metadata_errors="ignore") as container:
+        #         stream = next((s for s in container.streams if s.type == "audio"), None)
+        #         if stream is None:
+        #             raise RuntimeError("No audio stream found.")
+
+        #         resampler = av.audio.resampler.AudioResampler(
+        #             format="fltp",                  
+        #             layout="mono",                  # force mono
+        #             rate=int(self.cfg.sample_rate), # target sample rate
+        #         )
+
+        #         chunks = []
+        #         for frame in container.decode(stream):
+        #             outs = resampler.resample(frame)          
+        #             if not outs:
+        #                 continue
+        #             if not isinstance(outs, (list, tuple)):
+        #                 outs = [outs]
+        #             for of in outs:
+        #                 arr = of.to_ndarray()                
+        #                 if arr.ndim == 1:
+        #                     arr = arr[None, :]
+        #                 chunks.append(arr)
+
+        #         # Flush tail from resampler
+        #         outs = resampler.resample(None)
+        #         if outs:
+        #             if not isinstance(outs, (list, tuple)):
+        #                 outs = [outs]
+        #             for of in outs:
+        #                 arr = of.to_ndarray()
+        #                 if arr.ndim == 1:
+        #                     arr = arr[None, :]
+        #                 chunks.append(arr)
+
+        #     if not chunks:
+        #         raise RuntimeError("No audio frames decoded.")
+
+        #     audio_np = np.concatenate(chunks, axis=1)        # (channels, time) -> here (1, T)
+        #     audio = torch.from_numpy(audio_np.squeeze(0)).contiguous()  # decrease a dimension 
+
+        #     print("saving:", new_name) 
+        #     #no need to save because we would probably not repeat inference on same file in real-world scenario
+        #     torch.save(audio, os.path.join(self.cfg.data_path, new_name)) #final waveform tensor resampled, saved as pt file
         #     self.data_dir.add(new_name)
-        # # IO is messy, I want any file that could be problematic
-        # # removed from training so it isn't stopped after hours of time
-        # # Hence broad exception
-        # # pylint: disable-next=W0718
+
         # except Exception as exc:
         #     print(f"Error with {file_name}, skipping file: {exc}")
         #     logger.debug("%s is bad %s", file_name, exc)
@@ -190,73 +253,10 @@ class PyhaDFDataset(Dataset):
         #         "files": "bad"
         #     }).T
 
-
         # return pd.Series({
-        #         "FILE NAME": file_name,
-        #         "files": new_name
-        #     }).T
-
-        try:
-            path = os.path.join(self.cfg.data_path, file_name)
-
-            with av.open(path, mode="r", metadata_errors="ignore") as container:
-                stream = next((s for s in container.streams if s.type == "audio"), None)
-                if stream is None:
-                    raise RuntimeError("No audio stream found.")
-
-                resampler = av.audio.resampler.AudioResampler(
-                    format="fltp",                  
-                    layout="mono",                  # force mono
-                    rate=int(self.cfg.sample_rate), # target sample rate
-                )
-
-                chunks = []
-                for frame in container.decode(stream):
-                    outs = resampler.resample(frame)          
-                    if not outs:
-                        continue
-                    if not isinstance(outs, (list, tuple)):
-                        outs = [outs]
-                    for of in outs:
-                        arr = of.to_ndarray()                
-                        if arr.ndim == 1:
-                            arr = arr[None, :]
-                        chunks.append(arr)
-
-                # Flush tail from resampler
-                outs = resampler.resample(None)
-                if outs:
-                    if not isinstance(outs, (list, tuple)):
-                        outs = [outs]
-                    for of in outs:
-                        arr = of.to_ndarray()
-                        if arr.ndim == 1:
-                            arr = arr[None, :]
-                        chunks.append(arr)
-
-            if not chunks:
-                raise RuntimeError("No audio frames decoded.")
-
-            audio_np = np.concatenate(chunks, axis=1)        # (channels, time) -> here (1, T)
-            audio = torch.from_numpy(audio_np.squeeze(0)).contiguous()  # decrease a dimension 
-
-            print("saving:", new_name) 
-            #no need to save because we would probably not repeat inference on same file in real-world scenario
-            torch.save(audio, os.path.join(self.cfg.data_path, new_name)) #final waveform tensor resampled, saved as pt file
-            self.data_dir.add(new_name)
-
-        except Exception as exc:
-            print(f"Error with {file_name}, skipping file: {exc}")
-            logger.debug("%s is bad %s", file_name, exc)
-            return pd.Series({
-                "FILE NAME": file_name,
-                "files": "bad"
-            }).T
-
-        return pd.Series({
-            "FILE NAME": file_name,
-            "files": new_name
-        }).T
+        #     "FILE NAME": file_name,
+        #     "files": new_name
+        # }).T
 
 
 
@@ -268,37 +268,37 @@ class PyhaDFDataset(Dataset):
         Future training faster
         """
         self.verify_audio()
-        files = pd.DataFrame(self.samples[self.cfg.file_name_col].unique(),
-            columns=["files"]
-        )
+        # files = pd.DataFrame(self.samples[self.cfg.file_name_col].unique(),
+        #     columns=["files"]
+        # )
 
 
-        files = files["files"].progress_apply(self.process_audio_file)
-        logger.debug("%s", str(files.shape))
+        # files = files["files"].progress_apply(self.process_audio_file)
+        # logger.debug("%s", str(files.shape))
 
-        num_files = files.shape[0]
-        if num_files == 0:
-            raise FileNotFoundError("There were no valid filepaths found, check csv")
+        # num_files = files.shape[0]
+        # if num_files == 0:
+        #     raise FileNotFoundError("There were no valid filepaths found, check csv")
 
-        files = files[files["files"] != "bad"]
-        self.samples = self.samples.merge(
-            files,
-            how="left",
-            left_on=self.cfg.file_name_col,
-            right_on="FILE NAME"
-        ).dropna()
+        # files = files[files["files"] != "bad"]
+        # self.samples = self.samples.merge(
+        #     files,
+        #     how="left",
+        #     left_on=self.cfg.file_name_col,
+        #     right_on="FILE NAME"
+        # ).dropna()
 
-        logger.debug("Serialized form, fixed size: %s", str(self.samples.shape))
+        # logger.debug("Serialized form, fixed size: %s", str(self.samples.shape))
 
-        # Preserve original filenames (with extensions) before replacing with cached tensors
-        original_files = self.samples[self.cfg.file_name_col].copy()
+        # # Preserve original filenames (with extensions) before replacing with cached tensors
+        # original_files = self.samples[self.cfg.file_name_col].copy()
 
-        if "files" in self.samples.columns:
-            self.samples[self.cfg.file_name_col] = self.samples["files"].copy()
-        if "files_y" in self.samples.columns:
-            self.samples[self.cfg.file_name_col] = self.samples["files_y"].copy()
+        # if "files" in self.samples.columns:
+        #     self.samples[self.cfg.file_name_col] = self.samples["files"].copy()
+        # if "files_y" in self.samples.columns:
+        #     self.samples[self.cfg.file_name_col] = self.samples["files_y"].copy()
 
-        self.samples["original_file_path"] = original_files
+        # self.samples["original_file_path"] = original_files
 
     def __len__(self):
         return self.samples.shape[0]
