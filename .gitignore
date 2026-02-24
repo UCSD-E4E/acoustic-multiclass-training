@@ -22,6 +22,8 @@ data/*
 *.csv
 *.log
 *.pt
+#keep this model but not any other pt files
+!models/eca_nfnet_l0-20240711-0531.pt 
 *.out
 *.zip
 
